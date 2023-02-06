@@ -1662,7 +1662,7 @@ void expr_parse_assign(expr_node** targ){
 	expr_node* c;
 	expr_node* a;
 	expr_node* b;
-	expr_parse_compare(&a);
+	expr_parse_logbool(&a);
 	//while(1){
 	if(peek()->data == TOK_OPERATOR){	
 		if(streq(peek()->text, "=")){

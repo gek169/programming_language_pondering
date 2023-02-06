@@ -3,7 +3,7 @@
 #undef NULL
 #define NULL (cast(char*)0)
 
-codegen int myinteger = 3;
+codegen int myinteger = 3 && 3;
 codegen float mycodegenfloat = 7.3;
 
 int myint2;
@@ -239,7 +239,7 @@ method myClass:yetanotherfn(myClass a)->i32:
 	return a.x;
 	a.x = this.x;
 
-	myarr = 1;
+	myarr[1] = (1 | (1));
 end
 
 
@@ -248,7 +248,7 @@ fn fib(i64 n)->i64:
 	i64 b;
 	i64 c;
 	myClass bruh;
-	if(n == cast(i8)2) 
+	if(n == 2) 
 		return 1;
 	end
 	a = b = 1;
@@ -256,10 +256,11 @@ fn fib(i64 n)->i64:
 		c = a + b;
 		a = b;
 		b = c;
-		n = n - 1;
+		n--;
 	end 
-	
-	return cast(float)bruh.x | 29;
+
+	return c;
+	return cast(float)bruh.x || 29;
 end
 
 

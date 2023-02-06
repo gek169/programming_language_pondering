@@ -699,9 +699,9 @@ static double cexpr_double_parse_logbool_expr(){
 
 
 int64_t parse_cexpr_int(){
-	return cexpr_int_parse_compare_expr();
+	return cexpr_int_parse_logbool_expr();
 }
 double parse_cexpr_double(){
-	return cexpr_double_parse_compare_expr();
+	return cexpr_double_parse_logbool_expr();
 }
 
