@@ -124,7 +124,7 @@ typedef struct{
 	uint64_t is_impure_uses_incomplete_symbols; /*uses incomplete symbols.*/
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
-	uint64_t stack_placement; /*For local variables and function args, used by AST executor*/
+	uint64_t VM_function_stackframe_placement; /*For local variables and function args, used by the AST executor*/
 } symdecl;
 
 
