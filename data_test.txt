@@ -248,7 +248,7 @@ fn fib(i64 n)->i64:
 	i64 b;
 	i64 c;
 	myClass bruh;
-	if(n == 2) 
+	if(n <= cast(float)2)
 		return 1;
 	end
 	a = b = 1;
@@ -260,6 +260,7 @@ fn fib(i64 n)->i64:
 	end 
 
 	return c;
+	//garbage for testing types..
 	if(7 || 3)
 		return 3;
 	end
