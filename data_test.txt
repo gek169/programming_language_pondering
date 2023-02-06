@@ -7,8 +7,9 @@ codegen int myinteger = 3;
 codegen float mycodegenfloat = 7.3;
 
 int myint2;
-int myint = myint2 + mycodegenfloat|3 + 7;
+int myint = mycodegenfloat|3 + 7;
 
+double testing_constexpr_double = mycodegenfloat + myinteger;
 
 class myClass
 	int x

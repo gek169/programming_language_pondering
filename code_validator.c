@@ -928,12 +928,17 @@ static void validate_function_argument_passing(expr_node* ee){
 	*/
 	if(ee->kind == EXPR_BUILTIN_CALL){
 		nargs = get_builtin_nargs(ee->symname);
+		t_target = type_init();
 		/*The hardest one!!*/
 		if(nargs == 0) return; /*EZ!*/
 	 	got_builtin_arg1_type = get_builtin_arg1_type(ee->symname);
 	 	if(nargs > 1)
 			got_builtin_arg2_type = get_builtin_arg2_type(ee->symname);
 		/*Check argument 1.*/
+		if(got_builtin_arg1_type == BUILTIN_PROTO_VOID){
+			puts("Internal error: Argument 1 is BUILTIN_PROTO_VOID for EXPR_BUILITIN_CALL. Update metaprogramming.");
+			throw_type_error("Internal error: BUILTIN_PROTO_VOID for EXPR_BUILTIN_CALL");
+		}
 		if(got_builtin_arg1_type == BUILTIN_PROTO_U8_PTR){
 			t_target.basetype = BASE_U8;
 			t_target.pointerlevel = 1;
@@ -964,6 +969,10 @@ static void validate_function_argument_passing(expr_node* ee){
 		);
 		t_target = type_init();
 		if(nargs < 2) return;
+		if(got_builtin_arg2_type == BUILTIN_PROTO_VOID){
+			puts("Internal error: Argument 2 is BUILTIN_PROTO_VOID for EXPR_BUILITIN_CALL. Update metaprogramming.");
+			throw_type_error("Internal error: BUILTIN_PROTO_VOID for EXPR_BUILTIN_CALL");
+		}
 		if(got_builtin_arg2_type == BUILTIN_PROTO_U8_PTR){
 			t_target.basetype = BASE_U8;
 			t_target.pointerlevel = 1;

@@ -17,6 +17,17 @@ void* impl_builtin_malloc(uint64_t sz){
 	return p;
 }
 
+void* impl_builtin_realloc(char* p, uint64_t sz){
+	 p = realloc(p, sz);
+	if(!p) {puts("<BUILTIN ERROR> malloc failed.");exit(1);}
+	return p;
+}
+
+uint64_t impl_builtin_type_getsz(char* p_in){
+	type* p = (type*)p_in;
+	return type_getsz(*p);
+}
+
 char* impl_builtin_strdup(char* s){
 	char* p = strdup(s);
 	if(!p) {puts("<BUILTIN ERROR> malloc failed.");exit(1);}
@@ -99,6 +110,8 @@ int is_builtin_name(char* s){
 	if(streq(s, "__builtin_getargv")) return 1;
 	if(streq(s, "__builtin_getargc")) return 1;
 	if(streq(s, "__builtin_free")) return 1;
+	if(streq(s, "__builtin_realloc")) return 1;
+	if(streq(s, "__builtin_type_getsz")) return 1;
 	return 0;
 }
 
@@ -117,6 +130,8 @@ uint64_t get_builtin_nargs(char* s){
 	if(streq(s, "__builtin_getargv")) return 0;
 	if(streq(s, "__builtin_getargc")) return 0;
 	if(streq(s, "__builtin_free")) return 1;
+	if(streq(s, "__builtin_realloc")) return 2;
+	if(streq(s, "__builtin_type_getsz")) return 1;
 	return 0;
 }
 
@@ -134,7 +149,9 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_malloc")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_getargv")) return BUILTIN_PROTO_U8_PTR2;
 	if(streq(s, "__builtin_getargc")) return BUILTIN_PROTO_I32;
-	if(streq(s, "__builtin_free")) return 1;
+	if(streq(s, "__builtin_free")) return BUILTIN_PROTO_VOID;
+	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U64;
 	return 0;
 }
 
@@ -146,11 +163,14 @@ uint64_t get_builtin_arg1_type(char* s){
 	if(streq(s, "__builtin_exit")) return BUILTIN_PROTO_I32;
 	if(streq(s, "__builtin_strdup")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_malloc")) return BUILTIN_PROTO_U8_PTR;
-	if(streq(s, "__builtin_free")) return 1;
+	if(streq(s, "__builtin_free")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 uint64_t get_builtin_arg2_type(char* s){
 	if(streq(s, "__builtin_gets")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U64;
 	return 0;
 }
 
