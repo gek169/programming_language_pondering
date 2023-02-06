@@ -260,7 +260,9 @@ fn fib(i64 n)->i64:
 	end 
 
 	return c;
-	return cast(float)bruh.x || 29;
+	if(7 || 3)
+		return 3;
+	end
 end
 
 
