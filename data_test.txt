@@ -239,7 +239,7 @@ method myClass:yetanotherfn(myClass a)->i32:
 	return a.x;
 	a.x = this.x;
 
-	myarr[3] = 1;
+	myarr = 1;
 end
 
 
