@@ -59,9 +59,9 @@ method codegen public myClass:driveCar()->myClass*:
 	this.y = 0;
 	this.z = 0;
 	if(cast(int)floaty)
-
+		f = cast(int*)__builtin_peek();
 	end
-	return cast(myClass*)NULL;
+	return cast(myClass*)__builtin_struct_metadata(3);
 end
 
 

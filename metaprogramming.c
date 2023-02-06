@@ -28,6 +28,24 @@ uint64_t impl_builtin_type_getsz(char* p_in){
 	return type_getsz(*p);
 }
 
+uint64_t impl_builtin_struct_metadata(uint64_t which){
+	if(which == 0)
+		return sizeof(type);
+	if(which == 1)
+		return sizeof(typedecl);
+	if(which == 2)
+		return sizeof(symdecl);
+	if(which == 3)
+		return sizeof(scope);
+	if(which == 4)
+		return sizeof(stmt);
+	if(which == 5)
+		return sizeof(expr_node);
+	if(which == 6)
+		return sizeof(seabass_builtin_ast);
+	return 0;
+}
+
 char* impl_builtin_strdup(char* s){
 	char* p = strdup(s);
 	if(!p) {puts("<BUILTIN ERROR> malloc failed.");exit(1);}
@@ -112,6 +130,7 @@ int is_builtin_name(char* s){
 	if(streq(s, "__builtin_free")) return 1;
 	if(streq(s, "__builtin_realloc")) return 1;
 	if(streq(s, "__builtin_type_getsz")) return 1;
+	if(streq(s, "__builtin_struct_metadata")) return 1;
 	return 0;
 }
 
@@ -131,7 +150,7 @@ uint64_t get_builtin_nargs(char* s){
 	if(streq(s, "__builtin_getargc")) return 0;
 	if(streq(s, "__builtin_free")) return 1;
 	if(streq(s, "__builtin_realloc")) return 2;
-	if(streq(s, "__builtin_type_getsz")) return 1;
+	if(streq(s, "__builtin_struct_metadata")) return 1;
 	return 0;
 }
 
@@ -152,6 +171,7 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_free")) return BUILTIN_PROTO_VOID;
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
 	return 0;
 }
 
@@ -166,6 +186,7 @@ uint64_t get_builtin_arg1_type(char* s){
 	if(streq(s, "__builtin_free")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
 	return 0;
 }
 uint64_t get_builtin_arg2_type(char* s){
