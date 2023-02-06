@@ -61,6 +61,9 @@ method codegen public myClass:driveCar()->myClass*:
 	if(cast(int)floaty)
 		f = cast(int*)__builtin_peek();
 	end
+	myClass qqq;
+	qqq.x = 3;
+	f = cast(int*)qqq:driveCar();
 	return cast(myClass*)__builtin_struct_metadata(3);
 end
 
@@ -231,9 +234,12 @@ int x;
 //#include "doesnotexist.h"
 
 method myClass:yetanotherfn(myClass a)->i32:
+	int[30] myarr;
 	a.x = 3;
 	return a.x;
 	a.x = this.x;
+
+	myarr[3] = 1;
 end
 
 

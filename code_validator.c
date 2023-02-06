@@ -26,6 +26,7 @@ static void validator_exit_err(){
 		}
 		exit(1);
 	}
+	exit(1);
 }
 
 
@@ -225,7 +226,7 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_CONSTEXPR_FLOAT) puts("EXPR_CONSTEXPR_FLOAT");
 	if(c == EXPR_CONSTEXPR_INT) puts("EXPR_CONSTEXPR_INT");
 
-	if(b == EXPR_BAD) return;
+	if(b == EXPR_BAD) exit(1);
 	puts("b=");
 	c = b;
 	if(c == EXPR_PAREN) puts("EXPR_PAREN");
@@ -382,11 +383,15 @@ static void propagate_types(expr_node* ee){
 	
 	if(ee->kind == EXPR_INTLIT){
 		t.basetype = BASE_U64;
+		t.is_lvalue = 0;
+		t.pointerlevel = 0;
 		ee->t = t;
 		return;
 	}
 	if(ee->kind == EXPR_FLOATLIT){
 		t.basetype = BASE_F64;
+		t.is_lvalue = 0;
+		t.pointerlevel = 0;
 		ee->t = t;
 		return;
 	}
@@ -440,6 +445,8 @@ static void propagate_types(expr_node* ee){
 	}
 	if(ee->kind == EXPR_SIZEOF){
 		t.basetype = BASE_U64;
+		t.is_lvalue = 0;
+		t.pointerlevel = 0;
 		ee->t = t;
 		return;
 	}
@@ -452,6 +459,7 @@ static void propagate_types(expr_node* ee){
 	}
 	if(ee->kind == EXPR_BUILTIN_CALL){
 		uint64_t q = get_builtin_retval(ee->symname);
+		t.is_lvalue = 0;
 		if(q == BUILTIN_PROTO_VOID){
 			t.basetype = BASE_VOID;
 			t.arraylen = 0;
@@ -501,10 +509,14 @@ static void propagate_types(expr_node* ee){
 	}
 	if(ee->kind == EXPR_CONSTEXPR_FLOAT){
 		ee->t.basetype = BASE_F64;
+		t.is_lvalue = 0;
+		t.pointerlevel = 0;
 		return;
 	}
 	if(ee->kind == EXPR_CONSTEXPR_INT){
 		ee->t.basetype = BASE_I64;
+		t.is_lvalue = 0;
+		t.pointerlevel = 0;
 		return;
 	}
 	if(ee->kind == EXPR_POST_INCR || 
@@ -531,7 +543,7 @@ static void propagate_types(expr_node* ee){
 			throw_type_error("Can't index non-pointer!");
 		}
 		t.pointerlevel--;
-		t.is_lvalue = 1; /*if it wasn't an lvalue before, it was now!*/
+		t.is_lvalue = 1; /*if it wasn't an lvalue before, it is now!*/
 		if(t.pointerlevel == 0){
 			if(t.basetype == BASE_STRUCT)
 				throw_type_error("Can't deref pointer to struct.");
@@ -551,7 +563,7 @@ static void propagate_types(expr_node* ee){
 		return;
 	}
 	if(ee->kind == EXPR_MEMBER){
-		int found = 0;
+		//int found = 0;
 		t = ee->subnodes[0]->t;
 		if(t.basetype != BASE_STRUCT)
 			throw_type_error_with_expression_enums(
@@ -570,7 +582,7 @@ static void propagate_types(expr_node* ee){
 					ee->symname
 				)
 			){
-				found = 1;
+			//	found = 1;
 				ee->t = type_table[t.structid].members[j];
 				//handle: struct member is array.
 				if(ee->t.arraylen){
@@ -578,10 +590,17 @@ static void propagate_types(expr_node* ee){
 					ee->t.arraylen = 0;
 					ee->t.pointerlevel++;
 				}
+				//handle:struct member is function
+				if(ee->t.is_function){
+					puts("Error: Struct member is function. How did that happen?");
+					throw_type_error("Struct member is function.");
+				}
 				ee->t.membername = NULL; /*We don't want it!*/
 				return;
 			}
-		}{
+		}
+		
+		{
 			puts("Struct:");
 			puts(type_table[t.structid].name);
 			puts("Does not have member:");
@@ -591,6 +610,7 @@ static void propagate_types(expr_node* ee){
 				ee->kind,
 				EXPR_BAD
 			);
+			exit(1);
 		}
 		return;
 	}
@@ -652,8 +672,9 @@ static void propagate_types(expr_node* ee){
 					);
 				}
 				t2 = symbol_table[j].t;
-				t.is_function = 0;
-				t.funcid = 0;
+				t2.is_function = 0;
+				t2.funcid = 0;
+				t2.is_lvalue = 0;
 				t2.membername = NULL;
 				ee->t = t2;
 				ee->symid = j;
@@ -671,6 +692,7 @@ static void propagate_types(expr_node* ee){
 		ee->t = symbol_table[ee->symid].t;
 		ee->t.is_function = 0;
 		ee->t.funcid = 0;
+		ee->t.is_lvalue = 0; /*You can't assign to the output of a function*/
 		return;
 	}
 	if(ee->kind == EXPR_CAST){
@@ -709,6 +731,7 @@ static void propagate_types(expr_node* ee){
 			if(t2.basetype == BASE_VOID)
 				throw_type_error("You Cannot cast void to anything, no matter how hard you try!");
 		ee->t = t;
+		ee->t.is_lvalue = 0; /*You can't assign to the output of an assignment statement.*/
 		return;
 	}
 	
@@ -733,6 +756,7 @@ static void propagate_types(expr_node* ee){
 
 		ee->t = type_init();
 		ee->t.basetype = BASE_U64;
+		ee->t.is_lvalue = 0;
 		return;
 	}
 
@@ -763,7 +787,9 @@ static void propagate_types(expr_node* ee){
 				ee->subnodes[1]->kind
 			);
 		}
+		ee->t = type_init();
 		ee->t = ee->subnodes[0]->t; /*it assigns, and then gets that value.*/
+		ee->t.is_lvalue = 0; /*You can't assign to the output of an assignment statement.*/
 		return;
 	}
 	if(ee->kind == EXPR_NEG){
@@ -777,6 +803,7 @@ static void propagate_types(expr_node* ee){
 			t.basetype == BASE_U64
 		) t.basetype = BASE_I64;
 		ee->t = t;
+		ee->t.is_lvalue = 0;
 		return;
 	}
 	if(ee->kind == EXPR_COMPL || 
@@ -792,6 +819,7 @@ static void propagate_types(expr_node* ee){
 		t = ee->subnodes[0]->t;
 		t.basetype = BASE_I64;
 		ee->t = t;
+		ee->t.is_lvalue = 0;
 		return;
 	}
 	if(ee->kind == EXPR_MUL ||
@@ -799,14 +827,18 @@ static void propagate_types(expr_node* ee){
 	){
 		t = ee->subnodes[0]->t;
 		t2 = ee->subnodes[1]->t;
+		
 		if(t.pointerlevel > 0 ||
-			t2.pointerlevel > 0)
-			throw_type_error_with_expression_enums(
+			t2.pointerlevel > 0
+		)throw_type_error_with_expression_enums(
 				"Cannot do multiplication, division, or modulo on a pointer.",
 				ee->subnodes[0]->kind,
 				ee->subnodes[1]->kind
-			);
+		);
+
+		
 		ee->t.basetype = type_promote(t.basetype, t2.basetype);
+		ee->t.is_lvalue = 0;
 		return;
 	}
 	if(ee->kind == EXPR_MOD){
@@ -831,6 +863,7 @@ static void propagate_types(expr_node* ee){
 				ee->subnodes[1]->kind
 			);
 		ee->t.basetype = type_promote(t.basetype, t2.basetype);
+		ee->t.is_lvalue = 0;
 		return;
 	}
 	if(ee->kind == EXPR_ADD){
@@ -850,12 +883,14 @@ static void propagate_types(expr_node* ee){
 			if(t2.basetype == BASE_F32 || t2.basetype == BASE_F64)
 				throw_type_error("Cannot add float to pointer.");
 			ee->t = t;
+			ee->t.is_lvalue = 0;
 			return;
 		}
 		if(t2.pointerlevel > 0 && t.pointerlevel == 0){
 			if(t.basetype == BASE_F32 || t.basetype == BASE_F64)
 				throw_type_error("Cannot add float to pointer.");
 			ee->t = t2;
+			ee->t.is_lvalue = 0;
 			return;
 		}
 		ee->t.basetype = type_promote(t.basetype, t2.basetype);
@@ -878,8 +913,15 @@ static void propagate_types(expr_node* ee){
 			return;
 		}
 		ee->t = t;
+		ee->t.is_lvalue = 0;
 		return;
 	}
+
+	throw_type_error_with_expression_enums("Internal error, ee->kind type is unhandled or fell through.",
+		ee->kind,
+		EXPR_BAD
+	);
+	
 	/**/
 }
 
@@ -1213,9 +1255,23 @@ static void walk_assign_lsym_gsym(){
 
 
 void validate_function(symdecl* funk){
+	unsigned long i;
 	if(funk->t.is_function == 0)
 	{
 		puts("INTERNAL VALIDATOR ERROR: Passed non-function.");
+		exit(1);
+	}
+	for(i = 0; i < nsymbols; i++){
+		if(symbol_table+i == funk){
+			active_function = i; break;
+		}
+		if(i == nsymbols-1){
+			puts("INTERNAL VALIDATOR ERROR: The function is not in the symbol list!");
+			exit(1);
+		}
+	}
+	if(nsymbols == 0){
+		puts("INTERNAL VALIDATOR ERROR: The function is not in the symbol list!");
 		exit(1);
 	}
 

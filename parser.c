@@ -1663,24 +1663,22 @@ void expr_parse_assign(expr_node** targ){
 	expr_node* a;
 	expr_node* b;
 	expr_parse_compare(&a);
-	while(1){
-		if(peek()->data == TOK_OPERATOR){
-			if(streq(peek()->text, "=")){
-				consume();
-				c = c_allocX(sizeof(expr_node));
-				c->kind = EXPR_ASSIGN;
-				expr_parse_compare(&b);
-				c->subnodes[0] = a;
-				c->subnodes[1] = b;
-				//fold it in...
-				a = c;
-				c = NULL;
-				b = NULL;
-				continue;
-			}
+	//while(1){
+	if(peek()->data == TOK_OPERATOR){	
+		if(streq(peek()->text, "=")){
+			consume();
+			c = c_allocX(sizeof(expr_node));
+			c->kind = EXPR_ASSIGN;
+			expr_parse_assign(&b);
+			c->subnodes[0] = a;
+			c->subnodes[1] = b;
+			//fold it in...
+			a = c;
+			c = NULL;
+			b = NULL;
 		}
-		break;
 	}
+//	}
 	*targ = a;
 }
 
