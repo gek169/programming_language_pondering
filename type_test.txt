@@ -1,0 +1,3 @@
+
+//testing the compilation of a single variable declaration.
+sshort myvar;

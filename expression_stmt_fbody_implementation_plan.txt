@@ -1,0 +1,30 @@
+
+Implementing everything to get function bodies parsing is hard. I'm going to do it in an order that allows me to test things.
+
+Going to add a special thing that allows me to test expression parsing in data_test.
+
+
+int myint;
+int myint2;
+float myfloat;
+
+//expr_test will obviously be removed...
+expr_test myint = myint2 + cast(int)myfloat--;
+
+
+1. Parse the sizeof operation.
+
+sizeof -> open parentheses -> parse_type() -> close parentheses
+
+2. Parse the identifier.
+
+	identifier (not function)
+
+	Matches an identifier that is not defined already as being a function.
+
+	consequently it is illegal to use an identifier name which is also the name of a function.
+
+3. Parse the integer and float literals.
+
+4. 
+

@@ -1,0 +1,262 @@
+
+
+#undef NULL
+#define NULL (cast(char*)0)
+
+int myint;
+int myint2;
+
+
+class myClass
+	int x
+	int y
+	int z
+end
+
+class WrongClass
+	float x
+	float y
+	float z
+end
+
+fn func_with_too_many_args(
+	int a0,
+	int a1,
+	int a2,
+	int a3,
+	int a4,
+	int a5,
+	int a6,
+	int a7,
+	int a8,
+	int a9,
+	int a10,
+	int a11,
+	int a12,
+	int a13,
+	int a14,
+	int a15,
+	int a16,
+	int a17,
+	int a18,
+	int a19,
+	int a20,
+)->i64:
+	return a20;
+
+end
+
+fn strlen(char* s)->u64;
+method codegen public myClass:driveCar()->myClass*:
+	WrongClass wrongy;
+	int* f;
+	float floaty;
+	this.x = cast(int)this;
+	this.y = 0;
+	this.z = 0;
+	if(cast(int)floaty)
+
+	end
+	return cast(myClass*)NULL;
+end
+
+
+fn not__builtin_puts(char* s):
+
+	int a
+	a = cast(int)cast(myClass*)strlen(s);
+
+	return;
+	not__builtin_puts(s);
+end
+
+int myglobal1;
+
+fn public whomstve(int myglobal):
+	myClass* a;
+	float b;
+	b = cast(float)cast(u64)a;
+	myglobal1 = 3;
+	return;
+end
+
+fn public what(int a2):
+	int a; a = a2 + 1;
+	int myglobal;
+	myglobal = a;
+	return;
+	if(a2 == 3) what(a); end
+	while(1)
+
+	end
+	asm("hello!");
+	return;
+end
+
+fn what2()->i32*:
+	return cast(i32*)0;
+	if(1)
+		float i;
+		for(i = 0,i<3,i++)
+			if(1)
+				break
+			end
+		end //end for
+	end
+end
+
+fn what3():
+	int* a;
+	int* b;
+	strlen(cast(char*)a);
+	a = b - cast(int)a;
+end
+
+method myClass:doStuff(int a)->i32:
+	return a + 5 * 7;
+	if(1)
+	end
+end
+
+method myClass:doBetterStuff(int a, myClass* quantum)->i32:
+	if(7 == 3)
+		quantum:doStuff(a)
+	end
+end
+
+int a;
+i32 my_global;
+fn myFunc():
+	int x;
+	float y;
+	int* x2;
+	myClass classy;
+	sqword squiddy;
+	x = cast(int) y;
+	//x = x == y;
+	x++;
+	x = cast(int)x2;
+	x = y;
+	//look at how dangerous this is! oh wow!
+	classy:doBetterStuff(x, cast(myClass*)cast(i64)y);
+	while(2)
+		int a;
+		int defined;
+		a = 5 + 7 * 9 | 1 + sizeof(int) + (((((defined|defined|7|3)))));
+		while(1)
+			break
+			continue
+		end;
+	end
+	//error:
+	//break
+
+	if(1)
+		//code validator can catch this.
+		switch(x & 1) doggo, doggo2, doggo3;
+		:doggo
+		:doggo2
+		:doggo3
+		
+	end
+
+	if(1)
+		int a;
+		char* b;
+		b = "Hello!";
+		//this_is_not_defined = 7;
+		//:doggo
+	end
+		:myLabel
+	:myLabel2
+	:myLabel3
+	//:myLabel
+	return;
+	my_global = 7 + 3;
+end
+
+int q;
+
+fn codegen codegen_main():
+	int* x;
+	(__builtin_puts("Hello!"));
+	__builtin_exit(x[x[0]--]);
+	//q = x[0];
+end
+
+
+codegen int why;
+
+fn some_other_function(int a, sqword b)->sqword:
+
+	//why = 3;
+	if(1)
+		:doggo
+	end
+	goto doggo;
+	switch(3) 
+		doggo2, //do something
+		doggo3, //do something different
+		doggo4, //be spectacular
+		doggo5;
+	:doggo2
+	:doggo3
+	:doggo4
+	:doggo5
+	//codegen_main();
+	return 7;
+end
+
+
+
+fn strlen(char* s)->u64:
+	u64 len;
+	len = 0;
+	float f;
+	//f = f % ((f|3));
+	/*hello!*/	
+	while(s[0])
+		len++ % len;
+		s++;
+	end
+	return len;
+end
+
+int x;
+
+//#include "doesnotexist.h"
+
+method myClass:yetanotherfn(myClass a)->i32:
+	a.x = 3;
+	return a.x;
+	a.x = this.x;
+end
+
+
+fn fib(i64 n)->i64:
+	i64 a;
+	i64 b;
+	i64 c;
+	myClass bruh;
+	if(n == cast(i8)2) 
+		return 1;
+	end
+	a = b = 1;
+	while(n > 2)
+		c = a + b;
+		a = b;
+		b = c;
+		n = n - 1;
+	end 
+	
+	return cast(float)bruh.x | 29;
+end
+
+
+class testing_array_members
+	int[3] myarray
+end
+
+method testing_array_members:doStuff(int which, i32 whom) -> i32:
+	this.myarray[which] = whom;
+end

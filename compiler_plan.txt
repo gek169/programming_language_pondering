@@ -1,0 +1,992 @@
+
+Writing a compiler is hard, it requires a lot of planning.
+So this is the planning document.
+
+~~~~OVERVIEW, DESIGN DECISIONS~~~~
+
+	->I am writing the compiler for my own architecture, SISA16.
+	
+	->C-like language with 4 base types (uint,int,float,byte), pointers, 1D Arrays, and structs.
+
+		I do not need unions. I don't use them.
+
+		The implementation should be flexible enough to add more types if I ever need them.
+
+	-> The ABI is that if all the arguments can fit in registers, then they are all passed via registers,
+		in order, from RX0 to RX3.
+
+		if ALL the arguments do not fit into the registers, they are ALL passed via the stack.
+
+		If the return value can be placed in a register, it is in a register.
+
+		But if it does not fit, then the caller must make sure that there is enough space
+
+		before the return address to store it.
+
+		the pre-call memory layout of a register-call register-return function looks like this:
+
+		|< (stack empty)
+		RX0: contains argument
+		RX1: contains argument
+		RX2: contains argument
+		RX3: contains argument
+
+		the pre-call memory layout of a register-call stack-return function looks like this:
+		
+		                                                    stp
+		                                                     V
+		|-------space for the return value to be written-----|<
+		RX0: contains argument
+		RX1: contains argument
+		...
+
+		And upon returning, the return value is in the register.
+
+		The pre-call memory layout of a stack-call stack-return function looks like this:
+
+		Scenario 1: Return value is smaller than args.
+		                                   stp
+		                                    V
+		|------return value location---|----|<
+		|-----argument storage locations----|<
+
+		Scenario 2: Return value is larger than args.
+
+		                                                     stp
+		                                                      V
+		|----------------return value location----------------|<
+		|-----------------|-----argument storage locations----|<
+
+		if the return value is smaller than the arguments, the callee
+		has to POP some space off AFTER the call has returned.
+
+		if the return value is larger than the arguments, the callee
+		has to PUSH BEFORE the function argument expressions have even been evaluated!
+
+		the pre-call memory layout of a stack-call register-return function looks like this:
+
+		                                   stp
+		                                    V
+		|------This space will be popped----|<
+		|-----argument storage locations----|<
+
+		all the space for the arguments will be popped immediately after the call.
+
+	-> The ABI with struct returns requires a stack-to-memory copy ability.
+		
+
+	-> After some consideration, I think it is a mistake to allow scopes to declare their own variables.
+
+		Having two variables with the same name in different scopes creates confusion.
+
+		However you should still be able to define a variable inside of curly braces, it's just that it exists for the entire duration of the function.
+
+		This makes writing the scope handling code much easier since statements never own a variable.
+
+		it also makes looking up variables easier.
+
+		This should be able to be changed in the future
+		
+
+	->Constant expressions (ones which only use literals) may be used to define array sizes. 
+		This basically just means
+		I have to write a literal expression parser (that works only with integers)
+
+	->Global statement types:
+		function predeclaration
+		variable predeclaration
+		function declaration
+		variable declaration (with initial value!)
+		
+
+	->All exported symbols are numbers. The calling convention is
+		fcall %&that_function%
+
+		and if that_function does not exist, the assembler returns an error on the second pass.
+
+		I tested it just now!
+
+	->All symbols except for labels and local variables should export as their actual names.
+		Labels in functions export with their name plus the function's name plus a prefix.
+
+		__auto_lbl_MyLabel_myFunction
+
+		This should prevent any and all collisions.
+
+	-> Functions do allow structs as both arguments and the return type.
+		-> I already figured out how to do arbitrary struct copies for the = expression,
+			I just have to change the first part to use a constant offset from the stack pointer
+			rather than a memory address that was stored on the stack.
+			See below...
+			
+		-> I think you should be able to assign a struct directly without having to memcpy or copy 
+			its members individually.
+
+			Note that copies now occur with the write-to address on TOP, not on bottom.
+			-> Here is a code example of how to copy arbitrary structs on the stack.
+				Copy sets of 4 bytes starting at the end (top of the stack) subtracting, and then write the last
+
+				1,2, or 3 bytes with a specific sequence copies
+
+				If a 19 byte struct is sitting on the stack, and the lvalue address is ABOVE it, we could...
+				~~~~~~~~~~~~~~~~~~~~~~~
+				rx0pop //get lvalue address
+
+				//save 4 so we dont have to copy it over and over into rx1. 
+				lrx1 %/4%; rx2_1;
+
+				//19 - 4 = 15. we want to point at the last four bytes of the struct...
+				lrx1 %/15%; rxadd;
+
+				//begin copying...
+												// 3 _ _ _>_
+				rx1pop; istrx1_0; rx1_2; rxsub; // 3 _ _>_ X
+				rx1pop; istrx1_0; rx1_2; rxsub; // 3 _>_ X X
+				rx1pop; istrx1_0; rx1_2; rxsub; // 3>_ X X X
+				rx1pop; istrx1_0; 				//>3 X X X X
+				//there are not 4 more bytes, so we don't subtract 4.
+				//unlike the cases for 1-18 bytes, we are moving BACKWARDS
+				//so we don't need to skip four after, we need to skip four before, to write four bytes.
+
+				//there are still bytes left to copy, though, so we do not stop here.
+
+				//There are at least 2 bytes left to copy, so this sequence is generated:
+				rxdecr;rxdecr;//we need to point at 1, so we get bytes 1 and 2
+				carx0;			//prepare for far store
+				blpop;			//get the short
+				faristlb;		//store it!
+
+				//There is only 1 byte left, so we use this:
+				rxdecr;carx0;bpop;faristb;
+				//The copy is completely finished. End copy.
+
+				~~~~~~~~~~~~~~~~~~~~~~~~~~
+				If a 43 byte struct is sitting on the stack, and the  lvalue address is beneath it...
+				~~~~~~~~~~~~~~~~~~~~~~~~~
+
+				//First: recognize that there is MORE THAN 8 BYTES to copy.
+
+				//if there is only a single byte?
+				#	apop;			//grab the byte
+				#	rx0pop;			//grab target address
+				#	cbrx0;farista;	//perform store.
+
+				//2 bytes?
+				#	alpop;			//grab the short
+				#	rx0pop;			//grab the target address
+				#	cbrx0;faristla;	//store short to address
+
+				//3 bytes?
+				#	bpop;rx1b;						//get the last byte
+				#	alpop;rx0pop;cbrx0;faristla;	//what we did before to copy 2 bytes.
+				#	rxincr;rxincr;					//skip the short we wrote. Remember that unlike our big copy routine, we are moving FORWARD.
+				#	cbrx0;arx1;farista;				//store the byte.
+
+				//4 bytes?
+				#	rx1pop;rx0pop;istrx1_0;
+
+				//5 bytes?
+				#	rx0pop; 		//grab our storage location.
+				#	apop;			//grab the last byte
+				#	rx1pop; 		//grab the bottom 4 bytes.
+				#	istrx1_0;		//store the first 4 bytes at the first four bytes of the target
+				#	lrx1 %/4%;rxadd;//move ahead 4 so we can store the last byte.
+				#	cbrx0;farista;  //store that byte!
+
+				//If there are exactly 6 bytes...
+
+				//6 bytes?
+				#	rx0pop; 		//grab our storage location.
+				#	alpop;			//grab the last short
+				#	rx1pop; 		//grab the bottom 4 bytes.
+				#	istrx1_0;		//store the first 4 bytes at the first four bytes of the target
+				#	lrx1 %/4%;rxadd;//move ahead 4 so we can store the last 2 bytes.
+				#	cbrx0;faristla; //store that sjprt!
+
+				//7 bytes?
+				#	rx0pop; 		//grab our storage location.
+				#	bpop;			//grab the last byte (6)
+				#	alpop;			//grab bytes 4 and 5
+				#	rx1pop; 		//grab the bottom 4 bytes, 0-3
+				#	istrx1_0;		//store the first 4 bytes at the first four bytes of the target
+				#	lrx1 %/4%;rxadd;//skip the 4 we wrote.
+				#	rx2b;			//need to save b.
+				#	cbrx0;faristla; //store the short: bytes 4 and 5
+				#	brx2;			//get the last byte back from rx2
+				#	rxincr;rxincr;	//skip the 2 that we wrote already.
+				#	cbrx0;farista;	//write the last byte
+
+				//if there are exactly 8 bytes...
+				
+				#	rx0pop; 		//grab our storage location.
+				#	rx2pop;			//grab the top 4 bytes.
+				#	rx1pop; 		//grab the bottom 4 bytes, 0-3
+				#	istrx1_0;		//store the first 4 bytes at the first four bytes of the target
+				#	lrx1 %/4%;rxadd;//skip the 4 we wrote.
+				#	rx1_2;			//prepare to store the top 4 bytes at the target.
+				#	istrx1_0;		//store them.
+
+				//if there are exactly 9 bytes...
+				#	rx0pop;					//address
+				#	apop;					//last byte,8
+				#	rx2pop;					//4,5,6,7
+				#	rx1pop;					//0,1,2,3
+				#	istrx1_0;				//store bytes 0,1,2,3 immediately
+				#	lrx3 %4%; rx1_3; rxadd; //Store 4 so we don't have to copy it over and over, and skip 0,1,2,3
+				#	rx1_2;istrx1_0;			//store bytes 4,5,6,7
+				#	rx1_3;rxadd;			//skip the 4 we just wrote. We're now pointing at target[8]
+				#	cbrx0;farista;			//Store it
+
+				//If there are 10 bytes, we do the same thing but with large a commands....
+
+				#	rx0pop;					//address
+				#	alpop;					//last bytes,8,9
+				#	rx2pop;					//4,5,6,7
+				#	rx1pop;					//0,1,2,3
+				#	istrx1_0;				//store bytes 0,1,2,3 immediately
+				#	lrx3 %4%; rx1_3; rxadd; //Store 4 so we don't have to copy it over and over, and skip 0,1,2,3
+				#	rx1_2;istrx1_0;			//store bytes 4,5,6,7
+				#	rx1_3;rxadd;			//skip the 4 we just wrote. We're now pointing at target[8]
+				#	cbrx0;faristla;			//Store the last 2.
+
+				//if there are 11 bytes, it's tricky...
+				#	rx0pop;					//address
+				#	bpop;					//10
+				#	alpop;					//8,9
+				#	rx2pop;					//4,5,6,7
+				#	rx1pop;					//0,1,2,3
+				#	istrx1_0;				//store bytes 0,1,2,3 immediately
+				#	lrx3 %4%; rx1_3; rxadd; //Store 4 so we don't have to copy it over and over, and skip 0,1,2,3
+				#	rx1_2;istrx1_0;			//store bytes 4,5,6,7
+				#	rx1_3;rxadd;			//skip the 4 we just wrote. We're now pointing at target[8]
+				#	rx3b;					//have to store b. We no longer need the 4...
+				#	cbrx0;faristla;			//Store the short. (8,9)
+				#	rxincr;rxincr;			//skip the short (8,9)
+				#	cbrx0;arx3;farista;		//store the last byte (10)
+
+				//If there are 12 bytes, despite the above example, we can do this...
+				#	rx0pop;				//target address
+				#	rx3pop;				//bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four.
+
+				//If there are thirteen bytes, we do the same exact thing, but pop and store an extra byte!
+				//and quite predictably, 14 bytes just uses an L store.
+				#	rx0pop;				//target address
+				#	apop;				//our extra byte
+				#	rx3pop;				//bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four (out of 12)
+				#	lrx1 %/4%;rxadd;	//skip the last four out of 12.
+				#	cbrx0;farista;		//store the extra byte.
+
+				//14
+				#	rx0pop;				//target address~~
+				#	alpop;				//our extra short
+				#	rx3pop;				//12 bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four (out of 12)
+				#	lrx1 %/4%;rxadd;	//skip the last four out of 12.
+				#	cbrx0;faristla;		//store the extra short.
+
+				//15 encapsulates 14 with usage of the b register. We have to save b intermediately.
+				#	rx0pop;				//target address~~
+				#	bpop;				//an extra-extra byte!
+				#	alpop;				//our extra short
+				#	rx3pop;				//12 bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four (out of 12)
+				#	lrx1 %/4%;rxadd;	//skip the last four out of 12.
+				#	rx1b;				//save b.
+				#	cbrx0;faristla;		//store the extra short.
+				#	rxincr;rxincr;		//skip the extra short
+				#	arx1;cbrx0;farista;	//store the extra extra byte
+
+				//Predictably, 16, but we can still go a bit further
+				#	rx0pop;				//target address~~
+				#	blpop;				//an extra-extra short!
+				#	alpop;				//our extra short
+				#	rx3pop;				//12 bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four (out of 12)
+				#	lrx1 %/4%;rxadd;	//skip the last four out of 12.
+				#	rx1b;				//save b.
+				#	cbrx0;faristla;		//store the extra short.
+				#	rxincr;rxincr;		//skip the extra short
+				#	arx1;cbrx0;faristla;//store the extra extra short
+
+				//17
+				#	rx0pop;				//target address~~
+				#	bpop;				//ALMOST the last byte...
+				#	cpop;				//an extra-extra short!
+				#	alpop;				//our extra short
+				#	rx3pop;				//12 bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four (out of 12)
+				#	lrx1 %/4%;rxadd;	//skip the last four out of 12.
+				#	rx2b;				//save b, which holds the very last byte.
+				#	rx1c;				//save c, which holds the short before that.
+				#	cbrx0;faristla;		//store the now not-so-extra-seeming short, which was in A this whole time.
+				#	rxincr;rxincr;		//skip the not-so-extra-seeming short
+				#	arx1;cbrx0;faristla;//store the extra extra short, which lived in C but was moved to RX1.
+				#	rxincr;rxincr;		//skip the extra extra short
+				#	arx2;cbrx0;farista; //write the last byte.
+
+				//18
+				#	rx0pop;				//target address~~
+				#	blpop;				//THE VERY LAST ONE!
+				#	cpop;				//an extra-extra short!
+				#	alpop;				//our extra short
+				#	rx3pop;				//12 bytes to write...
+				#	rx2pop;
+				#	rx1pop;				//~~~~~~~~~~~~~~~
+				#	istrx1_0;			//store the first four immediately.
+				#	lrx1 %/4%;rxadd;	//skip the first four
+				#	rx1_2;istrx1_0;		//store the middle four.
+				#	lrx1 %/4%;rxadd;	//skip the middle four.
+				#	rx1_3;istrx1_0;		//store the last four (out of 12)
+				#	lrx1 %/4%;rxadd;	//skip the last four out of 12.
+				#	rx2b;				//save b, which holds the absolute last short.
+				#	rx1c;				//save c, which holds the short before that.
+				#	cbrx0;faristla;		//store the now not-so-extra-seeming short, which was in A this whole time.
+				#	rxincr;rxincr;		//skip the not-so-extra-seeming short
+				#	arx1;cbrx0;faristla;//store the extra extra short, which lived in C but was moved to RX1.
+				#	rxincr;rxincr;		//skip the extra extra short
+				#	arx2;cbrx0;faristla;//write the VERY LAST ONE
+
+				//19 is impossible to do with SISA16.
+
+				rx0pop
+
+				//save 4 into a register so we dont have to copy it over and over into rx1 for subtraction.
+				lrx2 %/4%;
+
+				//43 - 4 = 39. we want to point at the last four bytes of the struct,
+				//and we are currently pointing at the beginning.
+				//so we have to ADD 39 so we can point at the last 4 bytes
+				//which is where the first four bytes for us to copy will be put.
+				
+				lrx1 %/39%; rxadd;
+
+				//begin copying...
+											 // about to copy byte 39,40,41,42 (RX0 points at byte 39. Zero indexed.)
+											 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				rx1pop; istrx1_0;  			 // (Does the copy of 39.40,41,42) 
+											 // I still have at least four bytes left to copy!
+											 // Since we're already set up to do it with 4 in rx2,
+											 // we don't neeed to re-load 4 to subtract, nor write out 4 rxdecrs.
+								rx1_2;rxsub; // Now, we're ready to copy bytes 35,36,37,38.
+
+								
+				rx1pop; istrx1_0;  			 // Copied 35,36,37,38. Onwards!
+								rx1_2;rxsub; // about to copy byte 31,32,33,34,
+				rx1pop; istrx1_0; 			 //	done, onward
+								rx1_2;rxsub; // about to copy byte 27,28,29,30,
+				rx1pop; istrx1_0; 
+								rx1_2;rxsub; // about to copy byte 23,24,25,26,
+				rx1pop; istrx1_0; 
+								rx1_2;rxsub; // about to copy byte 19,20,21,22,
+				rx1pop; istrx1_0;  
+								rx1_2;rxsub; // about to copy byte 15,16,17,18,
+				rx1pop; istrx1_0;  
+								rx1_2;rxsub; // about to copy byte 11,12,13,14,
+				rx1pop; istrx1_0;  
+								rx1_2;rxsub; // about to copy byte  7, 8, 9,10,
+				rx1pop; istrx1_0;
+								rx1_2;rxsub; // about to copy byte  3, 4, 5, 6,
+				rx1pop; istrx1_0;
+								rx1_2;rxsub; // about to copy byte  3, 4, 5, 6,
+				rx1pop; istrx1_0; 			 // Copied 3,4,5,6. We now have less than 4 bytes to copy left...
+											 // so we don't setup for the next copy.
+
+				//The following bytes remain uncopied:
+				//0,1,2
+				//And rx0 currently points at 3.
+				//They need to be copied.
+
+				//There are at least 2 bytes left to copy, so this sequence is generated:
+				rxdecr;rxdecr;//we need to point at 1, so we get bytes 1 and 2
+				carx0;			//prepare for far store
+				blpop;			//get the short
+				faristlb;		//store it!
+
+				//There is only 1 byte left, so we use this:
+				rxdecr;carx0;bpop;faristb;
+				//The copy is finished.
+		-> How to copy arbitrary memory to the stack, given a pointer on the stack, e.g., to load a struct.
+
+			//1 byte
+				rx0pop;cbrx0;farilda;apush;
+			//2 byte
+				rx0pop;cbrx0;farillda;alpush;
+			//3 byte
+				rx0pop;cbrx0;farillda;alpush;	//do the 2 byte copy
+				rxincr;rxincr;					//increment twice
+				cbrx0; farilda;apush;			//load a single byte and push
+			//4 byte
+				rx1pop;ildrx0_1;rx0push;
+			//5 bytes
+				rx1pop;ildrx0_1;rx0push;		//do the 4 byte copy
+				lrx0 %/4%; rxadd;				//skip the four bytes
+				cbrx0;farilda;apush;			//load byte and copy it.
+			//6 bytes
+				rx1pop;ildrx0_1;rx0push;		//do the 4 byte copy
+				lrx0 %/4%; rxadd;				//skip the four bytes
+				cbrx0;farillda;alpush;			//load short and push it.
+			//7 bytes
+				rx1pop;ildrx0_1;rx0push;		//do the 4 byte copy
+				lrx0 %/4%; rxadd;				//skip the four bytes
+				cbrx0;farillda;alpush;			//load short and push it.
+				rxincr;rxincr;					//skip the short
+				cbrx0;farilda;apush;			//copy byte.
+			//8 bytes: beginning of THE ALGORITHM. 1 iteration beyond the header.
+			
+				lrx2 %/4%;				//so we don't have to get 4 over and over.
+				rx1pop;					//get the address
+				ildrx0_1;rx0push;		//get 4 bytes and push
+				rx0_2;rxadd;			//increment by 4
+
+				//this portion is repeated:
+				//CHECK IF THERE ARE AT LEAST 4 BYTES LEFT... yes!
+				
+				rx1_0;ildrx0_1;rx0push;	//get 4 bytes and push
+				
+				//CHECK IF THERE IS ANYTHING MORE TO COPY... no. Stop.
+				//break out of the copy routine generator.
+					
+			//9 bytes: the ALGORITHM, 1 iterations, plus 1 byte copy
+				lrx2 %/4%;			//so we don't have to get 4 over and over.
+				rx1pop;				//get the address
+				ildrx0_1;rx0push;	//get 4 bytes and push
+				rx0_2;rxadd;		//increment by 4
+
+				
+				//this portion is repeated:
+				//CHECK IF THERE ARE AT LEAST 4 BYTES LEFT... yes!
+				rx1_0;ildrx0_1;rx0push;
+
+				//CHECK IF THERE ARE ANY BYTES LEFT... yes!
+				//CHECK IF THERE ARE AT LEAST 4 BYTES LEFT... No.
+				//generate according to the "more bytes not four bytes" rule...
+				rx0_2;rxadd;
+
+				//1 byte left: apply the 1 rule:
+				cbrx0;farilda;apush;//grab 1 byte
+				
+			//10 bytes: the ALGORITHM, 1 iterations plus 2 byte copy
+				//this is the header of the algorith which copies 4 bytes onto the stack and increments.
+				lrx2 %/4%;
+				rx1pop;	
+				ildrx0_1;rx0push;
+				rx0_2;rxadd;
+
+				//this is the repeated portion.
+				//CHECK IF THERE ARE AT LEAST 4 BYTES LEFT... yes!
+				rx1_0;ildrx0_1;rx0push;	
+				//CHECK IF THERE ARE ANY BYTES LEFT... yes!
+				//CHECK IF THERE ARE AT LEAST 4 BYTES LEFT... No.
+				rx0_2;rxadd;
+
+				//2 rule:
+				cbrx0;farillda;alpush;//grab 2 byte and push
+
+			//11 bytes: THE ALGORITHM, 1 iterations plus 3 byte copy.
+				//this is the header of the algorith which copies 4 bytes onto the stack and increments.
+				lrx2 %/4%;
+				rx1pop;	
+				ildrx0_1;rx0push;
+				rx0_2;rxadd;
+
+				//this is the repeated portion.
+				//there are 4 bytes left, so we do this:
+				rx1_0;ildrx0_1;rx0push;	
+
+				//more bytes, but not 4 bytes rule:
+				rx0_2;rxadd;
+
+				//3 rule:
+				cbrx0;farillda;alpush;//grab 2 byte and push
+				rxincr;rxincr;
+				cbrx0;farilda;apush;//grab 1 byte and push
+				
+			//12 bytes: THE ALGORITHM, 2 iterations.
+				//this is the header of the algorith which copies 4 bytes onto the stack and increments.
+				lrx2 %/4%;
+				rx1pop;	
+				ildrx0_1;rx0push;
+				rx0_2;rxadd;
+
+				//this is the repeated portion.
+				//there are >=4 bytes left, so we do this:
+				rx1_0;ildrx0_1;rx0push;	
+
+				//more bytes, and yes, 4 bytes rule:
+				rx0_2;rxadd;rx1_0;
+
+				//there are >=4 bytes left, so we do this:
+				rx1_0;ildrx0_1;rx0push;	
+				
+				//not more bytes, break out!
+				//copy done
+				
+				
+			//for anything above 7 bytes, we use THE ALGORITHM.
+			//for below 7 bytes, there are special cases for each kind of copy
+			//which are optimized for that number of bytes.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~PLANNED STEPS B4 COMPLETION~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+IMPORTANT NOTES:
+	-> Try to separate the AST generation 
+	and semantic analysis as much as possible. 
+
+	During AST generation,
+	
+	* Variable definition entries get added 
+	during AST generation, but identifiers in 
+	expressions don't have to be identified (haha) 
+	and break/continue don't  have to identify what loop they're continuing or breaking yet.
+
+	During semantic analysis these optimizations can be made.
+
+	-> Every step of improvement to the AST should result in something I can test.
+
+	Just dump the AST to a printout basically.
+
+	
+	123456
+	123456
+
+	5,6 || 6,5
+	4,5 || 3,6 || 5,4 || 6,3
+	5,1 || 4,2 || 3,3 || 2,4 || 1,5
+
+
+~~~~~~~~~PARSER STEPS (To make the AST, before semantic analysis)
+
+Tokenizer [X] - Scan a file and generate the complete list of tokens in the file
+
+Character Literal to Int literal [X] - convert all character literals to integer literals in the token list.
+
+										this is basically just taking every single node in the token list, seeing
+
+										if it is a character literal, processing it into a character code,
+
+										and writing the number to a string.
+
+String Literal Processing [X] - Take all string literals in the program and process them, including escape codes.
+
+								also, concatenate adjacent string literals.
+
+
+								The rule for string literals right now is that you can't have \0 in it.
+
+								I'm also forbidding \xHH
+
+								I also finished string concatenation
+Base Type Parser [ ] - Parse the base types and derivatives, uint, int, byte, float, and print the resulting type
+
+					to the screen. Pointers and arrays (and arrays of pointers, but not pointers to arrays) are
+
+					needed too.
+
+					PARSER GOAL: parse a base type.
+
+Type System [ ] - Complete type definition system with structs. Need a "type" struct that holds
+
+					everything about type information, from basetype to lvalue to pointerlevel to arraysize.
+
+					It needs lots of functions to analyze and manipulate the type struct,
+
+					Ultimately, this step should end with being able to parse a struct declaration
+
+					completely and add it to the type system.
+
+					Much of the code can be re-used when the variable struct is created.
+
+					I don't think it should be the same as the variable declaration struct though,
+
+					because notably, we need to store a lot less information!
+
+					Struct members only need to know their type and name.
+
+					Structs may not contain themselves as a member.
+
+					we only need to store a type and a name for each struct member.
+
+					PARSER GOAL: parse the struct type declaration statement.
+
+					(I think i've already done this, but I didn't test it)
+					
+Unique Name Generator [ ] - Tool to automatically generate unique names for labels. 
+
+							char* gen_label_name(char* fn_name, char* label_name);
+
+							Basically it just formats
+
+					PARSER GOAL: dummy parse the label statement, which starts with a colon and has an identifier.
+
+					
+
+~~~~~
+
+Literal expression parser [ ] - Takes a token sequence representing a literal expression and finds the result as a number.
+
+								the result should be printed to standard out for debugging, but it will be used later to find
+
+								the size of variable declarations.
+
+								it only needs to handle integers and none of the pointer, variable, or type operators need to be implemented.
+
+								PARSER GOAL: print the value of expressions.
+	
+Variable Struct [ ] - Struct that stores information about a variable declaration. Will be used for globals and locals.
+						This is where we define the global variable list.
+
+						it needs to store information about how the variable's storage depedency is satisfied-
+						is it a local variable whose storage is provided by the function, or is it
+						a global variable whose storage address is provided by a constant label?
+
+						PARSER GOAL: parse every kind of variable declaration statement including initializer.
+
+Label Struct [ ] - Struct that holds information about a label. I'm planning on this basically just being its name,
+					the name generator will mutate label names so that they are unique per function,
+					and if there are multiple labels with the same name,
+					we just let it happen.
+
+					If I want labels to be accessible as char pointers in the programming language, I need
+					to add them to the global symbol manager.
+
+					PARSER GOAL: parse a dummy label statement and creat the struct for it.
+
+Global Symbol Manager Variables [ ] - Store global variable information.
+
+						This includes global variable declarations.
+
+						The interface should be:
+							size_t add_variable_entry(
+								char* name, 
+								vardecl* v,
+								char* data, 
+								size_t size, 
+								char is_staic
+							);
+								-> Adds a DEFINED symbol to the global symbol manager.
+								-> is_static decides whether the symbol will be ..export'd or not.
+								-> Is independent of the global variable list- global variables get a symbol ID returned
+									from this function, which they store in the variable struct.
+								-> require_same_name makes the requirement that the label name in assembly language is identical to the
+									name passed into this function. This makes assembly interop easier.
+
+								~Zero is never a valid ID,
+								~the vardecl pointer is owning, we use the global symbol table
+									during semantic analysis to link identifiers.s
+
+							size_t add_predecl_variable(char* name, vardecl v);
+								-> Adds a predeclared symbol to the global symbol manager. it has a type, but it doesn't
+								necessarily have a definition.
+								-> Predeclarations are NEVER exported.
+							
+							char* entry_get_label(size_t id)
+								-> Gives the codegen labelname for the symbol... which is just the name passed in, unless
+								I can think of a case where I wouldn't want that  to be so.
+
+							vardecl* entry_get_vardecl(size_t id)
+								-> Get the variable declaration pointer for a particular entry.
+
+							vardecl* get_variable_by_name(char* name)
+								-> Find 
+
+						the idea being that every time a new entry needs to be added, the id is provided to the AST.
+
+						then, at codegen time, we need to ask the global data manager for the label name so it can be
+						written out.
+
+						Function bodies and functions will be stored 
+
+						PARSER GOAL: parse a series of type and variable declarations and then dump the resulting
+
+						list of variables to standard out.
+
+Function list [ ] - Extension to the Global Symbol Manager 
+
+					that adds function declarations to the global data manager.
+
+					size_t add_function_entry(
+						char* name,
+						funcdecl* f
+					);
+					
+
+					A function, at this point, is simply the prototype and local variables.
+
+					The body is scanned only for variable declaration statements.
+
+					yes, I plan to be actually parsing into a (partial) AST here.
+
+					We just keep adding things as we go along.
+
+					DON'T write the ABI handling code here. Delay it until after semantic analysis.
+
+					PARSER GOAL 1: Parse a series of variable and function declarations and dump the symbol table thus far.
+
+					PARSER GOAL 2: parse local variable declarations. Basically, any variable declaration within a function
+
+					permanently defines the symbol inside the function (even if it is inside a "scope").
+
+					Duplicate declarations and conflicting declarations are errors.
+
+					
+
+					
+
+stmt structure [ ] - 
+
+	The statement struct represents a single statement. 
+
+	This does not include variable declarations, whose lexical lifetimes
+
+	are the duration of their function.
+
+	Since variable declarations are either global or function-local (never anything else)
+
+	there is no such thing as a scope. All statements can be broken down into trees of statements and expressions.
+
+	tried in the past to include them into the statement structure system,
+
+	but I think that's a bad idea- just check activefunc's arguments and determine their stack placement
+
+	(If it was register-passed according to ABI rules, then it's right after the return address. Else: it's before
+	the return address, going deeper into the stack with every argument)
+
+	Here are the scoped statements I want to implement:
+
+	(variable declaration, handled during function step),
+	compound,
+	if,
+	while,
+	for,
+	goto,
+	label,
+	expression,
+	tail,
+	return,
+	continue,
+	break,
+	null (just a semicolon)
+
+	and lastly, when possible
+
+	__asm
+
+	The order in which it would probably be easiest to implement them (at this phase) is:
+
+	variable declaration (already handled previously!)
+	null (the empty statement, just a semicolon)
+	break
+	continue
+	goto
+	compound
+	tail
+	
+	But I can't do these yet:
+	
+	expression
+	return
+	label
+	if
+	while
+	for
+	__asm
+
+	because I don't have expressions.
+
+	Tail can be done without expressions because it takes a function with no arguments.
+
+	Note that most of these statements actually require the expression struct to exist, which it does not at this point.
+
+	So that's where the next step comes in
+
+	PARSER GOAL- parse all the above statement types that do not involve an expression.
+
+	those statements will be implemented later.
+
+	
+Expression structure [ ] - Represents a node in the expression tree.
+
+							~
+							HUGE NOTE: Don't try to evaluate types yet. Type and const propagation are done in semantic analysis.
+							~
+
+							we're doing all the normal C ops, including || and &&.
+
+							That includes the struct member access ( mystruct.x) which 
+							
+							is a bit tricky- the dot AND the x are consumed as a single operator.
+
+							I wrote example code above for how to copy structs onto and off of the stack,
+
+							(and of course copying a struct from one arbitrary place to another is fairly trivial should I need it)
+
+							so structs-in-expressions and structs-in-function-arguments should be completely fine.
+
+							The expression structure must thus then contain a "Membername" field,
+
+							so that if it is the member access operator (-> or .) it can get the field.
+
+							Not doing the ternary operator (I don't use it!)
+
+							Casting is a bit different, I'm going to use cast(type) instead of C's syntax.
+
+							Because we already stored the list of all functions, we CAN determine whether or not
+
+							an identifier is a function or not.
+
+							We could also discern whether it is a local variable or not, but I think that this
+
+							should be delayed until afterward.
+
+							Thus, we CAN discern everything about the function call expression, and can predict
+
+							the placement of the () postfix of the function name- we can immediately emit an error.
+
+							We can also determine if the number of arguments passed are correct and if they are of
+
+							compatible types.
+
+
+							The expression struct has to...
+								-> have a function-argument-limited number of child nodes available per struct.
+
+								So, say, we might limit it to 128 arguments. so there have to be 128 children.
+
+								Obviously that means that the expression struct keeps an array of pointers
+
+								for its children rather than a fixed number.
+
+								So there has to be a way to pushChildExpr(expr* e) on an expression.
+
+
+							I recommend, to my future self, to add expression ops one-at-a-time, starting with the
+							literal and identifier.
+
+							String literals implicitly convert to a byte*.
+
+							(They really need to be their own step...)
+
+							The label for the data of the string literal is stored by the global data manager.
+
+							Function call and struct member accesses may shake things up a bit, so it should be done later after I have more experience, but it needs
+
+							to be kept in mind.
+
+							The expression struct has a bunch of children in it because of it, for example...
+
+							Each of these steps should have succeeding tests and have AST dumps,
+
+							the way we do this is we implement the "Expression" statement in the previous step's parser...
+
+							PARSER GOAL 1: Parse the literal and identifier.
+
+							PARSER GOAL 2: Parse the addition expression. Left side evaluated first.
+
+							PARSER GOAL 3: Parse the Subtraction expression. a-b-c is (a-b)-c not a-(b-c).
+
+							PARSER GOAL 4: expand to all the binary operators. One by one.
+
+							PARSER GOAL 5: Do the unary prefix operators
+
+							PARSER GOAL 6: Do the unary postfix operators
+
+							PARSER GOAL 7: Do the function call
+
+							PARSER GOAL 8: do the struct member accesses. They are unary postfix.
+
+Statements with expressions [ ] - The AST is almost complete. I need to add support for the statements that have expressions in them,
+
+									including for, which has three expressions and a child statement.
+
+									PARSER GOAL: add parsing of the statements that contain expressions.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Semantic Symbol Linker [ ] - At this point, the AST is complete!, but variable references are unresolved
+
+							For all non-function identifiers in function bodies, a symbol lookup has to occur.
+
+							the variable is either defined in the function struct or globally.
+
+							Duplicate variable declarations should have already been detected, but a double-check is in order.
+
+							Duplicate and void label references should be handled here.
+
+							COMPILER GOAL: detect the linkages of all identifiers in the compilation unit.
+
+Const propagation [ ] - evaluate an expression and determine which parts nodes are const-evaluatable.
+
+						For integers only, do compiletime math.
+
+						COMPILER GOAL: reduce 1+2|7/1 as an expression into a single literal node.
+						
+Type propagation [ ] - Walk through an expression and propagate type information up the tree. Int plus float is float.
+
+						Do byte->integer promotions at compiletime.
+
+						Insert type conversion nodes where needed to get the correct types of things- I don't want to have to do that
+
+						in the vstack. Insert a type cast node in the middle, between the other two.
+
+						Emit errors for erroneous or impossible operations, such as adding a struct.
+							
+ABI obedience solver [ ] - Stack locations for local variables and function arguments should now be resolved.
+
+							There are 4 ABIs:
+								* Stack call stack return
+								* Register call stack return
+								* stack call register return
+								* register call register return
+
+							The ABI mode of a particular function is determined by target code generator,
+
+							so the target code generator has to be asked what the ABI mode of the function will be.
+
+
+
+CODE GENERATION:
+
+Vstack implementation [ ] - write a Vstack system which i
+
+
+
+
