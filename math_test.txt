@@ -1,0 +1,22 @@
+
+
+class vec4
+	float x
+	float y
+	float z
+	float w
+end
+
+
+codegen predecl int myint;
+
+method vec4:add(vec4 other):
+	this.x = other.x + this.x;
+	this.y = other.y + this.y;
+	this.z = other.z + this.z;
+	this.w = other.w + this.w;
+	return;
+end
+
+codegen int myint;
+

@@ -1804,7 +1804,7 @@ void parse_return(){
 	){
 		me->nexpressions = 0;
 		//do require a semicolon.
-		consume_semicolon("This function must return with no expression. 'return'");
+		consume_semicolon("Return expected semicolon. No expression.");
 		return;
 	}
 	me->nexpressions = 1;
