@@ -843,7 +843,6 @@ void parse_fn(int is_method){
 			goto after_thing1;
 		}
 		parse_error("Unhandled symbol after parentheses in function declaration");
-		after_thing1:;
 	}
 	if(peek()->data == TOK_SEMIC){
 		/*the declaration has ended, right here.*/
@@ -853,6 +852,8 @@ void parse_fn(int is_method){
 		if(is_predecl)
 			parse_error("Confused about whether this is actually predeclared or not.");
 	}
+	after_thing1:;
+	
 	t.arraylen = 0;
 	t.is_function = 1;
 	s.is_incomplete = is_predecl;

@@ -45,7 +45,7 @@ fn func_with_too_many_args(
 	int a18,
 	int a19,
 	int a20,
-)->i64:
+)->i64:;;;a20 = a20 = a20 + 1;
 	return a20 - '3' + 1;
 
 end
