@@ -25,7 +25,11 @@ typedef struct{
 int impl_builtin_getargc();
 char** impl_builtin_getargv();
 void* impl_builtin_malloc(uint64_t sz);
+void* impl_builtin_realloc(char* p, uint64_t sz);
+uint64_t impl_builtin_type_getsz(char* p_in);
+uint64_t impl_builtin_struct_metadata(uint64_t which);
 char* impl_builtin_strdup(char* s);
+void impl_builtin_free(char* p);
 void impl_builtin_exit(int32_t errcode);
 seabass_builtin_ast* impl_builtin_get_ast();
 strll* impl_builtin_peek();
@@ -35,7 +39,7 @@ int impl_builtin_open_ofile(char* fname);
 int impl_builtin_close_ofile();
 strll* impl_builtin_consume();
 uint64_t impl_builtin_emit(char* data, uint64_t sz);
-void impl_builtin_free(void* p);
+void impl_builtin_validate_function(char* p_in);
 
 int is_builtin_name(char* s);
 uint64_t get_builtin_nargs(char* s);

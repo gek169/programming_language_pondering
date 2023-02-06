@@ -52,7 +52,7 @@ char* impl_builtin_strdup(char* s){
 	return p;
 }
 
-void impl_builtin_free(void* p){
+void impl_builtin_free(char* p){
 	free(p);
 }
 
@@ -106,10 +106,16 @@ strll* impl_builtin_consume(){
 uint64_t impl_builtin_emit(char* data, uint64_t sz){
 	if(!ofile)
 	{
-		puts("<BUILTIN ERROR> Output file not open. Cannot emit anything.");
+		puts("<BUILTIN ERROR> Output file not opened. Cannot emit anything.");
 		exit(1);
 	}
 	return fwrite(data, 1, sz, ofile);
+}
+
+void validate_function(symdecl* funk);
+void impl_builtin_validate_function(char* p_in){
+	symdecl* funk = (symdecl*)p_in;
+	validate_function(funk);
 }
 
 
@@ -131,11 +137,12 @@ int is_builtin_name(char* s){
 	if(streq(s, "__builtin_realloc")) return 1;
 	if(streq(s, "__builtin_type_getsz")) return 1;
 	if(streq(s, "__builtin_struct_metadata")) return 1;
+	if(streq(s, "__builtin_validate_function")) return 1;
 	return 0;
 }
 
 uint64_t get_builtin_nargs(char* s){
-	if(streq(s, "__builtin_emit")) return 1;
+	if(streq(s, "__builtin_emit")) return 2;
 	if(streq(s, "__builtin_open_ofile")) return 1;
 	if(streq(s, "__builtin_close_ofile")) return 0;
 	if(streq(s, "__builtin_get_ast")) return 0;
@@ -151,6 +158,7 @@ uint64_t get_builtin_nargs(char* s){
 	if(streq(s, "__builtin_free")) return 1;
 	if(streq(s, "__builtin_realloc")) return 2;
 	if(streq(s, "__builtin_struct_metadata")) return 1;
+	if(streq(s, "__builtin_validate_function")) return 1;
 	return 0;
 }
 
@@ -172,6 +180,7 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_validate_function")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 
@@ -190,6 +199,7 @@ uint64_t get_builtin_arg1_type(char* s){
 	return 0;
 }
 uint64_t get_builtin_arg2_type(char* s){
+	if(streq(s, "__builtin_emit")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_gets")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U64;
 	return 0;
