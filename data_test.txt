@@ -249,7 +249,12 @@ fn fib(i64 n)->i64:
 	i64 c;
 	int* test;
 	myClass bruh;
-	if(n <= test)
+
+	test = cast(int*)3;
+	if(a != 7.0e3) return 1; end
+
+	
+	if(n <= 2)
 		return 1;
 	end
 	a = b = 1;

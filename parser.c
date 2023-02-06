@@ -1134,6 +1134,8 @@ void expr_parse_sizeof(expr_node** targ){
 	require(peek()->data == TOK_OPAREN, "expr_parse_sizeof requires opening parentheses");
 	consume();
 	f.type_to_get_size_of = parse_type();
+	//write idata.
+	f.idata = type_getsz(f.type_to_get_size_of);
 	require(peek()->data == TOK_CPAREN, "expr_parse_sizeof requires closing parentheses");
 	consume();
 	EXPR_PARSE_BOILERPLATE
