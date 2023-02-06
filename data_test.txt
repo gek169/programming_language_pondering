@@ -247,8 +247,9 @@ fn fib(i64 n)->i64:
 	i64 a;
 	i64 b;
 	i64 c;
+	int* test;
 	myClass bruh;
-	if(n <= cast(float)2)
+	if(n <= test)
 		return 1;
 	end
 	a = b = 1;
