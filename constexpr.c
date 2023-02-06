@@ -285,6 +285,8 @@ static int64_t cexpr_int_parse_paren(){
 	}
 	if(peek_match_keyw("constexprf")) return cexpr_constexprf();
 	if(peek_match_keyw("constexpri")) return cexpr_constexpri();
+
+
 	require(peek()->data == TOK_OPAREN, "Integer constexpr expected opening parentheses, float, ident, or integer...");
 	consume();
 	a = parse_cexpr_int();
@@ -304,6 +306,7 @@ static double cexpr_double_parse_paren(){
 	}
 	if(peek_match_keyw("constexprf")) return cexpr_constexprf();
 	if(peek_match_keyw("constexpri")) return cexpr_constexpri();
+
 
 	require(peek()->data == TOK_OPAREN, "Float constexpr expected opening parentheses, float, identifier, integer...");
 	consume();
