@@ -1149,11 +1149,51 @@ void expr_parse_paren(expr_node** targ){
 	consume();
 }
 
+void expr_parse_constexpri(expr_node** targ){
+	expr_node f = {0};
+	f.kind = EXPR_CONSTEXPR_INT;
+	require(peek_match_keyw("constexpri"),"expr_parse_constexpri requires the keyword sizeof");
+	consume();
+	require(peek()->data == TOK_OPAREN, "expr_parse_constexpri requires opening parentheses");
+	consume();
+
+	f.idata = parse_cexpr_int();
+	
+	require(peek()->data == TOK_CPAREN, "expr_parse_constexpri requires closing parentheses");
+	consume();
+	
+	
+	EXPR_PARSE_BOILERPLATE
+}
+
+void expr_parse_constexprf(expr_node** targ){
+	expr_node f = {0};
+	f.kind = EXPR_CONSTEXPR_FLOAT;
+	require(peek_match_keyw("constexprf"),"expr_parse_constexprf requires the keyword sizeof");
+	consume();
+	require(peek()->data == TOK_OPAREN, "expr_parse_constexprf requires opening parentheses");
+	consume();
+	f.fdata = parse_cexpr_double();
+	
+	require(peek()->data == TOK_CPAREN, "expr_parse_constexprf requires closing parentheses");
+	consume();
+	
+	EXPR_PARSE_BOILERPLATE
+}
+
 /*the terminal thing- a literal, identifier, function call, or sizeof*/
 void expr_parse_terminal(expr_node** targ){
 	if(peek_match_keyw("sizeof"))
 	{
 		expr_parse_sizeof(targ);
+		return;
+	}
+	if(peek_match_keyw("constexpri")){
+		expr_parse_constexpri(targ);
+		return;
+	}
+	if(peek_match_keyw("constexprf")){
+		expr_parse_constexprf(targ);
 		return;
 	}
 	if(peek()->data == TOK_FLOAT_CONST){

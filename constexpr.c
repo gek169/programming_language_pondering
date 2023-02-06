@@ -38,6 +38,7 @@ static double cexpr_double_parse_double(){
 }
 
 
+
 static int64_t cexpr_int_parse_ident(){
 	uint64_t symid;
 	uint64_t i;
@@ -236,10 +237,43 @@ static double cexpr_double_parse_ident(){
 }
 
 
+
+static int64_t cexpr_constexpri(){
+	int64_t rval;
+	require(peek_match_keyw("constexpri"),"cexpr_constexpri requires the keyword sizeof");
+	consume();
+	require(peek()->data == TOK_OPAREN, "cexpr_constexpri requires opening parentheses");
+	consume();
+
+	rval = parse_cexpr_int();
+	
+	require(peek()->data == TOK_CPAREN, "cexpr_constexpri requires closing parentheses");
+	consume();
+	
+	return rval;
+}
+static double cexpr_constexprf(){
+	double rval;
+	require(peek_match_keyw("constexprf"),"cexpr_constexprf requires the keyword sizeof");
+	consume();
+	require(peek()->data == TOK_OPAREN, "cexpr_constexprf requires opening parentheses");
+	consume();
+
+	rval = parse_cexpr_double();
+	
+	require(peek()->data == TOK_CPAREN, "cexpr_constexprf requires closing parentheses");
+	consume();
+	
+	return rval;
+}
+
+
 /*
-	TODO: This is the point where we would insert the ability to reference codegen functions
-	and variables.
+	TODO: This is the point where we would insert the ability to reference codegen functions.
 */
+
+
+
 
 static int64_t cexpr_int_parse_paren(){
 	int64_t a;
@@ -249,6 +283,8 @@ static int64_t cexpr_int_parse_paren(){
 		if(!peek_is_fname())
 			return cexpr_int_parse_ident();
 	}
+	if(peek_match_keyw("constexprf")) return cexpr_constexprf();
+	if(peek_match_keyw("constexpri")) return cexpr_constexpri();
 	require(peek()->data == TOK_OPAREN, "Integer constexpr expected opening parentheses, float, ident, or integer...");
 	consume();
 	a = parse_cexpr_int();
@@ -266,6 +302,8 @@ static double cexpr_double_parse_paren(){
 		if(!peek_is_fname())
 			return cexpr_double_parse_ident();
 	}
+	if(peek_match_keyw("constexprf")) return cexpr_constexprf();
+	if(peek_match_keyw("constexpri")) return cexpr_constexpri();
 
 	require(peek()->data == TOK_OPAREN, "Float constexpr expected opening parentheses, float, identifier, integer...");
 	consume();
