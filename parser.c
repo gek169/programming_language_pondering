@@ -6,7 +6,7 @@
 #include "parser.h"
 #include "data.h"
 #include "metaprogramming.h"
-
+#include "astexec.h"
 
 strll* unit;
 strll* next;
@@ -16,7 +16,6 @@ uint64_t symbol_generator_count = 1;
 
 void parse_expr(expr_node** targ);
 void validate_function(symdecl* funk);
-
 
 /*returns an owning pointer!*/
 char* gen_reserved_sym_name(){

@@ -93,6 +93,7 @@ typedef struct type{
 	char* membername; /*used for struct members and function arguments*/
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
+	uint64_t VM_function_stackframe_placement; /*For function args, used by the AST executor*/
 }type;
 
 

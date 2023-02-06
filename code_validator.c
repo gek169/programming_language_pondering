@@ -755,7 +755,7 @@ static void propagate_types(expr_node* ee){
 		}
 
 		ee->t = type_init();
-		ee->t.basetype = BASE_U64;
+		ee->t.basetype = BASE_I64;
 		ee->t.is_lvalue = 0;
 		return;
 	}

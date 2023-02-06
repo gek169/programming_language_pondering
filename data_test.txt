@@ -220,7 +220,7 @@ fn strlen(char* s)->u64:
 	u64 len;
 	len = 0;
 	float f;
-	//f = f % ((f|3));
+	f = (f|3) % ((f|3));
 	/*hello!*/	
 	while(s[0])
 		len++ % len;
