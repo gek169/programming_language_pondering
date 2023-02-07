@@ -803,12 +803,10 @@ static void propagate_types(expr_node* ee){
 		t = ee->subnodes[0]->t;
 		if(t.pointerlevel > 0)
 			throw_type_error("Cannot negate pointer.");
-		if(
-			t.basetype == BASE_U8 ||
-			t.basetype == BASE_U16 ||
-			t.basetype == BASE_U32 ||
-			t.basetype == BASE_U64
-		) t.basetype = BASE_I64;
+		if(t.basetype == BASE_U8) t.basetype = BASE_I8;
+		if(t.basetype == BASE_U16) t.basetype = BASE_I16;
+		if(t.basetype == BASE_U32) t.basetype = BASE_I32;
+		if(t.basetype == BASE_U64) t.basetype = BASE_I64;
 		ee->t = t;
 		ee->t.is_lvalue = 0;
 		return;

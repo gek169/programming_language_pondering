@@ -21,6 +21,10 @@ method vec4:add(vec4 other):
 
 	int q;
 	q = cast(i32)constexpri(some_other_int|7&3)+cast(i32)7;
+	uint a;
+	uint* bb;
+	a = cast(i8)(!!!!!!!!(~~~~~~~~(-a)))>=cast(i8)a;
+	a =  ~ -cast(f32)cast(i8)bb / cast(uint)bb;
 end
 
 codegen int myint;
