@@ -10,8 +10,74 @@
 #include "metaprogramming.h"
 #include "astexec.h"
 
+/*
+	VM Stack, used for the codegen stack.
+*/
+
 static ast_vm_stack_elem vm_stack[0x10000];
 static uint64_t vm_stackpointer = 0;
+
+/*
+	How much memory is the frame using?
+	what about the expression?
+*/
+uint64_t cur_func_frame_size = 0;
+uint64_t cur_expr_stack_usage = 0;
+
+static uint64_t ast_vm_stack_push(){
+	return vm_stackpointer++;
+}
+static uint64_t ast_vm_stack_push_lvar(symdecl* s){
+	uint64_t placement = ast_vm_stack_push();
+	vm_stack[placement].vname = s->name;
+	vm_stack[placement].identification = VM_VARIABLE;
+	vm_stack[placement].t = s->t; //NOTE: Includes lvalue information.
+	if(s->t.arraylen){
+		vm_stack[placement].ldata = calloc(type_getsz(s->t),1);
+	}
+	/*structs also get placement on the stack.*/
+	if(s->t.arraylen == 0)
+	if(s->t.pointerlevel == 0)
+	if(s->t.basetype == BASE_STRUCT){
+		vm_stack[placement].ldata = calloc(type_getsz(s->t),1);
+	}
+	return placement;
+}
+
+static uint64_t ast_vm_stack_push_temporary(char* name, type t){
+	uint64_t placement = ast_vm_stack_push();
+	vm_stack[placement].vname = name;
+	vm_stack[placement].ldata = NULL; //forbidden to have a struct or 
+	if(t.arraylen){
+		t.pointerlevel++;
+		t.arraylen = 0;
+		t.is_lvalue  = 0;
+	}
+	if(t.arraylen == 0)
+	if(t.pointerlevel == 0)
+	if(t.basetype == BASE_STRUCT){
+		if(t.is_lvalue == 0){
+			puts("<VM ERROR>");
+			puts("Struct Rvalue temporary?");
+			exit(1);
+		}
+		t.pointerlevel = 1;
+	}
+	vm_stack[placement].t = t;
+	return placement;
+}
+
+static void ast_vm_stack_pop(){
+	if(vm_stackpointer == 0){
+		puts("<VM ERROR> stack was popped while empty.");
+		exit(1);
+	}
+	if(vm_stack[vm_stackpointer-1].ldata)
+		free(vm_stack[vm_stackpointer-1].ldata);
+	vm_stack[vm_stackpointer-1].ldata = 0;
+	vm_stack[vm_stackpointer-1].vname = NULL; /*Don't want to accidentally pick this up in the future!*/
+	vm_stackpointer--;
+}
 
 
 /*math table*/
@@ -78,6 +144,21 @@ static uint64_t do_uincr(uint64_t a){return a+1;}
 static float do_fincr(float a){return a+1;}
 static double do_dincr(double a){return a+1;}
 
+static int64_t do_ineg(int64_t a){return -a;}
+static int64_t do_uneg(uint64_t a){return -a;}
+static float do_fneg(float a){return -a;}
+static double do_dneg(double a){return -a;}
+
+static int64_t do_inot(int64_t a){return !a;}
+static int64_t do_unot(uint64_t a){return !a;}
+static int64_t do_fnot(float a){return !a;}
+static int64_t do_dnot(double a){return !a;}
+
+static int64_t do_icompl(int64_t a){return ~a;}
+static int64_t do_ucompl(uint64_t a){return ~a;}
+static int64_t do_fcompl(float a){return ~(int64_t)a;}
+static int64_t do_dcompl(double a){return ~(int64_t)a;}
+
 static int64_t do_imod(int64_t a, int64_t b){return a % b;}
 static uint64_t do_umod(uint64_t a, uint64_t b){return a % b;}
 
@@ -89,6 +170,9 @@ static int64_t do_bitxor(int64_t a, int64_t b){return a ^ b;}
 static int64_t do_logand(int64_t a, int64_t b){return a && b;}
 static int64_t do_logor(int64_t a, int64_t b){return a || b;}
 
+static void* do_ptradd(char* ptr, int64_t num, uint64_t sz){
+	return ptr + num * sz;
+}
 /*a
 static float do_fmod(float a, float b){return a % b;}
 static double do_dmod(double a, double b){return a % b;}
@@ -110,7 +194,6 @@ static uint64_t determine_scope_usage(scope* s){
 				max_child_usage = cur_child_usage;
 		}
 	}
-
 	return my_usage + max_child_usage;
 }
 
@@ -132,5 +215,131 @@ uint64_t determine_fn_variable_stack_placements(symdecl* s){
 		;
 	}
 	return frame_size;
+}
+
+/*Get a pointer to the memory!*/
+static void* retrieve_variable_memory_pointer(
+	char* name, 
+	int is_global
+){
+	int64_t i;
+	int64_t j;
+	if(is_global){
+		for(i = 0; i < (int64_t)nsymbols; i++)
+			if(streq(symbol_table[i].name,name)){
+				if(symbol_table[i].is_incomplete){
+					puts("VM Error");
+					puts("This global:");
+					puts(name);
+					puts("Was incomplete at access time.");
+					exit(1);
+				}
+				if(symbol_table[i].t.is_function){
+					puts("VM Error");
+					puts("This global:");
+					puts(name);
+					puts("Was accessed as a variable, but it's a function!");
+					exit(1);
+				}
+				/*if it has no cdata- initialize it!*/
+				if(symbol_table[i].cdata == NULL){
+					uint64_t sz = type_getsz(symbol_table[i].t);
+					symbol_table[i].cdata = calloc(
+						sz,1
+					);
+					if(symbol_table[i].cdata == NULL){
+						puts("failed trying to calloc a global variable's cdata.");
+						exit(1);
+					}
+					symbol_table[i].cdata_sz = sz;
+				}
+				return symbol_table[i].cdata;
+		}
+		puts("VM ERROR");
+		puts("Could not find global:");
+		puts(name);
+		exit(1);
+	}
+
+	if(vm_stackpointer == 0){
+		puts("VM ERROR");
+		puts("Could not find local:");
+		puts(name);
+		exit(1);
+	}
+	/*Search for local variables in the vstack...*/
+
+	for(i = vm_stackpointer-1-cur_expr_stack_usage; 
+		i >= 0; 
+		i--
+	){
+		if(vm_stack[i].identification == VM_FFRAME_BEGIN) break;
+			if(vm_stack[i].vname)
+				if(streq(name, vm_stack[i].vname)){
+				
+					if(vm_stack[i].t.arraylen > 0)
+						return vm_stack[i].ldata;
+						
+					if(vm_stack[i].t.pointerlevel == 0)
+						if(vm_stack[i].t.basetype == BASE_STRUCT)
+							return vm_stack[i].ldata;
+				
+					return &(vm_stack[i].smalldata);
+				}
+		if(i == 0) break;
+	}
+	/*Search function arguments...*/
+	i = 0;
+	for(
+		j = vm_stackpointer /*points at first empty slot*/
+			-1 /*point at the first non-empty slot.*/
+			-cur_expr_stack_usage /*skip the expression.*/
+			-cur_func_frame_size  /*skip the frame- including local variables.*/
+		;
+		i < (int64_t)symbol_table[active_function].nargs;
+		j=j-1
+	)
+	{
+		if(
+			symbol_table[active_function]
+				.fargs[i]
+				->membername == name
+		){
+			/*We have it!*/
+			/*it's an array, get the ldata*/
+			if(vm_stack[j].t.arraylen > 0)
+				return vm_stack[j].ldata;
+			/*it's a struct, get the ldata*/
+			if(vm_stack[j].t.pointerlevel == 0)
+				if(vm_stack[j].t.basetype == BASE_STRUCT)
+					return vm_stack[j].ldata;
+			/*it's a primitive or pointer, get the smalldata.*/
+			return &(vm_stack[j].smalldata);
+		}
+		i++; /*Keep searching the list of args...*/
+		j--; /*Go deeper...*/
+	}
+	puts("VM ERROR");
+	puts("Could not find local:");
+	puts(name);
+	exit(1);
+}
+
+/*funky is needed so we can find local variable symbols.*/
+void do_expr(symdecl* funky, expr_node* ee){
+
+	/*Function calls and method calls both require saving information.*/
+	uint64_t saved_cur_func_frame_size = 0;
+	uint64_t saved_cur_expr_stack_usage = 0;
+	uint64_t saved_active_function=0;
+	/*
+		TODO:
+		* Evaluate all subnodes first.
+		* Keep track of how much the stack pointer changes from each node. It should always shift by one- we even keep track of voids.
+		* if this is a function call...
+			* We have to save the information about our current execution state, such as 
+			func 
+
+	*/
 }
 
