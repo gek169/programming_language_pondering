@@ -306,5 +306,8 @@ end
 
 method YWING:move(vec4 change):
 	this.pos:add(change);
+	return;
+	//testing....
 	this.rgba[3] = this.rgba[this.rgba[0]]+1;
+	cast(i64)(change.x=change.x) < change.y;
 end
