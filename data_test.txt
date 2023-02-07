@@ -301,9 +301,10 @@ end
 
 class YWING
 	vec4 pos
-	u8[1+1+1+1] rgba
+	i8[1+1+1+1] rgba
 end
 
 method YWING:move(vec4 change):
 	this.pos:add(change);
+	this.rgba[3] = this.rgba[this.rgba[0]]+1;
 end
