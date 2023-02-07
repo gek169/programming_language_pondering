@@ -219,6 +219,21 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 	}
 	if(s->kind == STMT_CONTINUE){
 		fputs("continue",stdout);
+		if(s->referenced_loop == NULL){
+			fputs("!!null!!",stdout);
+		}
+		if(s->referenced_loop != NULL){
+			if(s->referenced_loop->kind == STMT_FOR){
+				fputs("for",stdout);
+				goto valid_continue_loop_type;
+			}
+			if(s->referenced_loop->kind == STMT_WHILE){
+				fputs("while",stdout);
+				goto valid_continue_loop_type;
+			}
+			fputs("!!not_a_loop!!",stdout);
+			valid_continue_loop_type:;
+		}
 	}
 	if(s->kind == STMT_BREAK){
 		fputs("break ",stdout);
@@ -234,6 +249,7 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 				fputs("out of while",stdout);
 				goto valid_break_loop_type;
 			}
+			fputs("!!not_a_loop!!",stdout);
 			valid_break_loop_type:;
 		}
 	}
