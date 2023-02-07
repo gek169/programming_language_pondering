@@ -34,4 +34,14 @@ fn implied_conversion_tester(int a, int b)->f64:
 	int[30] myarray;
 	a = cast(u64) b;
 	myarray[a/b] = a - b;
+	return 3^3|3;
+end
+
+fn codegen builtin_tester()->i8:
+	u8* p;
+	p = "Goodbye!";
+	__builtin_puts(p);
+	__builtin_exit(1);
+	__builtin_memcpy(p,p,0);
+	return cast(i64)p;
 end

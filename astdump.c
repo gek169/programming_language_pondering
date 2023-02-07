@@ -164,7 +164,11 @@ static void astdump_printexpr(expr_node* e, uint64_t indentlevel){
 		if(e->symname)
 			fputs(e->symname,stdout);
 	}
-	if(c == EXPR_BUILTIN_CALL) fputs("builtin_call",stdout);
+	if(c == EXPR_BUILTIN_CALL) {
+		fputs("builtin_call ",stdout);
+		if(e->symname)
+			fputs(e->symname,stdout);
+	}
 	if(c == EXPR_CONSTEXPR_FLOAT) fputs("cexprf",stdout);
 	if(c == EXPR_CONSTEXPR_INT) fputs("cexpri",stdout);
 	//now dump the subexpressions.
