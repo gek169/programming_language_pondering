@@ -202,8 +202,9 @@ fn some_other_function(int a, sqword b)->sqword:
 
 	//why = 3;
 	if(1)
-		:doggo
+		goto doggo;
 	end
+		:doggo
 	goto doggo;
 	switch(3) 
 		doggo2, //do something

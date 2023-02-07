@@ -1578,6 +1578,27 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	);
 }
 
+static void validate_goto_target(stmt* me, char* name){
+	uint64_t i;
+	uint64_t j;
+	for(i=0;i<nscopes;i++){
+		stmt* stmtlist;
+		stmtlist = scopestack[i]->stmts;
+		for(j=0;j<scopestack[i]->nstmts;j++){
+			if(stmtlist[j].kind == STMT_LABEL)
+				if(streq(stmtlist[j].referenced_label_name,name))
+				{
+					//assign it!
+					me->referenced_loop = stmtlist + j;
+					return;
+				}
+		}
+	}
+	puts("Goto uses out-of-sequence jump target:");
+	puts(name);
+	validator_exit_err();
+}
+
 //also does goto validation.
 static void walk_assign_lsym_gsym(){
 	scope* current_scope;
@@ -1616,6 +1637,9 @@ static void walk_assign_lsym_gsym(){
 				puts(symbol_table[active_function].name);
 				exit(1);
 			}
+			scopestack_push(current_scope);
+				validate_goto_target(stmtlist + i, stmtlist[i].referenced_label_name);
+			scopestack_pop();
 		}
 
 		if(stmtlist[i].nexpressions > 0){

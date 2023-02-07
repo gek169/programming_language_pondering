@@ -191,6 +191,7 @@ typedef struct stmt{
 		What loop exactly has to be determined in a second pass,
 		since the stmt lists are continuously re-alloced.
 
+		Goto also uses this, for its jump target.
 	*/
 	char* referenced_label_name; /*goto gets a label. tail gets a function*/
 	char** switch_label_list;
