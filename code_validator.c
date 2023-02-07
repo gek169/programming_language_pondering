@@ -926,6 +926,7 @@ static void propagate_types(expr_node* ee){
 			return;
 		}
 		ee->t.basetype = type_promote(t.basetype, t2.basetype);
+		ee->t.is_lvalue = 0;
 		return;
 	}
 
@@ -1189,7 +1190,6 @@ static void validate_codegen_safety(expr_node* ee){
 			puts("Because it is not declared 'codegen'");
 			validator_exit_err();
 		}
-
 }
 
 static void insert_implied_type_conversion(expr_node** e_ptr, type t){
@@ -1332,25 +1332,26 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->kind == EXPR_ADD ||
 		ee->kind == EXPR_SUB ||
 		ee->kind == EXPR_EQ ||
-		ee->kind == EXPR_NEQ)
+		ee->kind == EXPR_NEQ
+	)
 	if(ee->subnodes[0]->t.pointerlevel == 0)
-	if(ee->subnodes[1]->t.pointerlevel == 0)
-	{
-		t_target.basetype = 
-		type_promote(
-			ee->subnodes[0]->t.basetype, 
-			ee->subnodes[1]->t.basetype
-		);
-		insert_implied_type_conversion(
-			ee->subnodes + 0,
-			t_target
-		);
-		insert_implied_type_conversion(
-			ee->subnodes + 1,
-			t_target
-		);
-		return;
-	}
+		if(ee->subnodes[1]->t.pointerlevel == 0)
+		{
+			t_target.basetype = 
+			type_promote(
+				ee->subnodes[0]->t.basetype, 
+				ee->subnodes[1]->t.basetype
+			);
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
+			insert_implied_type_conversion(
+				ee->subnodes + 1,
+				t_target
+			);
+			return;
+		}
 
 	/*Add Where the first one is a pointer...*/
 	if(ee->kind == EXPR_ADD)
