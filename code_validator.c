@@ -1583,9 +1583,6 @@ static void walk_assign_lsym_gsym(){
 					assign_lsym_gsym(stmtlist[i].expressions[j]);
 					propagate_types(stmtlist[i].expressions[j]);
 					validate_function_argument_passing(stmtlist[i].expressions[j]);
-					/*
-						TODO: Check function arguments for type compatibility.
-					*/
 					validate_codegen_safety(stmtlist[i].expressions[j]);
 					propagate_implied_type_conversions(stmtlist[i].expressions[j]);
 				scopestack_pop();
@@ -1714,15 +1711,7 @@ void validate_function(symdecl* funk){
 		this also checks to see if goto targets exist.
 	*/
 	walk_assign_lsym_gsym();
-	/*3. Insert implied type conversions.
-	*/
-
-
-	/*
-		(DONE)
-		1. enforce switch taking an integer type as its argument.
-		2. enforce return statement type.
-	*/
+	/*TODO: Assign loop pointers to continue and break statements.*/
 
 	/*
 		TODO:
