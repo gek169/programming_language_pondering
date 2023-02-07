@@ -1335,6 +1335,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 				t_target
 			);
 			t_target = ee->t;
+			t_target.is_lvalue = 0;
 			insert_implied_type_conversion(
 				ee->subnodes + 0,
 				t_target
@@ -1352,6 +1353,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 				t_target
 			);
 			t_target = ee->t;
+			t_target.is_lvalue = 0;
 			insert_implied_type_conversion(
 				ee->subnodes + 1,
 				t_target
@@ -1369,6 +1371,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			t_target
 		);
 		t_target = ee->t;
+		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target

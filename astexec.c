@@ -214,6 +214,19 @@ static uint64_t do_primitive_type_conversion(
 	uint64_t u64data;
 	double ddata;
 	float fdata;
+	if(sizeof(double) != 8 || sizeof(float) != 4 || sizeof(void*) != 8){
+		puts("<Seabass platform error>");
+		puts("The interpreter was written with heavy assumption of the sizes of built-in types.");
+		puts("Double must be 64 bit, 8 bytes");
+		puts("Float must be 32 bit, 4 bytes");
+		puts("Pointers must be 8 bytes.");
+		puts("You can write a code generator that doesn't respect this,");
+		puts("But `codegen` functions must always execute in an environment that abides by these limitations.");
+		puts("If your goal was to get a self-hosted implementation on a 32 bit system,");
+		puts("You will have to re-write or seriously modify the existing code.");
+		puts("Writing a 32bit-to-64bit cross compiler would be even more difficult...");
+		exit(1);
+	}
 	if(srcbase == whatbase) return thing;
 	/*integers of the same size are just a reinterpret cast...*/
 	if(whatbase == BASE_U8 && srcbase == BASE_I8) return thing;
@@ -227,6 +240,7 @@ static uint64_t do_primitive_type_conversion(
 		i64data = thing;
 		u64data = thing;
 	}
+
 	if(srcbase == BASE_F64){
 		memcpy(&ddata, &thing, 8);
 	}
@@ -255,12 +269,14 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_U8){
 		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
 			u16data = u8data;
-			memcpy(&thing, &u16data, 2);
+			memcpy(&thing, 
+			&u16data, 2);
 			return thing;
 		}
 		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
 			u32data = u8data;
-			memcpy(&thing, &u32data, 4);
+			memcpy(&thing, 
+			&u32data, 4);
 			return thing;
 		}
 		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
@@ -272,12 +288,14 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_U16){
 		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
 			u8data = u16data;
-			memcpy(&thing, &u8data, 1);
+			memcpy(&thing, 
+			&u8data, 1);
 			return thing;
 		}
 		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
 			u32data = u16data;
-			memcpy(&thing, &u32data, 4);
+			memcpy(&thing, 
+			&u32data, 4);
 			return thing;
 		}
 		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
@@ -289,12 +307,14 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_U32){
 		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
 			u8data = u32data;
-			memcpy(&thing, &u8data, 1);
+			memcpy(&thing, 
+			&u8data, 1);
 			return thing;
 		}
 		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
 			u16data = u32data;
-			memcpy(&thing, &u16data, 2);
+			memcpy(&thing, 
+			&u16data, 2);
 			return thing;
 		}
 		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
@@ -306,17 +326,20 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_U64){
 		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
 			u8data = u64data;
-			memcpy(&thing, &u8data, 1);
+			memcpy(&thing, 
+			&u8data, 1);
 			return thing;
 		}
 		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
 			u16data = u64data;
-			memcpy(&thing, &u16data, 2);
+			memcpy(&thing, 
+			&u16data, 2);
 			return thing;
 		}
 		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
 			u32data = u64data;
-			memcpy(&thing, &u32data, 4);
+			memcpy(&thing, 
+			&u32data, 4);
 			return thing;
 		}
 	}
@@ -324,13 +347,15 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_I8){
 		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
 			i16data = i8data;
-			memcpy(&thing, &i16data, 2);
+			memcpy(&thing, 
+			&i16data, 2);
 			return thing;
 
 		}
 		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
 			i32data = i8data;
-			memcpy(&thing, &i32data, 4);
+			memcpy(&thing, 
+			&i32data, 4);
 			return thing;
 
 		}
@@ -343,12 +368,14 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_I16){
 		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
 			i8data = i16data;
-			memcpy(&thing, &i8data, 1);
+			memcpy(&thing, 
+			&i8data, 1);
 			return thing;
 		}
 		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
 			i32data = i16data;
-			memcpy(&thing, &i32data, 4);
+			memcpy(&thing, 
+			&i32data, 4);
 			return thing;
 		}
 		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
@@ -360,12 +387,14 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_I32){
 		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
 			i8data = i32data;
-			memcpy(&thing, &i8data, 1);
+			memcpy(&thing, 
+			&i8data, 1);
 			return thing;
 		}
 		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
 			i16data = i32data;
-			memcpy(&thing, &i32data, 2);
+			memcpy(&thing, 
+			&i16data, 2);
 			return thing;
 		}
 		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
@@ -377,17 +406,20 @@ static uint64_t do_primitive_type_conversion(
 	if(srcbase == BASE_I64){
 		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
 			i8data = i64data;
-			memcpy(&thing, &i8data, 1);
+			memcpy(&thing, 
+			&i8data, 1);
 			return thing;
 		}
 		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
 			i16data = i64data;
-			memcpy(&thing, &i64data, 2);
+			memcpy(&thing, 
+			&i16data, 2);
 			return thing;
 		}
 		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
 			i32data = i64data;
-			memcpy(&thing, &i64data, 4);
+			memcpy(&thing, 
+			&i32data, 4);
 			return thing;
 		}
 	}
@@ -397,12 +429,14 @@ static uint64_t do_primitive_type_conversion(
 	*/
 	if(srcbase == BASE_F32 && whatbase == BASE_F64){
 		ddata = fdata;
-		memcpy(&thing, &ddata, 8);
+		memcpy(&thing, 
+		&ddata, 8);
 		return thing;
 	}
 	if(srcbase == BASE_F64 && whatbase == BASE_F32){
 		fdata = ddata;
-		memcpy(&thing, &ddata, 4);
+		memcpy(&thing, 
+		&fdata, 4);
 		return thing;
 	}
 	/*
@@ -419,12 +453,14 @@ static uint64_t do_primitive_type_conversion(
 	//do the copy!
 	if(whatbase == BASE_U8 || whatbase == BASE_I8){
 		u8data = i64data;
-		memcpy(&thing, &u8data,1);
+		memcpy(&thing, 
+		&u8data,1);
 		return thing;
 	}
 	if(whatbase == BASE_U16 || whatbase == BASE_I16){
 		u16data = i64data;
-		memcpy(&thing, &u16data,2);
+		memcpy(&thing, 
+		&u16data,2);
 		return thing;
 	}
 	if(whatbase == BASE_U32 || whatbase == BASE_I32){
@@ -432,7 +468,7 @@ static uint64_t do_primitive_type_conversion(
 		memcpy(&thing, &u32data,4);
 		return thing;
 	}
-	//it was one of the 64 bit ones!
+	//it was one of the 64 bit ones. In which case, i64data already holds the proper result.
 	return i64data;
 }
 
@@ -798,8 +834,185 @@ void do_expr(expr_node* ee){
 		memcpy(&p, &data, POINTER_SIZE);
 		
 		//perform the pointer addition
-		vm_stack[vm_stackpointer-2].smalldata =
-			(uint64_t)do_ptradd(p, ind, type_getsz(ee->t));
+			p = do_ptradd(p, ind, type_getsz(ee->t));
+		memcpy( &vm_stack[vm_stackpointer-2].smalldata, &p, POINTER_SIZE);
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+	if(ee->kind == EXPR_ADD){
+		int64_t i64data;
+		uint64_t u64data;
+		int32_t i32data;
+		uint32_t u32data;		
+		int16_t i16data;
+		uint16_t u16data;		
+		int8_t i8data;
+		uint8_t u8data;
+		float f32_1;
+		float f32_2;
+		double f64_1;
+		double f64_2;
+		/*case 1: both are i64 or u64, or pointer arithmetic.*/
+		if(
+			vm_stack[vm_stackpointer-2].t.pointerlevel > 0 ||
+			vm_stack[vm_stackpointer-1].t.pointerlevel > 0 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			vm_stack[vm_stackpointer-2].smalldata = 
+				vm_stack[vm_stackpointer-1].smalldata + 
+				vm_stack[vm_stackpointer-2].smalldata
+			;
+			goto end_expr_add;
+		}
+		/*case 3: both are i32 or u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			memcpy(&u32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			i32data = i32data + u32data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
+			goto end_expr_add;
+		}
+		/*case 4: both are i16 or u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			memcpy(&u16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			i16data = i16data + u16data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
+			goto end_expr_add;
+		}	
+		/*case 5: both are i8 or u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			memcpy(&u8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			i8data = i8data + u8data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
+			goto end_expr_add;
+		}
+		/*Case 6: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32_1, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			memcpy(&f32_2, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			f32_1 = f32_1 + f32_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
+			goto end_expr_add;
+		}		/*Case 6: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64_1, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			memcpy(&f64_2, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			f64_1 = f64_1 + f64_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
+			goto end_expr_add;
+		}
+		puts("VM ERROR");
+		puts("Unhandled add type.");
+		exit(1);
+
+		end_expr_add:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+	if(ee->kind == EXPR_SUB){
+		int64_t i64data;
+		uint64_t u64data;
+		int32_t i32data;
+		uint32_t u32data;		
+		int16_t i16data;
+		uint16_t u16data;		
+		int8_t i8data;
+		uint8_t u8data;
+		float f32_1;
+		float f32_2;
+		double f64_1;
+		double f64_2;
+		/*case 1: both are i64 or u64, or pointer arithmetic.*/
+		if(
+			vm_stack[vm_stackpointer-1].t.pointerlevel > 0 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			vm_stack[vm_stackpointer-2].smalldata = 
+				vm_stack[vm_stackpointer-1].smalldata -
+				vm_stack[vm_stackpointer-2].smalldata
+			;
+			goto end_expr_sub;
+		}
+		/*case 3: both are i32 or u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			memcpy(&u32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			i32data = i32data - u32data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
+			goto end_expr_sub;
+		}
+		/*case 4: both are i16 or u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			memcpy(&u16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			i16data = i16data - u16data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
+			goto end_expr_sub;
+		}	
+		/*case 5: both are i8 or u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			memcpy(&u8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			i8data = i8data - u8data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
+			goto end_expr_sub;
+		}
+		/*Case 6: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32_1, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			memcpy(&f32_2, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			f32_1 = f32_1 - f32_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
+			goto end_expr_sub;
+		}	
+		/*Case 7: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64_1, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			memcpy(&f64_2, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			f64_1 = f64_1 - f64_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
+			goto end_expr_sub;
+		}
+		puts("VM ERROR");
+		puts("Unhandled sub type.");
+		exit(1);
+
+		end_expr_sub:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
 	}
 
 
