@@ -3,8 +3,8 @@
 
 int myint;
 
-fn add1(int a)->double:
-	return 1+a;
+fn add1(int a, int b)->double:
+	return 1+a-- + add1(a,b+1);
 end
 
 //used for testing tail
