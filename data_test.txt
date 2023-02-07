@@ -72,14 +72,18 @@ method codegen public myClass:driveCar()->myClass*:
 end
 
 
+data predecl int mydata;
+
 fn not__builtin_puts(char* s):
 
 	int a
 	a = cast(int)cast(myClass*)strlen(s);
-
+	 a = mydata[1];
 	return;
 	not__builtin_puts(s);
 end
+
+data int mydata 1,2,(3|4);
 
 int myglobal1;
 

@@ -1759,6 +1759,10 @@ static void walk_assign_lsym_gsym(){
 					validate_function_argument_passing(stmtlist[i].expressions[j]);
 					validate_codegen_safety(stmtlist[i].expressions[j]);
 					propagate_implied_type_conversions(stmtlist[i].expressions[j]);
+
+					//Repeat for absolute safety
+					propagate_types(stmtlist[i].expressions[j]);
+					validate_function_argument_passing(stmtlist[i].expressions[j]);
 				scopestack_pop();
 			}
 		}
