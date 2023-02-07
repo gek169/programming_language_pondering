@@ -1644,7 +1644,6 @@ static void validate_goto_target(stmt* me, char* name){
 
 static void assign_scopediff_vardiff(stmt* me, scope* jtarget_scope, int is_return){
 	int64_t i;
-	uint64_t j;
 	uint64_t scopediff_sofar = 0;
 	uint64_t vardiff_sofar = 0;
 	for(i=nscopes-1;i>=0;i--){

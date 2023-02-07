@@ -84,97 +84,6 @@ static void ast_vm_stack_pop(){
 	vm_stackpointer--;
 }
 
-
-/*math table*/
-static int64_t do_ilt(int64_t a, int64_t b){return a < b;}
-static int64_t do_ult(uint64_t a, uint64_t b){return a < b;}
-static int64_t do_flt(float a, float b){return a < b;}
-static int64_t do_dlt(double a, double b){return a < b;}
-
-static int64_t do_ilte(int64_t a, int64_t b){return a <= b;}
-static int64_t do_ulte(uint64_t a, uint64_t b){return a <= b;}
-static int64_t do_flte(float a, float b){return a <= b;}
-static int64_t do_dlte(double a, double b){return a <= b;}
-
-static int64_t do_igt(int64_t a, int64_t b){return a > b;}
-static int64_t do_ugt(uint64_t a, uint64_t b){return a > b;}
-static int64_t do_fgt(float a, float b){return a > b;}
-static int64_t do_dgt(double a, double b){return a > b;}
-
-
-static int64_t do_igte(int64_t a, int64_t b){return a >= b;}
-static int64_t do_ugte(uint64_t a, uint64_t b){return a >= b;}
-static int64_t do_fgte(float a, float b){return a >= b;}
-static int64_t do_dgte(double a, double b){return a >= b;}
-
-
-static int64_t do_ieq(int64_t a, int64_t b){return a == b;}
-static int64_t do_ueq(uint64_t a, uint64_t b){return a == b;}
-static int64_t do_feq(float a, float b){return a == b;}
-static int64_t do_deq(double a, double b){return a == b;}
-
-static int64_t do_ineq(int64_t a, int64_t b){return a == b;}
-static int64_t do_uneq(uint64_t a, uint64_t b){return a == b;}
-static int64_t do_fneq(float a, float b){return a == b;}
-static int64_t do_dneq(double a, double b){return a == b;}
-
-
-static int64_t do_iadd(int64_t a, int64_t b){return a + b;}
-static uint64_t do_uadd(uint64_t a, uint64_t b){return a + b;}
-static float do_fadd(float a, float b){return a + b;}
-static double do_dadd(double a, double b){return a + b;}
-
-static int64_t do_isub(int64_t a, int64_t b){return a - b;}
-static uint64_t do_usub(uint64_t a, uint64_t b){return a - b;}
-static float do_fsub(float a, float b){return a - b;}
-static double do_dsub(double a, double b){return a - b;}
-
-static int64_t do_imul(int64_t a, int64_t b){return a * b;}
-static uint64_t do_umul(uint64_t a, uint64_t b){return a * b;}
-static float do_fmul(float a, float b){return a * b;}
-static double do_dmul(double a, double b){return a * b;}
-
-static int64_t do_idiv(int64_t a, int64_t b){return a / b;}
-static uint64_t do_udiv(uint64_t a, uint64_t b){return a / b;}
-static float do_fdiv(float a, float b){return a / b;}
-static double do_ddiv(double a, double b){return a / b;}
-
-static int64_t do_idecr(int64_t a){return a-1;}
-static uint64_t do_udecr(uint64_t a){return a-1;}
-static float do_fdecr(float a){return a-1;}
-static double do_ddecr(double a){return a-1;}
-
-static int64_t do_iincr(int64_t a){return a+1;}
-static uint64_t do_uincr(uint64_t a){return a+1;}
-static float do_fincr(float a){return a+1;}
-static double do_dincr(double a){return a+1;}
-
-static int64_t do_ineg(int64_t a){return -a;}
-static int64_t do_uneg(uint64_t a){return -a;}
-static float do_fneg(float a){return -a;}
-static double do_dneg(double a){return -a;}
-
-static int64_t do_inot(int64_t a){return !a;}
-static int64_t do_unot(uint64_t a){return !a;}
-static int64_t do_fnot(float a){return !a;}
-static int64_t do_dnot(double a){return !a;}
-
-static int64_t do_icompl(int64_t a){return ~a;}
-static int64_t do_ucompl(uint64_t a){return ~a;}
-static int64_t do_fcompl(float a){return ~(int64_t)a;}
-static int64_t do_dcompl(double a){return ~(int64_t)a;}
-
-static int64_t do_imod(int64_t a, int64_t b){return a % b;}
-static uint64_t do_umod(uint64_t a, uint64_t b){return a % b;}
-
-static int64_t do_lsh(int64_t a, int64_t b){return a<<b;}
-static int64_t do_rsh(int64_t a, int64_t b){return a>>b;}
-static int64_t do_bitand(int64_t a, int64_t b){return a&b;}
-static int64_t do_bitor(int64_t a, int64_t b){return a|b;}
-static int64_t do_bitxor(int64_t a, int64_t b){return a ^ b;}
-static int64_t do_logand(int64_t a, int64_t b){return a && b;}
-static int64_t do_logor(int64_t a, int64_t b){return a || b;}
-
 static void* do_ptradd(char* ptr, int64_t num, uint64_t sz){
 	return ptr + num * sz;
 }
@@ -492,34 +401,34 @@ static void* retrieve_variable_memory_pointer(
 	int64_t j;
 	if(is_global){
 		for(i = 0; i < (int64_t)nsymbols; i++)
-			if(streq(symbol_table[i].name,name)){
-				if(symbol_table[i].is_incomplete){
-					puts("VM Error");
-					puts("This global:");
-					puts(name);
-					puts("Was incomplete at access time.");
-					exit(1);
-				}
-				if(symbol_table[i].t.is_function){
-					puts("VM Error");
-					puts("This global:");
-					puts(name);
-					puts("Was accessed as a variable, but it's a function!");
-					exit(1);
-				}
-				/*if it has no cdata- initialize it!*/
+		if(streq(symbol_table[i].name,name)){
+			if(symbol_table[i].is_incomplete){
+				puts("VM Error");
+				puts("This global:");
+				puts(name);
+				puts("Was incomplete at access time.");
+				exit(1);
+			}
+			if(symbol_table[i].t.is_function){
+				puts("VM Error");
+				puts("This global:");
+				puts(name);
+				puts("Was accessed as a variable, but it's a function!");
+				exit(1);
+			}
+			/*if it has no cdata- initialize it!*/
+			if(symbol_table[i].cdata == NULL){
+				uint64_t sz = type_getsz(symbol_table[i].t);
+				symbol_table[i].cdata = calloc(
+					sz,1
+				);
 				if(symbol_table[i].cdata == NULL){
-					uint64_t sz = type_getsz(symbol_table[i].t);
-					symbol_table[i].cdata = calloc(
-						sz,1
-					);
-					if(symbol_table[i].cdata == NULL){
-						puts("failed trying to calloc a global variable's cdata.");
-						exit(1);
-					}
-					symbol_table[i].cdata_sz = sz;
+					puts("failed trying to calloc a global variable's cdata.");
+					exit(1);
 				}
-				return symbol_table[i].cdata;
+				symbol_table[i].cdata_sz = sz;
+			}
+			return symbol_table[i].cdata;
 		}
 		puts("VM ERROR");
 		puts("Could not find global:");
@@ -536,7 +445,7 @@ static void* retrieve_variable_memory_pointer(
 	/*Search for local variables in the vstack...*/
 
 	for(i = vm_stackpointer-1-cur_expr_stack_usage; 
-		i >= 0; 
+		i > (int64_t)vm_stackpointer-(int64_t)1-(int64_t)cur_expr_stack_usage-(int64_t)cur_func_frame_size; 
 		i--
 	){
 		if(vm_stack[i].identification == VM_FFRAME_BEGIN) break;
@@ -558,13 +467,13 @@ static void* retrieve_variable_memory_pointer(
 	/*Search function arguments...*/
 	i = 0;
 	for(
-		j = vm_stackpointer /*points at first empty slot*/
-			-1 /*point at the first non-empty slot.*/
-			-cur_expr_stack_usage /*skip the expression.*/
-			-cur_func_frame_size  /*skip the frame- including local variables.*/
+		j = (int64_t)vm_stackpointer /*points at first empty slot*/
+			-(int64_t)1 /*point at the first non-empty slot.*/
+			-(int64_t)cur_expr_stack_usage /*skip the expression.*/
+			-(int64_t)cur_func_frame_size  /*skip the frame- including local variables.*/
 		;
 		i < (int64_t)symbol_table[active_function].nargs;//MORE ARGS
-		j=j-1 											 //DEEPER
+		j--												 //DEEPER
 	)
 	{
 		if(
@@ -613,7 +522,21 @@ void do_expr(expr_node* ee){
 
 	*/
 
-	/*Required for the return value.*/
+	/*Do the subnodes in reverse order!
+		The result is that the arguments are placed on the stack in the reverse order,
+		which is the VM's ABI.
+
+		fn myFunc(int a1, int a2, int a3):
+			int a4;
+			int a5;
+		end
+		becomes:
+		a5
+		a4
+		a1
+		a2
+		a3
+	*/
 	if(	ee->kind == EXPR_FCALL ||
 		ee->kind == EXPR_METHOD ||
 		ee->kind == EXPR_BUILTIN_CALL
@@ -621,15 +544,17 @@ void do_expr(expr_node* ee){
 		uint64_t loc = ast_vm_stack_push_temporary(NULL, ee->t);
 		vm_stack[loc].t = ee->t;
 		saved_vstack_pointer = vm_stackpointer;
-		for(i = MAX_FARGS; i >= 0; i--){
-			if(ee->subnodes[i]){
+		for(i = MAX_FARGS-1; i >= 0; i--)
+		{
+			if(ee->subnodes[i])
+			{
 				do_expr(ee->subnodes[i]);
 				n_subexpressions++;
 			}
 			if(i == 0) break;
 		}
 	}
-	/*Otherwise, in-order*/
+	/*Otherwise, in-order.*/
 	if(
 		ee->kind != EXPR_FCALL &&
 		ee->kind != EXPR_METHOD &&
@@ -736,7 +661,10 @@ void do_expr(expr_node* ee){
 			pt = do_deref(p, POINTER_SIZE);
 			levels_of_indirection = levels_of_indirection - 1;
 		}
-		pt += get_offsetof(type_table + ee->subnodes[0]->t.structid, ee->symname);
+		pt = pt + get_offsetof(
+			type_table + ee->subnodes[0]->t.structid, 
+			ee->symname
+		);
 		vm_stack[vm_stackpointer-1].smalldata = pt;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
@@ -752,9 +680,445 @@ void do_expr(expr_node* ee){
 		t.pointerlevel--; //it's actually one less.
 		memcpy(p1, p2, type_getsz(t));
 		ast_vm_stack_pop(); //no longer need the second operand.
+		//
 		vm_stack[vm_stackpointer-1].smalldata = (uint64_t)p2;
+		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
+	if(ee->kind == EXPR_ASSIGN){
+		void* p1;
+		uint64_t val;
+		//it's an lvalue... therefore, a pointer
+		memcpy(&p1, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+		//grab some number of bytes...
+		memcpy(&val, &vm_stack[vm_stackpointer-1].smalldata, 8);
+		//If it's a pointer, we copy 8 bytes.
+		if(ee->t.pointerlevel > 0){
+			memcpy(p1, &val, POINTER_SIZE);
+			goto end_expr_assign;
+		}
+		if(
+			ee->t.basetype == BASE_I64 || 
+			ee->t.basetype == BASE_F64 ||
+			ee->t.basetype == BASE_U64)
+		{
+			memcpy(p1, &val, 8);
+			goto end_expr_assign;
+		}
+		if(
+			ee->t.basetype == BASE_I32 || 
+			ee->t.basetype == BASE_F32 ||
+			ee->t.basetype == BASE_U32)
+		{
+			memcpy(p1, &val, 4);
+			goto end_expr_assign;
+		}
+		if(
+			ee->t.basetype == BASE_I16 ||
+			ee->t.basetype == BASE_U16
+		)
+		{
+			memcpy(p1, &val, 2);
+			goto end_expr_assign;
+		}
+		if(
+			ee->t.basetype == BASE_I8 ||
+			ee->t.basetype == BASE_U8
+		)
+		{
+			memcpy(p1, &val, 1);
+			goto end_expr_assign;
+		}
+		puts("VM internal error");
+		puts("Unhandled assignment type.");
+		exit(1);
+
+		end_expr_assign:;
+		ast_vm_stack_pop(); //no longer need the second operand.
+		vm_stack[vm_stackpointer-1].smalldata = val;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+
+	if(ee->kind == EXPR_PRE_INCR){
+		void* p1;
+		uint64_t val;
+		int32_t i32data;
+		int16_t i16data;
+		int8_t i8data;
+		float f32data;
+		double f64data;
+		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
+		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+		//grab the actual value at that address...
+		memcpy(&val, p1, 8);
+		//If the actual thing we're changing is a pointer,
+		//we have to determine how much to increment by.
+		//We have to determine how much to increment or decrement.
+		if(ee->t.pointerlevel > 0){
+			uint64_t how_much_to_change;
+			type t2;
+			t2 = ee->t;
+			t2.pointerlevel--;
+			how_much_to_change = type_getsz(t2);
+			val = val + how_much_to_change;
+			memcpy(p1, &val, POINTER_SIZE);
+			//Pre-increment is automatically handled as val will be updated.
+			//val = val - how_much_to_change;//post
+			goto end_expr_pre_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I64 || 
+			ee->t.basetype == BASE_U64
+		)
+		{
+			val++;
+			memcpy(p1, &val, 8);
+			//pre-increment auto handled, val is set
+			//val--;//post
+			goto end_expr_pre_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I32 || 
+			ee->t.basetype == BASE_U32)
+		{
+			memcpy(&i32data, &val, 4);
+			i32data++;
+			memcpy(p1, &i32data, 4);
+			memcpy(&val, &i32data, 4); //pre
+			goto end_expr_pre_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I16 ||
+			ee->t.basetype == BASE_U16
+		)
+		{
+			memcpy(&i16data, &val, 2);
+			i16data++;
+			memcpy(p1, &i16data, 2);
+			memcpy(&val, &i16data, 2); //pre
+			goto end_expr_pre_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I8 ||
+			ee->t.basetype == BASE_U8
+		)
+		{
+			memcpy(&i8data, &val, 1);
+			i8data++;
+			memcpy(p1, &i8data, 1);
+			memcpy(&val, &i8data, 1); //pre
+			goto end_expr_pre_incr;
+		}
+		if(ee->t.basetype == BASE_F64){
+			memcpy(&f64data, &val, 8);
+			f64data = f64data + 1;
+			memcpy(p1, &f64data, 8);
+			memcpy(&val, &f64data, 8);//pre
+			goto end_expr_pre_incr;
+		}	
+		if(ee->t.basetype == BASE_F32){
+			memcpy(&f32data, &val, 4);
+			f32data = f32data + 1;
+			memcpy(p1, &f32data, 4);
+			memcpy(&val, &f32data, 4); //pre
+			goto end_expr_pre_incr;
+		}
+		puts("VM internal error");
+		puts("Unhandled pre_incr type.");
+		exit(1);
+
+		end_expr_pre_incr:;
+		vm_stack[vm_stackpointer-1].smalldata = val;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+
+
+	if(ee->kind == EXPR_PRE_DECR){
+		void* p1;
+		uint64_t val;
+		int32_t i32data;
+		int16_t i16data;
+		int8_t i8data;
+		float f32data;
+		double f64data;
+		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
+		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+		//grab the actual value at that address...
+		memcpy(&val, p1, 8);
+		//If the actual thing we're changing is a pointer,
+		//we have to determine how much to increment by.
+		//We have to determine how much to increment or decrement.
+		if(ee->t.pointerlevel > 0){
+			uint64_t how_much_to_change;
+			type t2;
+			t2 = ee->t;
+			t2.pointerlevel--;
+			how_much_to_change = type_getsz(t2);
+			val = val - how_much_to_change;
+			memcpy(p1, &val, POINTER_SIZE);
+			//Pre-increment is automatically handled as val will be updated.
+			//val = val + how_much_to_change;//post
+			goto end_expr_pre_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I64 || 
+			ee->t.basetype == BASE_U64
+		)
+		{
+			val--;
+			memcpy(p1, &val, 8);
+			//pre-increment auto handled, val is set
+			//val++;//post
+			goto end_expr_pre_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I32 || 
+			ee->t.basetype == BASE_U32)
+		{
+			memcpy(&i32data, &val, 4);
+			i32data--;
+			memcpy(p1, &i32data, 4);
+			memcpy(&val, &i32data, 4); //pre
+			goto end_expr_pre_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I16 ||
+			ee->t.basetype == BASE_U16
+		)
+		{
+			memcpy(&i16data, &val, 2);
+			i16data--;
+			memcpy(p1, &i16data, 2);
+			memcpy(&val, &i16data, 2); //pre
+			goto end_expr_pre_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I8 ||
+			ee->t.basetype == BASE_U8
+		)
+		{
+			memcpy(&i8data, &val, 1);
+			i8data--;
+			memcpy(p1, &i8data, 1);
+			memcpy(&val, &i8data, 1); //pre
+			goto end_expr_pre_decr;
+		}
+		if(ee->t.basetype == BASE_F64){
+			memcpy(&f64data, &val, 8);
+			f64data = f64data - 1;
+			memcpy(p1, &f64data, 8);
+			memcpy(&val, &f64data, 8);//pre
+			goto end_expr_pre_decr;
+		}	
+		if(ee->t.basetype == BASE_F32){
+			memcpy(&f32data, &val, 4);
+			f32data = f32data - 1;
+			memcpy(p1, &f32data, 4);
+			memcpy(&val, &f32data, 4); //pre
+			goto end_expr_pre_decr;
+		}
+		puts("VM internal error");
+		puts("Unhandled post_decr type.");
+		exit(1);
+
+		end_expr_pre_decr:;
+		vm_stack[vm_stackpointer-1].smalldata = val;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+
+
+	if(ee->kind == EXPR_POST_INCR){
+		void* p1;
+		uint64_t val;
+		int32_t i32data;
+		int16_t i16data;
+		int8_t i8data;
+		float f32data;
+		double f64data;
+		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
+		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+		//grab the actual value at that address...
+		memcpy(&val, p1, 8);
+		//If the actual thing we're changing is a pointer,
+		//we have to determine how much to increment by.
+		//We have to determine how much to increment or decrement.
+		if(ee->t.pointerlevel > 0){
+			uint64_t how_much_to_change;
+			type t2;
+			t2 = ee->t;
+			t2.pointerlevel--;
+			how_much_to_change = type_getsz(t2);
+			val = val + how_much_to_change;
+			memcpy(p1, &val, POINTER_SIZE);
+			//Pre-increment is automatically handled as val will be updated.
+			val = val - how_much_to_change;//post
+			goto end_expr_post_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I64 || 
+			ee->t.basetype == BASE_U64
+		)
+		{
+			val++;
+			memcpy(p1, &val, 8);
+			//pre-increment auto handled, val is set
+			val--;//post
+			goto end_expr_post_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I32 || 
+			ee->t.basetype == BASE_U32)
+		{
+			memcpy(&i32data, &val, 4);
+			i32data++;
+			memcpy(p1, &i32data, 4);
+			//memcpy(&val, &i32data, 4); //pre
+			goto end_expr_post_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I16 ||
+			ee->t.basetype == BASE_U16
+		)
+		{
+			memcpy(&i16data, &val, 2);
+			i16data++;
+			memcpy(p1, &i16data, 2);
+			//memcpy(&val, &i16data, 2); //pre
+			goto end_expr_post_incr;
+		}
+		if(
+			ee->t.basetype == BASE_I8 ||
+			ee->t.basetype == BASE_U8
+		)
+		{
+			memcpy(&i8data, &val, 1);
+			i8data++;
+			memcpy(p1, &i8data, 1);
+			//memcpy(&val, &i8data, 1); //pre
+			goto end_expr_post_incr;
+		}
+		if(ee->t.basetype == BASE_F64){
+			memcpy(&f64data, &val, 8);
+			f64data = f64data + 1;
+			memcpy(p1, &f64data, 8);
+			//memcpy(&val, &f64data, 8);//pre
+			goto end_expr_post_incr;
+		}	
+		if(ee->t.basetype == BASE_F32){
+			memcpy(&f32data, &val, 4);
+			f32data = f32data + 1;
+			memcpy(p1, &f32data, 4);
+			//memcpy(&val, &f32data, 4); //pre
+			goto end_expr_post_incr;
+		}
+		puts("VM internal error");
+		puts("Unhandled post_incr type.");
+		exit(1);
+
+		end_expr_post_incr:;
+		vm_stack[vm_stackpointer-1].smalldata = val;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+	if(ee->kind == EXPR_POST_DECR){
+		void* p1;
+		uint64_t val;
+		int32_t i32data;
+		int16_t i16data;
+		int8_t i8data;
+		float f32data;
+		double f64data;
+		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
+		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+		//grab the actual value at that address...
+		memcpy(&val, p1, 8);
+		//If the actual thing we're changing is a pointer,
+		//we have to determine how much to increment by.
+		//We have to determine how much to increment or decrement.
+		if(ee->t.pointerlevel > 0){
+			uint64_t how_much_to_change;
+			type t2;
+			t2 = ee->t;
+			t2.pointerlevel--;
+			how_much_to_change = type_getsz(t2);
+			val = val - how_much_to_change;
+			memcpy(p1, &val, POINTER_SIZE);
+			//Pre-increment is automatically handled as val will be updated.
+			val = val + how_much_to_change;//post
+			goto end_expr_post_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I64 || 
+			ee->t.basetype == BASE_U64
+		)
+		{
+			val--;
+			memcpy(p1, &val, 8);
+			//pre-increment auto handled, val is set
+			val++;//post
+			goto end_expr_post_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I32 || 
+			ee->t.basetype == BASE_U32)
+		{
+			memcpy(&i32data, &val, 4);
+			i32data--;
+			memcpy(p1, &i32data, 4);
+			//memcpy(&val, &i32data, 4); //pre
+			goto end_expr_post_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I16 ||
+			ee->t.basetype == BASE_U16
+		)
+		{
+			memcpy(&i16data, &val, 2);
+			i16data--;
+			memcpy(p1, &i16data, 2);
+			//memcpy(&val, &i16data, 2); //pre
+			goto end_expr_post_decr;
+		}
+		if(
+			ee->t.basetype == BASE_I8 ||
+			ee->t.basetype == BASE_U8
+		)
+		{
+			memcpy(&i8data, &val, 1);
+			i8data--;
+			memcpy(p1, &i8data, 1);
+			//memcpy(&val, &i8data, 1); //pre
+			goto end_expr_post_decr;
+		}
+		if(ee->t.basetype == BASE_F64){
+			memcpy(&f64data, &val, 8);
+			f64data = f64data - 1;
+			memcpy(p1, &f64data, 8);
+			//memcpy(&val, &f64data, 8);//pre
+			goto end_expr_post_decr;
+		}	
+		if(ee->t.basetype == BASE_F32){
+			memcpy(&f32data, &val, 4);
+			f32data = f32data - 1;
+			memcpy(p1, &f32data, 4);
+			//memcpy(&val, &f32data, 4); //pre
+			goto end_expr_post_decr;
+		}
+		puts("VM internal error");
+		puts("Unhandled pre_decr type.");
+		exit(1);
+
+		end_expr_post_decr:;
+		vm_stack[vm_stackpointer-1].smalldata = val;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+
+
+	
 	if(ee->kind == EXPR_CAST){
 		uint64_t data;
 		void* p;
@@ -1075,7 +1439,7 @@ void do_expr(expr_node* ee){
 		int64_t b;
 		//a = vm_stack[vm_stackpointer-2].smalldata;
 		b = vm_stack[vm_stackpointer-1].smalldata;
-		b = ~b;
+		b = ~(int64_t)b;
 		vm_stack[vm_stackpointer-1].smalldata = b;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
@@ -1083,8 +1447,91 @@ void do_expr(expr_node* ee){
 	if(ee->kind == EXPR_NOT){
 		int64_t b;
 		b = vm_stack[vm_stackpointer-1].smalldata;
-		b = !b;
+		b = !(int64_t)b;
 		vm_stack[vm_stackpointer-1].smalldata = b;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+	if(ee->kind == EXPR_NEG){
+		int64_t i64data;
+		int32_t i32data;
+		int16_t i16data;
+		int8_t i8data;
+		float f32_1;
+		double f64_1;
+
+		
+		/*Case I64*/
+		if(
+			ee->t.basetype == BASE_I64
+		){
+			memcpy(&i64data, &vm_stack[vm_stackpointer-1].smalldata, 
+			8);
+			i64data = -1 * i64data;
+			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i64data, 
+			8);
+			goto end_expr_neg;
+		}		
+		/*Case I32*/
+		if(
+			ee->t.basetype == BASE_I32
+		){
+			memcpy(&i32data, &vm_stack[vm_stackpointer-1].smalldata, 
+			4);
+			i32data = -1 * i32data;
+			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i32data, 
+			4);
+			goto end_expr_neg;
+		}		
+		/*Case I16*/
+		if(
+			ee->t.basetype == BASE_I16
+		){
+			memcpy(&i16data, &vm_stack[vm_stackpointer-1].smalldata, 
+			2);
+			i16data = -1 * i16data;
+			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i16data, 
+			2);
+			goto end_expr_neg;
+		}		
+		/*Case I8*/
+		if(
+			ee->t.basetype == BASE_I8
+		){
+			memcpy(&i8data, &vm_stack[vm_stackpointer-1].smalldata, 
+			1);
+			i8data = -1 * i8data;
+			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i8data, 
+			1);
+			goto end_expr_neg;
+		}
+		/*Case last: f32*/
+		if(
+			ee->t.basetype == BASE_F32
+		){
+			memcpy(&f32_1, &vm_stack[vm_stackpointer-1].smalldata, 
+			4);
+			f32_1 = -1 * f32_1;
+			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &f32_1, 
+			4);
+			goto end_expr_neg;
+		}
+
+		/*Case last: f64*/
+		if(
+			ee->t.basetype == BASE_F64
+		){
+			memcpy(&f64_1, &vm_stack[vm_stackpointer-1].smalldata, 
+			8);
+			f64_1 = -1 * f64_1;
+			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &f64_1, 
+			8);
+			goto end_expr_neg;
+		}
+		puts("VM ERROR");
+		puts("Unhandled neg type.");
+		exit(1);
+		end_expr_neg:;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
@@ -1998,6 +2445,278 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-2].t.pointerlevel = 0;
 		}
 	}
+
+	if(ee->kind == EXPR_EQ)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = u64data1 == u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}		
+
+		/*case 2: both are i64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 == i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}
+
+		/*case 1: both are u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = u32data1 == u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}		
+		/*case 2: both are i32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = i32data1 == i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}
+		/*case 1: both are u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = u16data1 == u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}		
+		/*case 2: both are i16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = i16data1 == i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}		
+		/*case 1: both are u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = u8data1 == u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}
+		/*case 2: both are i8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = i8data1 == i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}
+		/*case 1: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = f32data1 == f32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}		/*case 1: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			i64data1 = f64data1 == f64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_eq;
+		}
+		
+		puts("VM ERROR");
+		puts("Unhandled isequal type.");
+		exit(1);
+
+		end_expr_eq:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+
+
+
+
+	if(ee->kind == EXPR_NEQ)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = u64data1 != u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}		
+
+		/*case 2: both are i64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 != i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}
+
+		/*case 1: both are u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = u32data1 != u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}		
+		/*case 2: both are i32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = i32data1 != i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}
+		/*case 1: both are u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = u16data1 != u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}		
+		/*case 2: both are i16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = i16data1 != i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}		
+		/*case 1: both are u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = u8data1 != u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}
+		/*case 2: both are i8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = i8data1 != i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}
+		/*case 1: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = f32data1 != f32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}		/*case 1: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			i64data1 = f64data1 != f64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_neq;
+		}
+		
+		puts("VM ERROR");
+		puts("Unhandled isnequal type.");
+		exit(1);
+
+		end_expr_neq:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+
 
 
 

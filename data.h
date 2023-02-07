@@ -208,6 +208,11 @@ typedef struct stmt{
 } stmt;
 
 enum{
+	/*
+		LIST OF EXPRESSION TYPES
+	*/
+	//The slash-slash comments indicate the VM implementation status.
+	//They will be removed when I am done with the VM's expression executor.
 	EXPR_BAD=0,
 	EXPR_BUILTIN_CALL, //DONE
 	EXPR_FCALL, //TODO:invoke ast_call_function
@@ -218,20 +223,20 @@ enum{
 	EXPR_STRINGLIT, //DONE
 	EXPR_LSYM, //DONE
 	EXPR_GSYM, //DONE
-	EXPR_SYM, 
+	EXPR_SYM, //E_WONTFIX
 	/*unary postfix operators*/
-	EXPR_POST_INCR,
-	EXPR_POST_DECR,
-	EXPR_INDEX,
-	EXPR_MEMBER, //TODO: invoke method.
-	EXPR_METHOD, /*:myMethod(), the name mangling has to happen during the second pass.*/
+	EXPR_POST_INCR, //DONE
+	EXPR_POST_DECR, //DONE
+	EXPR_INDEX, //DONE
+	EXPR_MEMBER, //DONE
+	EXPR_METHOD, //TODO: invoke method.
 	/*unary prefix operators*/
-	EXPR_CAST,
-	EXPR_NEG,
-	EXPR_COMPL,
-	EXPR_NOT,
-	EXPR_PRE_INCR,
-	EXPR_PRE_DECR,
+	EXPR_CAST, //DONE
+	EXPR_NEG, //DONE
+	EXPR_COMPL, //DONE
+	EXPR_NOT, //DONE
+	EXPR_PRE_INCR, //DONE
+	EXPR_PRE_DECR, //DONE
 	/*binary operators starting at the bottom*/
 	EXPR_MUL, //DONE
 	EXPR_DIV, //DONE
@@ -250,9 +255,9 @@ enum{
 	EXPR_GT, //DONE
 	EXPR_LTE, //DONE
 	EXPR_GTE, //DONE
-	EXPR_EQ,
-	EXPR_NEQ,
-	EXPR_ASSIGN,
+	EXPR_EQ, //DONE
+	EXPR_NEQ, //DONE
+	EXPR_ASSIGN, //DONE
 	EXPR_MOVE, //DONE
 	EXPR_CONSTEXPR_FLOAT, //DONE
 	EXPR_CONSTEXPR_INT, //DONE
