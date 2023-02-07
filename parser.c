@@ -2025,6 +2025,7 @@ void parse_switch(){
 		if(peek_is_semic()) {consume();break;}
 	}
 	require(me->switch_nlabels > 0, "switch statement must have at least one label.");
+	me->switch_label_indices = c_allocX(8 * me->switch_nlabels);
 	//end:;
 	me->expressions[0] = e;
 }

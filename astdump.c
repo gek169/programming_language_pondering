@@ -196,7 +196,23 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 	if(s->kind == STMT_GOTO) {
 		fputs("goto ",stdout);
 		fputs(s->referenced_label_name,stdout);
-		fputs(";",stdout);
+		if(s->referenced_loop == NULL){
+			fputs("!!goto_referenced_stmt_is_invalid!!",stdout);
+		}
+		if(s->referenced_loop != NULL){
+			if(s->referenced_loop->kind != STMT_LABEL){
+				fputs("!!goto_referenced_stmt_is_not_label!!",stdout);
+			}
+			mutoa(buf, s->goto_scopediff);
+			fputs("(scopediff=",stdout);
+			fputs(buf,stdout);
+			fputs(") ",stdout);
+			mutoa(buf, s->goto_vardiff);
+			fputs("(vardiff=",stdout);
+			fputs(buf,stdout);
+			fputs(") ",stdout);
+			fputs(";",stdout);
+		}
 	}
 	if(s->kind == STMT_WHILE){
 		fputs("while",stdout);
@@ -208,7 +224,16 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 		fputs("if",stdout);
 	}
 	if(s->kind == STMT_RETURN){
-		fputs("return",stdout);
+		fputs("return ",stdout);
+		mutoa(buf, s->goto_scopediff);
+		fputs("(scopediff=",stdout);
+		fputs(buf,stdout);
+		fputs(") ",stdout);
+		mutoa(buf, s->goto_vardiff);
+		fputs("(vardiff=",stdout);
+		fputs(buf,stdout);
+		fputs(") ",stdout);
+		fputs(";",stdout);
 	}
 	if(s->kind == STMT_TAIL){
 		fputs("tail ",stdout);
@@ -218,7 +243,7 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 		fputs("asm",stdout);
 	}
 	if(s->kind == STMT_CONTINUE){
-		fputs("continue",stdout);
+		fputs("continue ",stdout);
 		if(s->referenced_loop == NULL){
 			fputs("!!null!!",stdout);
 		}
@@ -233,6 +258,15 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 			}
 			fputs("!!not_a_loop!!",stdout);
 			valid_continue_loop_type:;
+					mutoa(buf, s->goto_scopediff);
+					fputs("(scopediff=",stdout);
+					fputs(buf,stdout);
+					fputs(") ",stdout);
+					mutoa(buf, s->goto_vardiff);
+					fputs("(vardiff=",stdout);
+					fputs(buf,stdout);
+					fputs(") ",stdout);
+					fputs(";",stdout);
 		}
 	}
 	if(s->kind == STMT_BREAK){
@@ -251,12 +285,46 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 			}
 			fputs("!!not_a_loop!!",stdout);
 			valid_break_loop_type:;
+					mutoa(buf, s->goto_scopediff);
+					fputs("(scopediff=",stdout);
+					fputs(buf,stdout);
+					fputs(") ",stdout);
+					mutoa(buf, s->goto_vardiff);
+					fputs("(vardiff=",stdout);
+					fputs(buf,stdout);
+					fputs(") ",stdout);
+					fputs(";",stdout);
 		}
 	}
 	if(s->kind == STMT_SWITCH){
 		fputs("switch:",stdout);
 		for(i = 0; i < s->switch_nlabels; i++){
 			fputs(s->switch_label_list[i],stdout);
+			{
+				stmt* whereami_list;
+				whereami_list = s->whereami->stmts;
+				if(s->switch_label_indices[i] >= s->whereami->nstmts)
+				{
+					fputs("!!impossible_label_index!!",stdout);
+				}
+				if(s->switch_label_indices[i] < s->whereami->nstmts)
+				{
+					if(whereami_list[s->switch_label_indices[i]].kind != STMT_LABEL)
+					{
+						fputs("!!(switch index error)!!",stdout);
+					}
+					if(whereami_list[s->switch_label_indices[i]].referenced_label_name)
+					if(
+						!streq(
+							whereami_list[s->switch_label_indices[i]].referenced_label_name,
+							s->switch_label_list[i]
+						)
+					)
+					{
+						fputs("!!(switch index error)!!",stdout);
+					}
+				}
+			}
 			if(i != s->switch_nlabels - 1)
 				fputs(",",stdout);
 		}

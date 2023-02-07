@@ -31,7 +31,7 @@ static void validator_exit_err(){
 
 
 static int this_specific_scope_has_label(char* c, scope* s){
-	unsigned long i;
+	uint64_t i;
 	stmt* stmtlist = s->stmts;
 	for(i = 0; i < s->nstmts; i++)
 		if(stmtlist[i].kind == STMT_LABEL)
@@ -40,11 +40,23 @@ static int this_specific_scope_has_label(char* c, scope* s){
 	return 0;
 }
 
+static uint64_t this_specific_scope_get_label_index(char* c, scope* s){
+	uint64_t i;
+	stmt* stmtlist = s->stmts;
+	for(i = 0; i < s->nstmts; i++)
+		if(stmtlist[i].kind == STMT_LABEL)
+			if(streq(c, stmtlist[i].referenced_label_name)) /*this is the label we're looking for!*/
+				return i;
+	return 0;
+}
+
 static void checkswitch(stmt* sw){
 	unsigned long i;
 	require(sw->kind == STMT_SWITCH, "<VALIDATOR ERROR> checkswitch erroneously passed non-switch statement");
-
-	for(i = 0; i < sw->switch_nlabels; i++)
+	/*switch never has a scopediff or vardiff because the labels must be in the same scope. Thus, no variables ever have to be popped.*/
+	sw->goto_scopediff = 0;
+	sw->goto_vardiff = 0;
+	for(i = 0; i < sw->switch_nlabels; i++){
 		if(!this_specific_scope_has_label(sw->switch_label_list[i], sw->whereami))
 			{
 				puts("Switch statement in function uses label not in its home scope.");
@@ -55,6 +67,27 @@ static void checkswitch(stmt* sw){
 				puts(sw->switch_label_list[i]);
 				validator_exit_err();
 			}
+		sw->switch_label_indices[i] = 
+			this_specific_scope_get_label_index(sw->switch_label_list[i],sw->whereami);
+		if(  ((stmt*)sw->whereami->stmts)[sw->switch_label_indices[i]].kind != STMT_LABEL){
+			puts("Internal Validator Error");
+			puts("this_specific_scope_get_label_index returned the index of a non-label.");
+			validator_exit_err();
+		}
+		if(
+			!streq(
+				((stmt*)sw->whereami->stmts)
+					[sw->switch_label_indices[i]]
+						.referenced_label_name
+				,
+				sw->switch_label_list[i]
+			)
+		){
+			puts("Internal Validator Error");
+			puts("this_specific_scope_get_label_index returned the index of wrong label!");
+			validator_exit_err();
+		}
+	}
 	return;
 }
 
@@ -1582,9 +1615,11 @@ static void propagate_implied_type_conversions(expr_node* ee){
 }
 
 static void validate_goto_target(stmt* me, char* name){
-	uint64_t i;
+	int64_t i;
 	uint64_t j;
-	for(i=0;i<nscopes;i++){
+	uint64_t scopediff_sofar = 0;
+	uint64_t vardiff_sofar = 0;
+	for(i=nscopes-1;i>=0;i--){
 		stmt* stmtlist;
 		stmtlist = scopestack[i]->stmts;
 		for(j=0;j<scopestack[i]->nstmts;j++){
@@ -1593,12 +1628,42 @@ static void validate_goto_target(stmt* me, char* name){
 				{
 					//assign it!
 					me->referenced_loop = stmtlist + j;
+					//assign scopediff
+					me->goto_scopediff = scopediff_sofar;
+					me->goto_vardiff = vardiff_sofar;
 					return;
 				}
 		}
+		scopediff_sofar++;
+		vardiff_sofar += scopestack[i]->nsyms;
 	}
 	puts("Goto uses out-of-sequence jump target:");
 	puts(name);
+	validator_exit_err();
+}
+
+static void assign_scopediff_vardiff(stmt* me, scope* jtarget_scope, int is_return){
+	int64_t i;
+	uint64_t j;
+	uint64_t scopediff_sofar = 0;
+	uint64_t vardiff_sofar = 0;
+	for(i=nscopes-1;i>=0;i--){
+		if(jtarget_scope == scopestack[i]){
+			//assign scopediff
+			me->goto_scopediff = scopediff_sofar;
+			me->goto_vardiff = vardiff_sofar;
+			return;
+		}
+		scopediff_sofar++;
+		vardiff_sofar += scopestack[i]->nsyms;
+	}
+	if(is_return){
+		me->goto_scopediff = scopediff_sofar;
+		me->goto_vardiff = vardiff_sofar;
+		return;
+	}
+	puts("Validator internal error");
+	puts("Could not assign scopediff/vardiff for jumping statement.");
 	validator_exit_err();
 }
 
@@ -1658,6 +1723,13 @@ static void walk_assign_lsym_gsym(){
 				validator_exit_err();
 			}
 			stmtlist[i].referenced_loop = loopstack[nloops-1];
+			scopestack_push(current_scope);
+				assign_scopediff_vardiff(
+					stmtlist+i,
+					stmtlist[i].referenced_loop->whereami,
+					0
+				);
+			scopestack_pop();
 		}
 		if(stmtlist[i].kind == STMT_GOTO){
 			int found = 0;
@@ -1758,6 +1830,22 @@ static void walk_assign_lsym_gsym(){
 				throw_if_types_incompatible(pp,qq,"Return statement must have compatible type.");
 				insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, pp);
 			}
+			scopestack_push(current_scope);
+				assign_scopediff_vardiff(
+					stmtlist+i,
+					NULL,
+					1
+				);
+			scopestack_pop();
+		}
+		if(stmtlist[i].kind == STMT_TAIL){
+			scopestack_push(current_scope);
+			assign_scopediff_vardiff(
+				stmtlist+i,
+				NULL,
+				1
+			);
+			scopestack_pop();
 		}
 		if(stmtlist[i].kind == STMT_ASM){
 			symbol_table[active_function].is_impure_globals_or_asm = 1;
@@ -1829,7 +1917,7 @@ void validate_function(symdecl* funk){
 		puts("INTERNAL VALIDATOR ERROR: Bad loopstack after walk_assign_lsym_gsym");
 		validator_exit_err();
 	}
-	/*TODO: Assign loop pointers to continue and break statements.*/
+	/*DONE: Assign loop pointers to continue and break statements. It also does goto.*/
 
 	/*
 		TODO:

@@ -195,6 +195,7 @@ typedef struct stmt{
 	*/
 	char* referenced_label_name; /*goto gets a label. tail gets a function*/
 	char** switch_label_list;
+	uint64_t* switch_label_indices; /**/
 	uint64_t switch_nlabels; /*how many labels does the switch have in it?*/
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
@@ -202,6 +203,8 @@ typedef struct stmt{
 	uint64_t linenum;
 	uint64_t colnum;
 	char* filename;
+	int64_t goto_scopediff; /*how many scopes deep does this go?*/
+	int64_t goto_vardiff; /*How many local variables have to be popped to achieve the context switch?*/
 } stmt;
 
 enum{

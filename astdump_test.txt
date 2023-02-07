@@ -69,3 +69,58 @@ fn move_test(sqword squidward):
 	a[0][1] = 3;
 	a[2][cast(u64)squidward+1] = cast(int)a++;
 end
+
+fn break_continue_test()->int:
+
+	for(1,1,1)
+		break continue
+		for(1,2,3)
+			break
+			continue
+		end
+		while(1)
+		sqword[44] q;
+			for(1,1,1)
+				int a;
+				break
+				continue
+			end
+			break
+			continue
+		end
+		break
+		continue
+	end
+
+	return 0;
+end
+
+fn goto_target_test():
+	int qq;
+	int qq1;
+	int qq2;
+	qword[5000] qq3;
+		goto l1
+		goto l2
+		goto l3
+		goto l1
+	:l1
+	:l2
+	:l3
+	if(1)
+		:l4
+	end
+	switch(7) l1, l2, l3;
+	if(1)
+		int a2;
+		int[500] a3;
+		while(1)
+		int a;
+		goto l1
+		goto l2
+		goto l3
+		goto l1
+		end
+	end
+	
+end
