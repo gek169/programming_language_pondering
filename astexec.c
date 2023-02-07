@@ -478,44 +478,6 @@ static double do_dmod(double a, double b){return a % b;}
 */
 
 
-static uint64_t determine_scope_usage(scope* s){
-	uint64_t i;
-	uint64_t my_usage = 0;
-	uint64_t max_child_usage = 0;
-	uint64_t cur_child_usage = 0;
-	stmt* stmtlist;
-	my_usage = s->nsyms; /*arrays are a single element.*/
-	stmtlist = s->stmts;
-	for(i = 0; i < s->nstmts; i++){
-		if(stmtlist[i].myscope){
-			cur_child_usage = determine_scope_usage(stmtlist[i].myscope);
-			if(cur_child_usage > max_child_usage)
-				max_child_usage = cur_child_usage;
-		}
-	}
-	return my_usage + max_child_usage;
-}
-
-
-uint64_t determine_fn_variable_stack_placements(symdecl* s){
-	int64_t i;
-	uint64_t frame_size = 1;
-	require(s->t.is_function, "AST Executor: Asked to determine placement of variables in a non-function.");
-	require(s->is_incomplete == 0, "AST Executor: Asked to determine stack placement of variables in incomplete function.");
-	require(s->fbody != NULL, "AST Executor: Fbody is NULL");
-	
-	/*we add one because we leave an FFRAME_BEGIN magic on the stack when we do a call.*/
-	frame_size = 1 + determine_scope_usage(s->fbody);
-
-	for(i = 0; i < (int64_t)s->nargs; i++){
-		s->fargs[i]->VM_function_stackframe_placement = 
-			-1 * frame_size + //usage of our fbody as well as all its children.
-			-1 * (i)  //each arguments is incrementally deeper into the stack.
-		;
-	}
-	return frame_size;
-}
-
 /*Get a pointer to the memory!*/
 static void* retrieve_variable_memory_pointer(
 	char* name, 
@@ -841,8 +803,6 @@ void do_expr(expr_node* ee){
 		return;
 	}
 	if(ee->kind == EXPR_ADD){
-		int64_t i64data;
-		uint64_t u64data;
 		int32_t i32data;
 		uint32_t u32data;		
 		int16_t i16data;
@@ -928,8 +888,6 @@ void do_expr(expr_node* ee){
 		return;
 	}
 	if(ee->kind == EXPR_SUB){
-		int64_t i64data;
-		uint64_t u64data;
 		int32_t i32data;
 		uint32_t u32data;		
 		int16_t i16data;
