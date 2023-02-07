@@ -627,6 +627,7 @@ void do_expr(expr_node* ee){
 			if(i == 0) break;
 		}
 	}
+	/*Otherwise, in-order*/
 	if(
 		ee->kind != EXPR_FCALL &&
 		ee->kind != EXPR_METHOD &&
@@ -688,8 +689,8 @@ void do_expr(expr_node* ee){
 		vm_stackpointer = saved_vstack_pointer;
 		//Finally ends with popping everything off.
 		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
-		//pop the last thing off.
-		ast_vm_stack_pop();
+		//Don't! pop the last thing off because THAT'S WHERE THE RETURN VALUE IS!
+		//ast_vm_stack_pop();
 		return;
 	}
 	if(ee->kind == EXPR_LSYM){
@@ -991,11 +992,10 @@ void do_expr(expr_node* ee){
 		puts("Unhandled builtin call:");
 		puts(ee->symname);
 		exit(1);
-
 		end_of_builtin_call:;
 		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
-		//pop the last thing off.
-		ast_vm_stack_pop();
+		//DON'T pop the last thing off, it's the return value!
+		//ast_vm_stack_pop();
 		return;
 	}
 

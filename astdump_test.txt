@@ -28,3 +28,10 @@ fn myFunction():
 	:j2
 	:j3
 end
+
+fn implied_conversion_tester(int a, int b)->f64:
+
+	int[30] myarray;
+	a = cast(u64) b;
+	myarray[a/b] = a - b;
+end

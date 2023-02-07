@@ -1221,41 +1221,25 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	
 	if(ee->kind == EXPR_INDEX){
 		t_target.basetype = BASE_I64;
+		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes+1, 
+			t_target
+		);
+		t_target = ee->subnodes[0]->t;
+		t_target.is_lvalue = 0;
+		insert_implied_type_conversion(
+			ee->subnodes+0, 
 			t_target
 		);
 		return;
 	}
 	if(ee->kind == EXPR_NEG){
-		if(ee->subnodes[0]->t.basetype == BASE_U8){
-			t_target.basetype = BASE_I8;
-			insert_implied_type_conversion(
-				ee->subnodes + 0,
-				t_target
-			);
-		}
-		if(ee->subnodes[0]->t.basetype == BASE_U16){
-			t_target.basetype = BASE_I16;
-			insert_implied_type_conversion(
-				ee->subnodes + 0,
-				t_target
-			);
-		}
-		if(ee->subnodes[0]->t.basetype == BASE_U32){
-			t_target.basetype = BASE_I32;
-			insert_implied_type_conversion(
-				ee->subnodes + 0,
-				t_target
-			);
-		}
-		if(ee->subnodes[0]->t.basetype == BASE_U64){
-			t_target.basetype = BASE_I64;
-			insert_implied_type_conversion(
-				ee->subnodes + 0,
-				t_target
-			);
-		}
+		t_target = ee->t;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
 		return;
 	}
 
@@ -1306,6 +1290,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			ee->subnodes[0]->t.basetype, 
 			ee->subnodes[1]->t.basetype
 		);
+		
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target
@@ -1351,6 +1336,11 @@ static void propagate_implied_type_conversions(expr_node* ee){
 				ee->subnodes + 1,
 				t_target
 			);
+			t_target = ee->t;
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
 			return;
 		}
 	/*The second...*/	
@@ -1361,6 +1351,11 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			t_target.pointerlevel = 0;
 			insert_implied_type_conversion(
 				ee->subnodes + 0,
+				t_target
+			);
+			t_target = ee->t;
+			insert_implied_type_conversion(
+				ee->subnodes + 1,
 				t_target
 			);
 			return;
@@ -1375,6 +1370,11 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			ee->subnodes + 1,
 			t_target
 		);
+		t_target = ee->t;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
 		return;
 	}
 	/*Pointer-pointer eq/neq. Cast the second argument.*/
@@ -1383,8 +1383,13 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->subnodes[1]->t.pointerlevel > 0)
 	{
 		t_target = ee->subnodes[0]->t;
+		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes + 1,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
 			t_target
 		);
 	}
