@@ -365,7 +365,7 @@ static void propagate_types(expr_node* ee){
 		if(ee->subnodes[0])
 			if(ee->subnodes[0]->t.pointerlevel > 0)
 				throw_type_error_with_expression_enums(
-					"Pointer math is limited to addition, subtraction, assignment, casting, equality comparison, and indexing.\n"
+					"Pointer math is limited to addition, subtraction, assignment,moving, casting, equality comparison, and indexing.\n"
 					"a=Parent,b=Child",
 					ee->kind,
 					ee->subnodes[0]->kind
@@ -373,7 +373,7 @@ static void propagate_types(expr_node* ee){
 		if(ee->subnodes[1])
 			if(ee->subnodes[1]->t.pointerlevel > 0)
 				throw_type_error_with_expression_enums(
-					"Pointer math is limited to addition, subtraction, assignment, casting, equality comparison, and indexing.\n"
+					"Pointer math is limited to addition, subtraction, assignment,moving, casting, equality comparison, and indexing.\n"
 					"a=Parent,b=Child",
 					ee->kind,
 					ee->subnodes[1]->kind
@@ -532,6 +532,9 @@ static void propagate_types(expr_node* ee){
 			}
 			if(t.basetype == BASE_STRUCT){
 				throw_type_error("Can't increment/decrement struct");
+			}
+			if(t.is_lvalue == 0){
+				throw_type_error("Outside of a constant expression, it is invalid to increment or decrement a non-lvalue.");
 			}
 		}
 		t.is_lvalue = 0; /*no longer an lvalue.*/
@@ -1620,10 +1623,30 @@ static void walk_assign_lsym_gsym(){
 			current_scope = scopestack[nscopes-1];
 			scopestack_pop();
 			i = current_scope->walker_point;
+			/*
+				if it is a loop, we have to pop from the loop stack, too
+			*/
+			stmtlist = current_scope->stmts;
+			curr_stmt = stmtlist + i;
+			if(
+				stmtlist[i].kind == STMT_FOR ||
+				stmtlist[i].kind == STMT_WHILE
+			){
+				loopstack_pop();
+			}
 			i++;
 			continue;
 		}
 		curr_stmt = stmtlist + i;
+		if(stmtlist[i].kind == STMT_CONTINUE ||
+			stmtlist[i].kind == STMT_BREAK){
+			if(nloops <= 0){
+				puts("INTERNAL VALIDATOR ERROR");
+				puts("Continue or break in invalid context reached code validator.");
+				validator_exit_err();
+			}
+			stmtlist[i].referenced_loop = loopstack[nloops-1];
+		}
 		if(stmtlist[i].kind == STMT_GOTO){
 			int found = 0;
 			for(j = 0; j < n_discovered_labels; j++)
@@ -1635,7 +1658,8 @@ static void walk_assign_lsym_gsym(){
 				puts(stmtlist[i].referenced_label_name);
 				puts("Does not exist in function:");
 				puts(symbol_table[active_function].name);
-				exit(1);
+				validator_exit_err();
+
 			}
 			scopestack_push(current_scope);
 				validate_goto_target(stmtlist + i, stmtlist[i].referenced_label_name);
@@ -1682,6 +1706,7 @@ static void walk_assign_lsym_gsym(){
 			qq = type_init();
 			qq.basetype = BASE_I64;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions+1, qq);
+			loopstack_push(stmtlist + i);
 		}	
 		if(stmtlist[i].kind == STMT_WHILE){
 			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
@@ -1696,6 +1721,7 @@ static void walk_assign_lsym_gsym(){
 			qq = type_init();
 			qq.basetype = BASE_I64;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
+			loopstack_push(stmtlist + i);
 		}	
 		if(stmtlist[i].kind == STMT_IF){
 			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
@@ -1734,10 +1760,11 @@ static void walk_assign_lsym_gsym(){
 			}
 		}
 		if(stmtlist[i].myscope){
-			/*Immediately switch.*/
+			/*ctx switch.*/
 			current_scope->walker_point = i;
 			current_scope->stopped_at_scope1 = 1;
 			scopestack_push(current_scope);
+			/*load scope*/
 			current_scope = stmtlist[i].myscope;
 			i = 0;
 			continue;
@@ -1754,6 +1781,10 @@ void validate_function(symdecl* funk){
 	{
 		puts("INTERNAL VALIDATOR ERROR: Passed non-function.");
 		exit(1);
+	}
+	if(nscopes > 0 || nloops > 0){
+		puts("INTERNAL VALIDATOR ERROR: Bad scopestack or loopstack.");
+		validator_exit_err();
 	}
 	for(i = 0; i < nsymbols; i++){
 		if(symbol_table+i == funk){
@@ -1778,6 +1809,14 @@ void validate_function(symdecl* funk){
 		this also checks to see if goto targets exist.
 	*/
 	walk_assign_lsym_gsym();
+	if(nscopes > 0){
+		puts("INTERNAL VALIDATOR ERROR: Bad scopestack after walk_assign_lsym_gsym");
+		validator_exit_err();
+	}	
+	if(nloops > 0){
+		puts("INTERNAL VALIDATOR ERROR: Bad loopstack after walk_assign_lsym_gsym");
+		validator_exit_err();
+	}
 	/*TODO: Assign loop pointers to continue and break statements.*/
 
 	/*

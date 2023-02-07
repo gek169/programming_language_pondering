@@ -11,12 +11,20 @@ fn add1(int a)->double:
 	myint = 7;
 end
 
+//used for testing tail
+fn codegen incompatTail():
+
+
+end
+fn compatTail():
+
+
+end
+
+
 fn myFunction():
 	while(1)
-		break
-		break
-		break
-		break
+		continue
 	end
 	1 + 1 - 7.3;
 	switch(cast(i8)1-1) j1,j2,j3;
@@ -25,8 +33,10 @@ fn myFunction():
 		int mylocalint;
 		continue
 	end
+	continue
 	:j2
 	:j3
+	tail compatTail
 end
 
 fn implied_conversion_tester(int a, int b)->f64:
@@ -49,9 +59,11 @@ fn codegen builtin_tester()->i8:
 	return cast(i64)p;
 end
 
-fn move_test():
+fn move_test(sqword squidward):
 	int** a;
 	int** b;
 	int** c;
 	c := a := b;
+	a[0][1] = 3;
+	a[2][cast(u64)squidward+1] = cast(int)a++;
 end

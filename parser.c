@@ -1930,6 +1930,9 @@ void parse_fbody(){
 	scopestack_push(symbol_table[active_function].fbody);
 		parse_stmts();
 	scopestack_pop();
+	if(nscopes > 0 || nloops > 0){
+		parse_error("INTERNAL PARSER ERROR: Bad scopestack or loopstack.");
+	}
 	/*
 		handle type checking and most of that language-y stuff.
 	*/
