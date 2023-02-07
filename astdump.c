@@ -234,7 +234,7 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 	if(s->kind > STMT_SWITCH){
 		fputs("!!not_a_valid_statement!!",stdout);
 	}
-	fputs("\n",stdout);
+	//fputs("\n",stdout);
 	for(i = 0; i < s->nexpressions && i < STMT_MAX_EXPRESSIONS; i++){
 		mutoa(buf, i+1);
 		if(s->expressions[i]){
@@ -261,8 +261,7 @@ static void astdump_printscope(scope* s, uint64_t indentlevel){
 	for(i = 0; i < s->nsyms; i++)
 		astdump_printsymbol(s->syms+i,indentlevel + 2, 1);
 	fputs("\n",stdout);
-
-	do_indent(indentlevel);fputs("~~statements:\n",stdout);
+	do_indent(indentlevel);fputs("~~statements:",stdout);
 
 		stmtlist = s->stmts;
 	for(i=0; i < s->nstmts; i++){

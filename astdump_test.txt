@@ -5,7 +5,7 @@ int myint;
 
 fn add1(int a)->double:
 	if(1)
-		return a|7+3.0;
+		return !a * 7+3.0e-4;
 		return a|7+3.0;
 	end
 	myint = 7;
@@ -32,8 +32,10 @@ fn myFunction():
 	for(0,0,0)
 		int mylocalint;
 		continue
+		for(0,0,0)
+			continue
+		end
 	end
-	continue
 	:j2
 	:j3
 	tail compatTail
@@ -52,7 +54,7 @@ fn codegen builtin_tester()->i8:
 	i64 myint;
 	myint = ~myint;
 	p = "Goodbye!";
-	p[7] = 7;
+	p[7] = myint;
 	__builtin_puts(p);
 	__builtin_exit(1);
 	__builtin_memcpy(p,p,0);
