@@ -70,8 +70,8 @@ fn move_test(sqword squidward):
 	a[2][cast(u64)squidward+1] = cast(int)a++;
 end
 
-fn break_continue_test()->int:
 
+fn break_continue_test()->int:
 	for(1,1,1)
 		break continue
 		for(1,2,3)
@@ -82,8 +82,10 @@ fn break_continue_test()->int:
 		sqword[44] q;
 			for(1,1,1)
 				int a;
+				int a2;
 				break
 				continue
+				tail break_continue_test
 			end
 			break
 			continue
@@ -91,7 +93,6 @@ fn break_continue_test()->int:
 		break
 		continue
 	end
-
 	return 0;
 end
 

@@ -238,6 +238,15 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 	if(s->kind == STMT_TAIL){
 		fputs("tail ",stdout);
 		fputs(s->referenced_label_name,stdout);
+			mutoa(buf, s->goto_scopediff);
+			fputs(" (scopediff=",stdout);
+			fputs(buf,stdout);
+			fputs(") ",stdout);
+			mutoa(buf, s->goto_vardiff);
+			fputs("(vardiff=",stdout);
+			fputs(buf,stdout);
+			fputs(") ",stdout);
+			fputs(";",stdout);
 	}
 	if(s->kind == STMT_ASM){
 		fputs("asm",stdout);
