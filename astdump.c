@@ -98,7 +98,6 @@ static void astdump_printexpr(expr_node* e, uint64_t indentlevel){
 	c = e->kind;
 	fputs("\n",stdout);
 	do_indent(indentlevel);
-	if(c == EXPR_PAREN) fputs("paren",stdout);
 	if(c == EXPR_SIZEOF) fputs("sizeof",stdout);
 	if(c == EXPR_INTLIT) fputs("intlit",stdout);
 	if(c == EXPR_FLOATLIT) fputs("floatlit",stdout);

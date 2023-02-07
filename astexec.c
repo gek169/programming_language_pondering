@@ -1989,6 +1989,16 @@ void do_expr(expr_node* ee){
 		return;
 	}
 
+	/*Make things easier for ourselves...*/
+	if(ee->kind == EXPR_EQ || ee->kind == EXPR_NEQ){
+		if(vm_stack[vm_stackpointer-1].t.pointerlevel > 0){
+			vm_stack[vm_stackpointer-1].t.basetype = BASE_U64;
+			vm_stack[vm_stackpointer-1].t.pointerlevel = 0;
+			vm_stack[vm_stackpointer-2].t.basetype = BASE_U64;
+			vm_stack[vm_stackpointer-2].t.pointerlevel = 0;
+		}
+	}
+
 
 
 	/*

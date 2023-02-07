@@ -216,7 +216,6 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	puts(symbol_table[active_function].name);
 	c = a;
 	puts("a=");
-	if(c == EXPR_PAREN) puts("EXPR_PAREN");
 	if(c == EXPR_SIZEOF) puts("EXPR_SIZEOF");
 	if(c == EXPR_INTLIT) puts("EXPR_INTLIT");
 	if(c == EXPR_FLOATLIT) puts("EXPR_FLOATLIT");
@@ -263,7 +262,6 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(b == EXPR_BAD) validator_exit_err();
 	puts("b=");
 	c = b;
-	if(c == EXPR_PAREN) puts("EXPR_PAREN");
 	if(c == EXPR_SIZEOF) puts("EXPR_SIZEOF");
 	if(c == EXPR_INTLIT) puts("EXPR_INTLIT");
 	if(c == EXPR_FLOATLIT) puts("EXPR_FLOATLIT");
@@ -1265,7 +1263,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	}
 
 	/*The ones we don't do anything for.*/
-	if(ee->kind == EXPR_PAREN ||
+	if(
 		ee->kind == EXPR_SIZEOF ||
 		ee->kind == EXPR_INTLIT ||
 		ee->kind == EXPR_FLOATLIT ||
