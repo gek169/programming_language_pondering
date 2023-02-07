@@ -226,7 +226,7 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_CONSTEXPR_FLOAT) puts("EXPR_CONSTEXPR_FLOAT");
 	if(c == EXPR_CONSTEXPR_INT) puts("EXPR_CONSTEXPR_INT");
 
-	if(b == EXPR_BAD) exit(1);
+	if(b == EXPR_BAD) validator_exit_err();
 	puts("b=");
 	c = b;
 	if(c == EXPR_PAREN) puts("EXPR_PAREN");
@@ -621,7 +621,7 @@ static void propagate_types(expr_node* ee){
 				ee->kind,
 				EXPR_BAD
 			);
-			exit(1);
+			validator_exit_err();
 		}
 		return;
 	}
@@ -1645,6 +1645,18 @@ static void walk_assign_lsym_gsym(){
 				puts("Continue or break in invalid context reached code validator.");
 				validator_exit_err();
 			}
+			if(loopstack[nloops-1] == NULL){
+				puts("INTERNAL VALIDATOR ERROR");
+				puts("Loopstack has a null on it?");
+				validator_exit_err();
+			}
+			if(loopstack[nloops-1]->kind != STMT_WHILE &&
+				loopstack[nloops-1]->kind != STMT_FOR
+			){
+				puts("INTERNAL VALIDATOR ERROR");
+				puts("Loopstack has a non-loop on it?");
+				validator_exit_err();
+			}
 			stmtlist[i].referenced_loop = loopstack[nloops-1];
 		}
 		if(stmtlist[i].kind == STMT_GOTO){
@@ -1780,7 +1792,7 @@ void validate_function(symdecl* funk){
 	if(funk->t.is_function == 0)
 	{
 		puts("INTERNAL VALIDATOR ERROR: Passed non-function.");
-		exit(1);
+		validator_exit_err();
 	}
 	if(nscopes > 0 || nloops > 0){
 		puts("INTERNAL VALIDATOR ERROR: Bad scopestack or loopstack.");
@@ -1831,18 +1843,3 @@ void validate_function(symdecl* funk){
 	discovered_labels = NULL;
 }
 
-int compilation_unit_determine_purity_iteration(){
-	
-}
-
-
-/*
-	TODO:
-	determine is_pure. 
-	repeatedly try to check every single function for impurity.
-	if an iteration changed purity, then the whole unit must be done again.
-*/
-
-void compilation_unit_calculate_purity(){
-	
-}

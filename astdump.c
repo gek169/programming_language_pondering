@@ -221,7 +221,21 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 		fputs("continue",stdout);
 	}
 	if(s->kind == STMT_BREAK){
-		fputs("break",stdout);
+		fputs("break ",stdout);
+		if(s->referenced_loop == NULL){
+			fputs("null ",stdout);
+		}
+		if(s->referenced_loop != NULL){
+			if(s->referenced_loop->kind == STMT_FOR){
+				fputs("out of for",stdout);
+				goto valid_break_loop_type;
+			}
+			if(s->referenced_loop->kind == STMT_WHILE){
+				fputs("out of while",stdout);
+				goto valid_break_loop_type;
+			}
+			valid_break_loop_type:;
+		}
 	}
 	if(s->kind == STMT_SWITCH){
 		fputs("switch:",stdout);
