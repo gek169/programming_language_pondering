@@ -590,6 +590,13 @@ static void propagate_types(expr_node* ee){
 					ee->t.arraylen = 0;
 					ee->t.pointerlevel++;
 				}
+				//handle: struct member is also a struct, but not pointer to struct.
+				if(ee->t.basetype == BASE_STRUCT)
+				if(ee->t.pointerlevel == 0){
+					ee->t.is_lvalue = 0;
+					ee->t.arraylen = 0;
+					ee->t.pointerlevel = 1;
+				}
 				//handle:struct member is function
 				if(ee->t.is_function){
 					puts("Error: Struct member is function. How did that happen?");
@@ -1170,10 +1177,11 @@ static void insert_implied_type_conversion(expr_node** e_ptr, type t){
 	cast.subnodes[0] = *e_ptr;
 
 
-	/*Identical basetype and pointer level?*/
-	if(t.basetype == e_ptr[0][0].t.basetype)
-		if(t.pointerlevel == e_ptr[0][0].t.pointerlevel)
-			return;
+	/*Identical basetype, pointerlevel, and is_lvalue?*/
+	if(t.is_lvalue == e_ptr[0][0].t.is_lvalue)
+		if(t.basetype == e_ptr[0][0].t.basetype)
+			if(t.pointerlevel == e_ptr[0][0].t.pointerlevel)
+				return;
 
 	/*
 		A type conversion is necessary.
@@ -1202,7 +1210,9 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		ee->kind == EXPR_LSYM ||
 		ee->kind == EXPR_GSYM ||
 		ee->kind == EXPR_POST_INCR ||
+		ee->kind == EXPR_PRE_INCR ||
 		ee->kind == EXPR_POST_DECR ||
+		ee->kind == EXPR_PRE_DECR ||
 		ee->kind == EXPR_MEMBER ||
 		ee->kind == EXPR_CAST ||
 		ee->kind == EXPR_CONSTEXPR_FLOAT ||

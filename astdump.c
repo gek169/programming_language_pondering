@@ -66,7 +66,10 @@ static void astdump_print_type(type t, int should_print_isfunction){
 	}
 }
 
-static void astdump_printsymbol(symdecl* s, uint64_t indentlevel, int should_print_isfunction){
+static void astdump_printsymbol(symdecl* s, 
+	uint64_t indentlevel, 
+	int should_print_isfunction
+){
 	char buf[80];
 
 	fputs("\n",stdout);
@@ -130,8 +133,9 @@ static void astdump_printexpr(expr_node* e, uint64_t indentlevel){
 				fputs(e->method_name,stdout);
 	}
 	if(c == EXPR_CAST) {
-		fputs("cast",stdout);
+		fputs("cast(",stdout);
 		astdump_print_type(e->type_to_get_size_of,1);
+		fputs(")",stdout);
 	}
 	if(c == EXPR_NEG) fputs("neg",stdout);
 	if(c == EXPR_NOT) fputs("!",stdout);
@@ -245,12 +249,13 @@ static void astdump_printscope(scope* s, uint64_t indentlevel){
 	uint64_t i;
 	stmt* stmtlist;
 	fputs("\n",stdout);
-	do_indent(indentlevel);fputs("Scope_begin\n",stdout);
+	do_indent(indentlevel);fputs("{\n",stdout);
 
 	do_indent(indentlevel);fputs("~~locals:\n",stdout);
 
 	for(i = 0; i < s->nsyms; i++)
 		astdump_printsymbol(s->syms+i,indentlevel + 2, 1);
+	fputs("\n",stdout);
 
 	do_indent(indentlevel);fputs("~~statements:\n",stdout);
 
@@ -259,12 +264,13 @@ static void astdump_printscope(scope* s, uint64_t indentlevel){
 		astdump_printstmt(stmtlist + i,indentlevel+4);
 	}
 	fputs("\n",stdout);
-	do_indent(indentlevel);fputs("Scope_end\n",stdout);
+	do_indent(indentlevel);fputs("}\n",stdout);
 }
 
 
 void astdump(){
 	unsigned long i = 0;
+	unsigned long j = 0;
 	puts("~~GLOBAL SYMBOL TABLE~~");
 	for(i = 0; i < nsymbols; i++)
 		astdump_printsymbol(symbol_table + i, 1,0);
@@ -273,8 +279,16 @@ void astdump(){
 	if(symbol_table[i].fbody)
 	if(symbol_table[i].t.is_function)
 	{
+
+		fputs("\n",stdout);
 		astdump_printsymbol(symbol_table+i,1,0);
+
+		fputs("\nargs:",stdout);
+		for(j = 0; j < symbol_table[i].nargs; j++){
+			fputs("\n",stdout);
+			do_indent(2);
+			astdump_print_type(symbol_table[i].fargs[j][0],1);
+		}
 		astdump_printscope(symbol_table[i].fbody,4);
-		
 	}
 }
