@@ -39,7 +39,10 @@ end
 
 fn codegen builtin_tester()->i8:
 	u8* p;
+	i64 myint;
+	myint = ~myint;
 	p = "Goodbye!";
+	p[7] = 7;
 	__builtin_puts(p);
 	__builtin_exit(1);
 	__builtin_memcpy(p,p,0);

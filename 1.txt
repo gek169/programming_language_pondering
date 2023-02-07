@@ -1,0 +1,276 @@
+~~GLOBAL SYMBOL TABLE~~
+
+ var i32 myint
+ fn known-impure f64 add1
+ fn void myFunction
+ fn f64 implied_conversion_tester
+ fn codegen i8 builtin_tester
+ var has-cdata cdata_sz=8 u8 __seabass_anonymous_symbol_1
+~~FUNCTION DUMP~~
+
+
+ fn known-impure f64 add1
+args:
+  i32 membername:a 
+    {
+    ~~locals:
+
+    ~~statements:
+
+
+        if
+
+            expr#1
+                cast(i64 )
+                    intlit
+            {
+            ~~locals:
+
+            ~~statements:
+
+
+                return
+
+                    expr#1
+                        cast(f64 )
+                            |
+                                cast(i64 )
+                                    local:a
+                                cast(i64 )
+                                    +
+                                        cast(f64 )
+                                            intlit
+                                        floatlit
+
+                return
+
+                    expr#1
+                        cast(f64 )
+                            |
+                                cast(i64 )
+                                    local:a
+                                cast(i64 )
+                                    +
+                                        cast(f64 )
+                                            intlit
+                                        floatlit
+            }
+
+
+        stmt_expr
+
+            expr#1
+                :=
+                    global:myint
+                    cast(i32 )
+                        intlit
+    }
+
+
+ fn void myFunction
+args:
+    {
+    ~~locals:
+
+    ~~statements:
+
+
+        while
+
+            expr#1
+                cast(i64 )
+                    intlit
+            {
+            ~~locals:
+
+            ~~statements:
+
+
+                break
+
+
+                break
+
+
+                break
+
+
+                break
+
+            }
+
+
+        stmt_expr
+
+            expr#1
+                -
+                    cast(f64 )
+                        +
+                            intlit
+                            intlit
+                    floatlit
+
+        switch:j1,j2,j3
+
+            expr#1
+                -
+                    cast(i64 )
+                        cast(i8 )
+                            intlit
+                    cast(i64 )
+                        intlit
+
+        label:j1;
+
+
+        for
+
+            expr#1
+                intlit
+            expr#2
+                cast(i64 )
+                    intlit
+            expr#3
+                intlit
+            {
+            ~~locals:
+
+              var i32 mylocalint
+            ~~statements:
+
+
+                continue
+
+            }
+
+
+        label:j2;
+
+
+        label:j3;
+
+    }
+
+
+ fn f64 implied_conversion_tester
+args:
+  i32 membername:a 
+  i32 membername:b 
+    {
+    ~~locals:
+
+      var i32[30] myarray
+    ~~statements:
+
+
+        stmt_expr
+
+            expr#1
+                :=
+                    local:a
+                    cast(i32 )
+                        cast(u64 )
+                            local:b
+
+        stmt_expr
+
+            expr#1
+                :=
+                    []
+                        local:myarray
+                        cast(i64 )
+                            /
+                                cast(i32 )
+                                    local:a
+                                cast(i32 )
+                                    local:b
+                    -
+                        cast(i32 )
+                            local:a
+                        cast(i32 )
+                            local:b
+
+        return
+
+            expr#1
+                cast(f64 )
+                    |
+                        ^
+                            cast(i64 )
+                                intlit
+                            cast(i64 )
+                                intlit
+                        cast(i64 )
+                            intlit
+    }
+
+
+ fn codegen i8 builtin_tester
+args:
+    {
+    ~~locals:
+
+      var u8* p
+      var i64 myint
+    ~~statements:
+
+
+        stmt_expr
+
+            expr#1
+                :=
+                    local:myint
+                    ~
+                        cast(i64 )
+                            local:myint
+
+        stmt_expr
+
+            expr#1
+                :=
+                    local:p
+                    stringlit
+
+        stmt_expr
+
+            expr#1
+                :=
+                    []
+                        cast(u8* )
+                            local:p
+                        cast(i64 )
+                            intlit
+                    cast(u8 )
+                        intlit
+
+        stmt_expr
+
+            expr#1
+                builtin_call __builtin_puts
+                    cast(u8* )
+                        local:p
+
+        stmt_expr
+
+            expr#1
+                builtin_call __builtin_exit
+                    cast(i32 )
+                        intlit
+
+        stmt_expr
+
+            expr#1
+                builtin_call __builtin_memcpy
+                    cast(u8* )
+                        local:p
+                    cast(u8* )
+                        local:p
+                    intlit
+
+        return
+
+            expr#1
+                cast(i8 )
+                    cast(i64 )
+                        local:p
+    }

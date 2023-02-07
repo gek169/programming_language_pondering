@@ -794,11 +794,7 @@ void do_expr(expr_node* ee){
 		int64_t ind;
 		void* p;
 		ind = vm_stack[vm_stackpointer-2].smalldata;
-		/*Need to do a dereference if it is an lvalue*/
-		if(vm_stack[vm_stackpointer-2].t.is_lvalue == 1){
-			memcpy(&p, &data, POINTER_SIZE);
-			data = do_deref(p, type_getsz(ee->t));
-		}
+		/*It will never be an lvalue!*/
 		memcpy(&p, &data, POINTER_SIZE);
 		
 		//perform the pointer addition
