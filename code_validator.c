@@ -1702,7 +1702,7 @@ static void walk_assign_lsym_gsym(){
 			symbol_table[active_function].is_impure = 1;
 			if(symbol_table[active_function].is_codegen != 0){
 				puts("VALIDATION ERROR!");
-				puts("Assembly blocks may not exist in codegen functions.");
+				puts("asm blocks may not exist in codegen functions.");
 				puts("This function:");
 				puts(symbol_table[active_function].name);
 				puts("Was declared 'codegen' so you cannot use 'asm' blocks in it.");
