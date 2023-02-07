@@ -546,6 +546,16 @@ static void tokenizer(
 				i = -1;
 				continue;
 			}
+			/*:= operator*/
+			if(
+				work->text[i] == ':' &&
+				work->text[i+1] == '='
+			){
+				work->data = (void*)9;
+				work = consume_bytes(work, 2);
+				i = -1;
+				continue;
+			}
 
 			/*++ operator*/
 			if(

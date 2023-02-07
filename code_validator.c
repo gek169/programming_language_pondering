@@ -356,6 +356,7 @@ static void propagate_types(expr_node* ee){
 	if(ee->kind != EXPR_POST_INCR)
 	if(ee->kind != EXPR_POST_DECR)
 	if(ee->kind != EXPR_ASSIGN) /*you can assign pointers...*/
+	if(ee->kind != EXPR_MOVE) /*you can assign pointers...*/
 	if(ee->kind != EXPR_CAST) /*You can cast pointers...*/
 	if(ee->kind != EXPR_INDEX) /*You can index pointers...*/
 	if(ee->kind != EXPR_METHOD) /*You invoke methods on or with pointers.*/
@@ -799,6 +800,31 @@ static void propagate_types(expr_node* ee){
 		ee->t.is_lvalue = 0; /*You can't assign to the output of an assignment statement.*/
 		return;
 	}
+	if(ee->kind == EXPR_MOVE){
+		if(
+			(ee->subnodes[0]->t.pointerlevel != ee->subnodes[1]->t.pointerlevel)
+		){
+			throw_type_error_with_expression_enums(
+				"Move between incompatible types (pointerlevel) Operands:",
+				ee->subnodes[0]->kind,
+				ee->subnodes[1]->kind
+			);
+		}
+		if(
+			ee->subnodes[0]->t.basetype != 
+			ee->subnodes[1]->t.basetype
+		)
+			throw_type_error_with_expression_enums(
+				"Move between incompatible pointer types (basetype) Operands:",
+				ee->subnodes[0]->kind,
+				ee->subnodes[1]->kind
+			);
+		ee->t = type_init();
+		ee->t = ee->subnodes[0]->t;
+		ee->t.is_lvalue = 0;
+		return;
+	}
+	
 	if(ee->kind == EXPR_NEG){
 		t = ee->subnodes[0]->t;
 		if(t.pointerlevel > 0)
@@ -872,6 +898,7 @@ static void propagate_types(expr_node* ee){
 		return;
 	}
 	if(ee->kind == EXPR_ADD){
+		ee->t = type_init();
 		t = ee->subnodes[0]->t;
 		t2 = ee->subnodes[1]->t;
 		if(
@@ -904,6 +931,7 @@ static void propagate_types(expr_node* ee){
 
 	
 	if(ee->kind == EXPR_SUB){
+		ee->t = type_init();
 		t = ee->subnodes[0]->t;
 		t2 = ee->subnodes[1]->t;
 		if(t2.pointerlevel > 0)
@@ -1407,6 +1435,18 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+	if(ee->kind == EXPR_MOVE){
+		t_target = ee->subnodes[0]->t;
+		t_target.is_lvalue = 0;
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);insert_implied_type_conversion(
+			ee->subnodes + 0,
 			t_target
 		);
 		return;

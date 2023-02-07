@@ -158,7 +158,8 @@ static void astdump_printexpr(expr_node* e, uint64_t indentlevel){
 	if(c == EXPR_GTE) fputs(">=",stdout);
 	if(c == EXPR_EQ) fputs("==",stdout);
 	if(c == EXPR_NEQ) fputs("!=",stdout);
-	if(c == EXPR_ASSIGN) fputs(":=",stdout);
+	if(c == EXPR_ASSIGN) fputs("=",stdout);
+	if(c == EXPR_MOVE) fputs(":=",stdout);
 	if(c == EXPR_FCALL) {
 		fputs("fcall ",stdout);
 		if(e->symname)

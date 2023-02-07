@@ -1740,8 +1740,34 @@ void expr_parse_assign(expr_node** targ){
 }
 
 
+void expr_parse_move(expr_node** targ){
+	/*parse assignments*/
+	expr_node* c;
+	expr_node* a;
+	expr_node* b;
+	expr_parse_assign(&a);
+	//while(1){
+	if(peek()->data == TOK_OPERATOR){
+		if(streq(peek()->text, ":=")){
+			consume();
+			c = c_allocX(sizeof(expr_node));
+			c->kind = EXPR_MOVE;
+			expr_parse_move(&b);
+			c->subnodes[0] = a;
+			c->subnodes[1] = b;
+			//fold it in...
+			a = c;
+			c = NULL;
+			b = NULL;
+		}
+	}
+//	}
+	*targ = a;
+}
+
+
 void parse_expr(expr_node** targ){
-	expr_parse_assign(targ);
+	expr_parse_move(targ);
 	return;
 }
 

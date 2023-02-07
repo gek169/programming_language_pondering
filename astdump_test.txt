@@ -48,3 +48,10 @@ fn codegen builtin_tester()->i8:
 	__builtin_memcpy(p,p,0);
 	return cast(i64)p;
 end
+
+fn move_test():
+	int** a;
+	int** b;
+	int** c;
+	c := a := b;
+end
