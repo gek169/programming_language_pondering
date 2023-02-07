@@ -20,7 +20,7 @@ method vec4:add(vec4 other):
 	return;
 
 	int q;
-	q = constexpri(some_other_int|7&3);
+	q = cast(i32)constexpri(some_other_int|7&3)+cast(i32)7;
 end
 
 codegen int myint;

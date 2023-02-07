@@ -358,7 +358,7 @@ static void propagate_types(expr_node* ee){
 	if(ee->kind != EXPR_ASSIGN) /*you can assign pointers...*/
 	if(ee->kind != EXPR_CAST) /*You can cast pointers...*/
 	if(ee->kind != EXPR_INDEX) /*You can index pointers...*/
-	if(ee->kind != EXPR_METHOD) /*You invoke methods on pointers.*/
+	if(ee->kind != EXPR_METHOD) /*You invoke methods on or with pointers.*/
 	if(ee->kind != EXPR_MEMBER) /*You can get members of structs which are pointed to.*/
 	{
 		if(ee->subnodes[0])
@@ -831,7 +831,7 @@ static void propagate_types(expr_node* ee){
 		if(t.pointerlevel > 0 ||
 			t2.pointerlevel > 0
 		)throw_type_error_with_expression_enums(
-				"Cannot do multiplication, division, or modulo on a pointer.",
+				"Cannot do multiplication or division on a pointer.",
 				ee->subnodes[0]->kind,
 				ee->subnodes[1]->kind
 		);
@@ -917,7 +917,8 @@ static void propagate_types(expr_node* ee){
 		return;
 	}
 
-	throw_type_error_with_expression_enums("Internal error, ee->kind type is unhandled or fell through.",
+	throw_type_error_with_expression_enums(
+		"Internal error, ee->kind type is unhandled or fell through.",
 		ee->kind,
 		EXPR_BAD
 	);
@@ -1158,6 +1159,367 @@ static void validate_codegen_safety(expr_node* ee){
 
 }
 
+static void insert_implied_type_conversion(expr_node** e_ptr, type t){
+	expr_node cast = {0};
+	expr_node* allocated = NULL;
+
+	t.is_lvalue = 0; /*No longer an lvalue after conversion.*/
+	cast.kind = EXPR_CAST;
+	cast.type_to_get_size_of = t;
+	cast.t = t;
+	cast.subnodes[0] = *e_ptr;
+
+
+	/*Identical basetype and pointer level?*/
+	if(t.basetype == e_ptr[0][0].t.basetype)
+		if(t.pointerlevel == e_ptr[0][0].t.pointerlevel)
+			return;
+
+	/*
+		A type conversion is necessary.
+		Even if it means that we're just converting a pointer to an integer.
+	*/
+	allocated = calloc(sizeof(expr_node),1);
+	allocated[0] = cast;
+	e_ptr[0] = allocated;
+}
+
+static void propagate_implied_type_conversions(expr_node* ee){
+	unsigned long i;
+	uint64_t nargs;
+	type t_target = {0};
+	for(i = 0; i < MAX_FARGS; i++){
+		if(ee->subnodes[i])
+			propagate_implied_type_conversions(ee->subnodes[i]);
+	}
+
+	/*The ones we don't do anything for.*/
+	if(ee->kind == EXPR_PAREN ||
+		ee->kind == EXPR_SIZEOF ||
+		ee->kind == EXPR_INTLIT ||
+		ee->kind == EXPR_FLOATLIT ||
+		ee->kind == EXPR_STRINGLIT ||
+		ee->kind == EXPR_LSYM ||
+		ee->kind == EXPR_GSYM ||
+		ee->kind == EXPR_POST_INCR ||
+		ee->kind == EXPR_POST_DECR ||
+		ee->kind == EXPR_MEMBER ||
+		ee->kind == EXPR_CAST ||
+		ee->kind == EXPR_CONSTEXPR_FLOAT ||
+		ee->kind == EXPR_CONSTEXPR_INT
+	) return;
+	
+	if(ee->kind == EXPR_INDEX){
+		t_target.basetype = BASE_I64;
+		insert_implied_type_conversion(
+			ee->subnodes+1, 
+			t_target
+		);
+		return;
+	}
+	if(ee->kind == EXPR_NEG){
+		if(ee->subnodes[0]->t.basetype == BASE_U8){
+			t_target.basetype = BASE_I8;
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
+		}
+		if(ee->subnodes[0]->t.basetype == BASE_U16){
+			t_target.basetype = BASE_I16;
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
+		}
+		if(ee->subnodes[0]->t.basetype == BASE_U32){
+			t_target.basetype = BASE_I32;
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
+		}
+		if(ee->subnodes[0]->t.basetype == BASE_U64){
+			t_target.basetype = BASE_I64;
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
+		}
+		return;
+	}
+
+	if(
+		ee->kind == EXPR_COMPL ||
+		ee->kind == EXPR_NOT
+	){
+		t_target.basetype = BASE_I64;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		return;
+	}
+
+	if(
+		ee->kind == EXPR_BITOR ||
+		ee->kind == EXPR_BITAND ||
+		ee->kind == EXPR_BITXOR ||
+		ee->kind == EXPR_LOGOR ||
+		ee->kind == EXPR_LOGAND ||
+		ee->kind == EXPR_LSH ||
+		ee->kind == EXPR_RSH
+	){
+		t_target.basetype = BASE_I64;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+
+	/*most of the binops...*/
+	if(ee->kind == EXPR_MUL ||
+		ee->kind == EXPR_DIV ||
+		ee->kind == EXPR_MOD ||
+		ee->kind == EXPR_LTE ||
+		ee->kind == EXPR_LT ||
+		ee->kind == EXPR_GT ||
+		ee->kind == EXPR_GTE 
+	){
+		t_target.basetype = 
+		type_promote(
+			ee->subnodes[0]->t.basetype, 
+			ee->subnodes[1]->t.basetype
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+
+	/*Special cases of eq and neq, add and sub where neither are pointers*/
+	if(ee->kind == EXPR_ADD ||
+		ee->kind == EXPR_SUB ||
+		ee->kind == EXPR_EQ ||
+		ee->kind == EXPR_NEQ)
+	if(ee->subnodes[0]->t.pointerlevel == 0)
+	if(ee->subnodes[1]->t.pointerlevel == 0)
+	{
+		t_target.basetype = 
+		type_promote(
+			ee->subnodes[0]->t.basetype, 
+			ee->subnodes[1]->t.basetype
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+
+	/*Add Where the first one is a pointer...*/
+	if(ee->kind == EXPR_ADD)
+		if(ee->subnodes[0]->t.pointerlevel > 0)
+		{
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+			insert_implied_type_conversion(
+				ee->subnodes + 1,
+				t_target
+			);
+			return;
+		}
+	/*The second...*/	
+	if(ee->kind == EXPR_ADD)
+		if(ee->subnodes[1]->t.pointerlevel > 0)
+		{
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+			insert_implied_type_conversion(
+				ee->subnodes + 0,
+				t_target
+			);
+			return;
+		}
+	/*Subtracting from a pointer.*/
+	if(ee->kind == EXPR_SUB)
+	if(ee->subnodes[0]->t.pointerlevel > 0)
+	{
+		t_target.basetype = BASE_I64;
+		t_target.pointerlevel = 0;
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+	/*Pointer-pointer eq/neq. Cast the second argument.*/
+	if(ee->kind == EXPR_EQ || ee->kind == EXPR_NEQ)
+	if(ee->subnodes[0]->t.pointerlevel > 0)
+	if(ee->subnodes[1]->t.pointerlevel > 0)
+	{
+		t_target = ee->subnodes[0]->t;
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+	}
+	/*Assignment*/
+	if(ee->kind == EXPR_ASSIGN){
+		t_target = ee->subnodes[0]->t;
+		if(t_target.is_lvalue == 0){
+			puts(
+				"<INTERNAL ERROR> Non-lvalue reached the lhs of assignment\n"
+				"in the implied type conversion propagator."
+			);
+			throw_type_error("Internal error- check implied conversion propagator.");
+		}
+		t_target.is_lvalue = 0;
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+	
+	if(ee->kind == EXPR_FCALL || ee->kind == EXPR_METHOD){
+		for(i = 0; i < symbol_table[ee->symid].nargs; i++){
+			type qqq;
+			qqq = symbol_table[ee->symid].fargs[i][0];
+			qqq.is_lvalue = 0;
+			insert_implied_type_conversion(
+				ee->subnodes+i, 
+				qqq
+			);
+		}
+		return;
+	}
+	if(ee->kind == EXPR_BUILTIN_CALL){
+		uint64_t got_builtin_arg1_type;
+		uint64_t got_builtin_arg2_type;
+		uint64_t got_builtin_arg3_type;
+		nargs = get_builtin_nargs(ee->symname);
+		t_target = type_init();
+		/*The hardest one!!*/
+		if(nargs == 0) return; /*EZ!*/
+	 		got_builtin_arg1_type = get_builtin_arg1_type(ee->symname);
+	 	if(nargs > 1)
+			got_builtin_arg2_type = get_builtin_arg2_type(ee->symname);
+		if(nargs > 2)
+			got_builtin_arg3_type = get_builtin_arg3_type(ee->symname);
+		/*Check argument 1.*/
+		if(got_builtin_arg1_type == BUILTIN_PROTO_U8_PTR){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 1;
+		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_U64_PTR){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 1;
+		}		
+		if(got_builtin_arg1_type == BUILTIN_PROTO_U64){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_I32){
+			t_target.basetype = BASE_I32;
+			t_target.pointerlevel = 0;
+		}
+		insert_implied_type_conversion(
+			ee->subnodes+0,
+			t_target
+		);
+		if(nargs < 2) return;
+		t_target = type_init();
+
+		if(got_builtin_arg2_type == BUILTIN_PROTO_U8_PTR){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 1;
+		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_U64_PTR){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 1;
+		}		
+		if(got_builtin_arg2_type == BUILTIN_PROTO_U64){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_I32){
+			t_target.basetype = BASE_I32;
+			t_target.pointerlevel = 0;
+		}
+		insert_implied_type_conversion(
+			ee->subnodes+1,
+			t_target
+		);
+		if(nargs < 3) return;
+		t_target = type_init();
+
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U8_PTR){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 1;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U64_PTR){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 1;
+		}		
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U64){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_I32){
+			t_target.basetype = BASE_I32;
+			t_target.pointerlevel = 0;
+		}
+		insert_implied_type_conversion(
+			ee->subnodes+2,
+			t_target
+		);
+		return;
+	}
+	throw_type_error_with_expression_enums(
+		"Implied type conversion propagator fell through! Expression kind:",
+		ee->kind,EXPR_BAD
+	);
+}
+
 //also does goto validation.
 static void walk_assign_lsym_gsym(){
 	scope* current_scope;
@@ -1203,13 +1565,14 @@ static void walk_assign_lsym_gsym(){
 			for(j = 0; j < stmtlist[i].nexpressions; j++){
 				//this function needs to "see" the current scope...
 				scopestack_push(current_scope);
-				assign_lsym_gsym(stmtlist[i].expressions[j]);
-				propagate_types(stmtlist[i].expressions[j]);
-				validate_function_argument_passing(stmtlist[i].expressions[j]);
-				/*
-					TODO: Check function arguments for type compatibility.
-				*/
-				validate_codegen_safety(stmtlist[i].expressions[j]);
+					assign_lsym_gsym(stmtlist[i].expressions[j]);
+					propagate_types(stmtlist[i].expressions[j]);
+					validate_function_argument_passing(stmtlist[i].expressions[j]);
+					/*
+						TODO: Check function arguments for type compatibility.
+					*/
+					validate_codegen_safety(stmtlist[i].expressions[j]);
+					propagate_implied_type_conversions(stmtlist[i].expressions[j]);
 				scopestack_pop();
 			}
 		}
@@ -1223,6 +1586,9 @@ static void walk_assign_lsym_gsym(){
 				(qq.basetype == BASE_F32) 
 			)
 			throw_type_error("Switch statement has non-integer expression.");
+			qq = type_init();
+			qq.basetype = BASE_I64;
+			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}		
 		if(stmtlist[i].kind == STMT_FOR){
 			type qq = ((expr_node*)stmtlist[i].expressions[1])->t;
@@ -1234,6 +1600,9 @@ static void walk_assign_lsym_gsym(){
 				(qq.basetype == BASE_F32) 
 			)
 			throw_type_error("For statement has non-integer conditional expression..");
+			qq = type_init();
+			qq.basetype = BASE_I64;
+			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions+1, qq);
 		}	
 		if(stmtlist[i].kind == STMT_WHILE){
 			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
@@ -1245,6 +1614,9 @@ static void walk_assign_lsym_gsym(){
 				(qq.basetype == BASE_F32) 
 			)
 			throw_type_error("While statement has non-integer conditional expression..");
+			qq = type_init();
+			qq.basetype = BASE_I64;
+			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}	
 		if(stmtlist[i].kind == STMT_IF){
 			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
@@ -1256,6 +1628,9 @@ static void walk_assign_lsym_gsym(){
 				(qq.basetype == BASE_F32) 
 			)
 			throw_type_error("If statement has non-integer conditional expression..");
+			qq = type_init();
+			qq.basetype = BASE_I64;
+			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}
 		if(stmtlist[i].kind == STMT_RETURN){
 			if((expr_node*)stmtlist[i].expressions[0]){
@@ -1264,6 +1639,7 @@ static void walk_assign_lsym_gsym(){
 				pp.is_function = 0;
 				pp.funcid = 0;
 				throw_if_types_incompatible(pp,qq,"Return statement must have compatible type.");
+				insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, pp);
 			}
 		}
 		if(stmtlist[i].kind == STMT_ASM){
@@ -1323,6 +1699,9 @@ void validate_function(symdecl* funk){
 		this also checks to see if goto targets exist.
 	*/
 	walk_assign_lsym_gsym();
+	/*3. Insert implied type conversions.
+	*/
+
 
 	/*
 		(DONE)

@@ -45,12 +45,16 @@ fn func_with_too_many_args(
 	int a18,
 	int a19,
 	int a20,
-)->i64:;;;a20 = a20 = a20 + 1;
+)->i64:;;;
+
+
 	return a20 - '3' + 1;
 
 end
 
 fn strlen(char* s)->u64;
+
+
 method codegen public myClass:driveCar()->myClass*:
 	WrongClass wrongy;
 	int* f;
@@ -127,7 +131,7 @@ end
 
 method myClass:doBetterStuff(int a, myClass* quantum)->i32:
 	if(7 == 3)
-		quantum:doStuff(a)
+		quantum:doStuff(a);
 	end
 end
 
@@ -218,8 +222,8 @@ end
 
 fn strlen(char* s)->u64:
 	u64 len;
-	len = 0;
 	float f;
+	len = 0;
 	f = (f|3) % ((f|3));
 	/*hello!*/	
 	while(s[0])

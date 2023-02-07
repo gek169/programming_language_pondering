@@ -1,0 +1,30 @@
+
+
+
+int myint;
+
+fn add1(int a)->double:
+	if(1)
+		return a|7+3.0;
+		return a|7+3.0;
+	end
+	myint = 7;
+end
+
+fn myFunction():
+	while(1)
+		break
+		break
+		break
+		break
+	end
+	1 + 1 - 7.3;
+	switch(cast(i8)1-1) j1,j2,j3;
+	:j1
+	for(0,0,0)
+		int mylocalint;
+		continue
+	end
+	:j2
+	:j3
+end

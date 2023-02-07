@@ -92,11 +92,11 @@ int impl_builtin_open_ofile(char* fname){
 	return ofile != NULL;
 }
 
-int impl_builtin_close_ofile(){
-	if(!ofile) return 0;
+void impl_builtin_close_ofile(){
+	if(!ofile) return;
 	if(ofile)fclose(ofile);
 	ofile = NULL;
-	return 1;
+	return;
 }
 
 strll* impl_builtin_consume(){
@@ -170,11 +170,11 @@ uint64_t get_builtin_nargs(char* s){
 
 uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_emit")) return BUILTIN_PROTO_VOID;
-	if(streq(s, "__builtin_open_ofile")) return BUILTIN_PROTO_VOID;
+	if(streq(s, "__builtin_open_ofile")) return BUILTIN_PROTO_I32;
 	if(streq(s, "__builtin_close_ofile")) return BUILTIN_PROTO_VOID;
 	if(streq(s, "__builtin_get_ast")) return BUILTIN_PROTO_U64_PTR;
 	if(streq(s, "__builtin_consume")) return BUILTIN_PROTO_U64_PTR;
-	if(streq(s, "__builtin_gets")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_gets")) return BUILTIN_PROTO_VOID;
 	if(streq(s, "__builtin_puts")) return BUILTIN_PROTO_VOID;
 	if(streq(s, "__builtin_peek")) return BUILTIN_PROTO_U64_PTR;
 	if(streq(s, "__builtin_exit")) return BUILTIN_PROTO_VOID;
@@ -186,7 +186,7 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
-	if(streq(s, "__builtin_validate_function")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_validate_function")) return BUILTIN_PROTO_VOID;
 	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_VOID;
 	return 0;
 }

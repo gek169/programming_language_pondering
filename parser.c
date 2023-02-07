@@ -79,19 +79,28 @@ void parse_error(char* msg){
 
 void require(int cond, char* msg){if(!cond)parse_error(msg);}
 void require_peek_notnull(char* msg){if(peek() == NULL)parse_error(msg);}
+void astdump();
 
 void compile_unit(strll* _unit){
 	/*TODO write compiler*/
 	unit = _unit;
 	next = unit;
-	/*TODO*/
-
 	while(1){
 		peek_always_not_null = 0;
 		if(peek() == NULL) {
 			unit_throw_if_had_incomplete();
 			break;
 		}
+		if(peek()->data == TOK_SEMIC){
+			//ignore it!
+			consume();
+			continue;
+		}
+		if(peek()->data == TOK_KEYWORD)
+			if(peek_match_keyw("end"))
+			{
+				parse_error("Stray 'end' in global scope.\nProbably a scope mismatch.");
+			}
 		if(peek()->data == TOK_STRING){
 			peek_always_not_null = 1;
 			printf("\nWARNING: unusable string literal: %lu\n",parse_stringliteral());
@@ -130,6 +139,12 @@ void compile_unit(strll* _unit){
 		parse_gvardecl();
 		peek_always_not_null = 0;
 	}
+
+	/*
+		TODO: Do some compilation.
+	*/
+	astdump();
+	exit(0);
 }
 
 
@@ -1737,8 +1752,8 @@ void parse_expr_stmt(){
 	me = parser_push_statement();
 	me->kind = STMT_EXPR;
 	me->nexpressions = 1;
-
 	parse_expr((expr_node**)&me->expressions[0]);
+	consume_semicolon("expression statement requires a semicolon.");
 }
 
 //declaring a local variable.
@@ -1782,7 +1797,6 @@ void parse_if(){
 		scopestack_push(me->myscope);
 			parse_stmts();
 		scopestack_pop();
-
 }
 
 void parse_while(){
@@ -1874,6 +1888,8 @@ void parse_tail(){
 				*/
 				require(symbol_table[i].nargs == 0, "tail requires a function taking zero arguments and an identical return type to the function it's being called from.");
 				require(symbol_table[i].t.basetype == symbol_table[active_function].t.basetype, "Tail function type mismatch (basetype)");
+				if(symbol_table[i].t.basetype == BASE_STRUCT)
+					require(symbol_table[i].t.structid == symbol_table[active_function].t.structid, "Tail function type mismatch (structid)");
 				require(symbol_table[i].t.pointerlevel == symbol_table[active_function].t.pointerlevel, "Tail function type mismatch (pointerlevel)");
 				require(symbol_table[i].is_codegen == symbol_table[active_function].is_codegen, "Tail function type mismatch (is_codegen)");
 			}

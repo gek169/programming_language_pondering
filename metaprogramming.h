@@ -36,7 +36,7 @@ strll* impl_builtin_peek();
 void impl_builtin_puts(char* s);
 void impl_builtin_gets(char* s, uint64_t sz);
 int impl_builtin_open_ofile(char* fname);
-int impl_builtin_close_ofile();
+void impl_builtin_close_ofile();
 strll* impl_builtin_consume();
 uint64_t impl_builtin_emit(char* data, uint64_t sz);
 void impl_builtin_validate_function(char* p_in);
