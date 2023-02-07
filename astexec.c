@@ -29,6 +29,7 @@ static uint64_t ast_vm_stack_push(){
 }
 static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 	uint64_t placement = ast_vm_stack_push();
+	cur_func_frame_size++;
 	vm_stack[placement].vname = s->name;
 	vm_stack[placement].identification = VM_VARIABLE;
 	vm_stack[placement].t = s->t; //NOTE: Includes lvalue information.
@@ -47,6 +48,7 @@ static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 static uint64_t ast_vm_stack_push_temporary(char* name, type t){
 	uint64_t placement = ast_vm_stack_push();
 	vm_stack[placement].vname = name;
+	vm_stack[placement].identification = VM_EXPRESSION_TEMPORARY;
 	vm_stack[placement].ldata = NULL; //forbidden to have a struct or 
 	if(t.arraylen){
 		t.pointerlevel++;
@@ -64,6 +66,7 @@ static uint64_t ast_vm_stack_push_temporary(char* name, type t){
 		t.pointerlevel = 1;
 	}
 	vm_stack[placement].t = t;
+	cur_expr_stack_usage++;
 	return placement;
 }
 
@@ -72,9 +75,11 @@ static void ast_vm_stack_pop(){
 		puts("<VM ERROR> stack was popped while empty.");
 		exit(1);
 	}
+	if(vm_stack[vm_stackpointer-1].identification == VM_EXPRESSION_TEMPORARY) cur_expr_stack_usage--;
+	if(vm_stack[vm_stackpointer-1].identification == VM_VARIABLE) cur_func_frame_size--;
 	if(vm_stack[vm_stackpointer-1].ldata)
 		free(vm_stack[vm_stackpointer-1].ldata);
-	vm_stack[vm_stackpointer-1].ldata = 0;
+	vm_stack[vm_stackpointer-1].ldata = NULL;
 	vm_stack[vm_stackpointer-1].vname = NULL; /*Don't want to accidentally pick this up in the future!*/
 	vm_stackpointer--;
 }
@@ -524,7 +529,7 @@ static void* retrieve_variable_memory_pointer(
 
 	if(vm_stackpointer == 0){
 		puts("VM ERROR");
-		puts("Could not find local:");
+		puts("Cannot get a local when the vm stack is empty.");
 		puts(name);
 		exit(1);
 	}
@@ -614,7 +619,6 @@ void do_expr(expr_node* ee){
 		ee->kind == EXPR_BUILTIN_CALL
 	){
 		uint64_t loc = ast_vm_stack_push_temporary(NULL, ee->t);
-		vm_stack[loc].identification = VM_FARGS_BEGIN;
 		vm_stack[loc].t = ee->t;
 		saved_vstack_pointer = vm_stackpointer;
 		for(i = MAX_FARGS; i >= 0; i--){
@@ -737,6 +741,20 @@ void do_expr(expr_node* ee){
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
+	if(ee->kind == EXPR_MOVE){
+		//POINTER_SIZE
+		void* p1;
+		void* p2;
+		type t;
+		memcpy(&p1, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+		memcpy(&p2, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+		t = ee->t;
+		t.pointerlevel--; //it's actually one less.
+		memcpy(p1, p2, type_getsz(t));
+		ast_vm_stack_pop(); //no longer need the second operand.
+		vm_stack[vm_stackpointer-1].smalldata = (uint64_t)p2;
+		return;
+	}
 	if(ee->kind == EXPR_CAST){
 		uint64_t data;
 		void* p;
@@ -791,12 +809,15 @@ void do_expr(expr_node* ee){
 		uint64_t data;
 		int64_t ind;
 		void* p;
-		ind = vm_stack[vm_stackpointer-2].smalldata;
-		/*It will never be an lvalue!*/
+		/*the i64 is on top...*/
+		ind = vm_stack[vm_stackpointer-1].smalldata;
+		/*the pointer is on bottom.*/
+		data = vm_stack[vm_stackpointer-2].smalldata;
+		/*move it to pointer memory!*/
 		memcpy(&p, &data, POINTER_SIZE);
 		
-		//perform the pointer addition
-			p = do_ptradd(p, ind, type_getsz(ee->t));
+		//perform the pointer addition.
+		p = do_ptradd(p, ind, type_getsz(ee->t));
 		memcpy( &vm_stack[vm_stackpointer-2].smalldata, &p, POINTER_SIZE);
 		vm_stack[vm_stackpointer-2].t = ee->t;
 		ast_vm_stack_pop(); //we no longer need the index itself.
@@ -820,6 +841,7 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
 		){
+			/*POINTER_SIZE*/
 			vm_stack[vm_stackpointer-2].smalldata = 
 				vm_stack[vm_stackpointer-1].smalldata + 
 				vm_stack[vm_stackpointer-2].smalldata
@@ -884,7 +906,7 @@ void do_expr(expr_node* ee){
 
 		end_expr_add:;
 		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
+		ast_vm_stack_pop();  //we no longer need the second operand.
 		return;
 	}
 	if(ee->kind == EXPR_SUB){
@@ -905,8 +927,8 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
 		){
 			vm_stack[vm_stackpointer-2].smalldata = 
-				vm_stack[vm_stackpointer-1].smalldata -
-				vm_stack[vm_stackpointer-2].smalldata
+				vm_stack[vm_stackpointer-2].smalldata -
+				vm_stack[vm_stackpointer-1].smalldata
 			;
 			goto end_expr_sub;
 		}
@@ -915,8 +937,8 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
 		){
-			memcpy(&i32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			memcpy(&u32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
 			i32data = i32data - u32data;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
 			goto end_expr_sub;
@@ -926,8 +948,8 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
 		){
-			memcpy(&i16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			memcpy(&u16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
 			i16data = i16data - u16data;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
 			goto end_expr_sub;
@@ -937,8 +959,8 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
 		){
-			memcpy(&i8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			memcpy(&u8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
 			i8data = i8data - u8data;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
 			goto end_expr_sub;
@@ -947,8 +969,8 @@ void do_expr(expr_node* ee){
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
 		){
-			memcpy(&f32_1, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			memcpy(&f32_2, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32_1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32_2, &vm_stack[vm_stackpointer-1].smalldata, 4);
 			f32_1 = f32_1 - f32_2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
 			goto end_expr_sub;
@@ -957,8 +979,8 @@ void do_expr(expr_node* ee){
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
 		){
-			memcpy(&f64_1, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			memcpy(&f64_2, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64_1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64_2, &vm_stack[vm_stackpointer-1].smalldata, 8);
 			f64_1 = f64_1 - f64_2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
 			goto end_expr_sub;
@@ -969,7 +991,1001 @@ void do_expr(expr_node* ee){
 
 		end_expr_sub:;
 		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_LSH){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a<<b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_RSH){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a>>b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_BITOR){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a|b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_BITXOR){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a^b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_BITAND){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a & b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_LOGAND){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a && b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_LOGOR){
+		int64_t a;
+		int64_t b;
+		a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		a = a || b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+	if(ee->kind == EXPR_COMPL){
+		int64_t b;
+		//a = vm_stack[vm_stackpointer-2].smalldata;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		b = ~b;
+		vm_stack[vm_stackpointer-1].smalldata = b;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+	if(ee->kind == EXPR_NOT){
+		int64_t b;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		b = !b;
+		vm_stack[vm_stackpointer-1].smalldata = b;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+	if(ee->kind == EXPR_MUL){
+		int32_t i32data;
+		uint32_t u32data;		
+		int16_t i16data;
+		uint16_t u16data;		
+		int8_t i8data;
+		uint8_t u8data;
+		float f32_1;
+		float f32_2;
+		double f64_1;
+		double f64_2;
+		/*case 1: both are i64 or u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			vm_stack[vm_stackpointer-2].smalldata = 
+				vm_stack[vm_stackpointer-2].smalldata *
+				vm_stack[vm_stackpointer-1].smalldata
+			;
+			goto end_expr_mul;
+		}
+		/*case 3: both are i32 or u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i32data = i32data * u32data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
+			goto end_expr_mul;
+		}
+		/*case 4: both are i16 or u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i16data = i16data * u16data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
+			goto end_expr_mul;
+		}	
+		/*case 5: both are i8 or u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i8data = i8data * u8data;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
+			goto end_expr_mul;
+		}
+		/*Case 6: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32_1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32_2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			f32_1 = f32_1 * f32_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
+			goto end_expr_mul;
+		}	
+		/*Case 7: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64_1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64_2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			f64_1 = f64_1 * f64_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
+			goto end_expr_mul;
+		}
+		puts("VM ERROR");
+		puts("Unhandled mul type.");
+		exit(1);
+
+		end_expr_mul:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
 		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+	if(ee->kind == EXPR_DIV)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32_1;
+		float f32_2;
+		double f64_1;
+		double f64_2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			8;
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			u64data1 = u64data1 / u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u64data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}		
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			8;
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 / i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		/*32 bit int*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			4;
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			u32data1 = u32data1 / u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u32data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			4;
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			i32data1 = i32data1 / i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		/*16 bit int*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			2;
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			u16data1 = u16data1 / u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u16data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			2;
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			i16data1 = i16data1 / i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		/*8 bit int*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			1;
+			u8data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u8data2 = vm_stack[vm_stackpointer-1].smalldata;
+			u8data1 = u8data1 / u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u8data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			1;
+			i8data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i8data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i8data1 = i8data1 / i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data1, SIZE_TO_COPY);
+			goto end_expr_div;
+		}
+		/*Case 6: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32_1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32_2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			f32_1 = f32_1 / f32_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
+			goto end_expr_div;
+		}
+		/*Case 7: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64_1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64_2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			f64_1 = f64_1 / f64_2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
+			goto end_expr_div;
+		}
+		puts("VM ERROR");
+		puts("Unhandled div type.");
+		exit(1);
+
+		end_expr_div:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+
+	if(ee->kind == EXPR_MOD){
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			8;
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			u64data1 = u64data1 % u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u64data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			8;
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 % i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		/*32 bit int*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			4;
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			u32data1 = u32data1 % u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u32data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			4;
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			i32data1 = i32data1 % i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		/*16 bit int*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			2;
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			u16data1 = u16data1 % u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u16data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			2;
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i16data1 = i16data1 % i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		/*8 bit int*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			1;
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			u8data1 = u8data1 % u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u8data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			1;
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i8data1 = i8data1 % i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data1, SIZE_TO_COPY);
+			goto end_expr_mod;
+		}
+		puts("VM ERROR");
+		puts("Unhandled mod type.");
+		exit(1);
+
+		end_expr_mod:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+	
+
+	/*
+		Comparisons- No Pointers.
+	*/
+
+	if(ee->kind == EXPR_LT)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = u64data1 < u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}		
+
+		/*case 2: both are i64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 < i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}
+
+		/*case 1: both are u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = u32data1 < u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}		
+		/*case 2: both are i32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = i32data1 < i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}
+		/*case 1: both are u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = u16data1 < u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}		
+		/*case 2: both are i16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = i16data1 < i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}		
+		/*case 1: both are u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = u8data1 < u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}
+		/*case 2: both are i8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = i8data1 < i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}
+		/*case 1: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = f32data1 < f32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}		/*case 1: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			i64data1 = f64data1 < f64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lt;
+		}
+		puts("VM ERROR");
+		puts("Unhandled lt type.");
+		exit(1);
+
+		end_expr_lt:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+	if(ee->kind == EXPR_LTE)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = u64data1 <= u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}		
+
+		/*case 2: both are i64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 <= i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}
+
+		/*case 1: both are u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = u32data1 <= u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}		
+		/*case 2: both are i32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = i32data1 <= i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}
+		/*case 1: both are u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = u16data1 <= u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}		
+		/*case 2: both are i16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = i16data1 <= i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}		
+		/*case 1: both are u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = u8data1 <= u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}
+		/*case 2: both are i8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = i8data1 <= i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}
+		/*case 1: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = f32data1 <= f32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}		/*case 1: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			i64data1 = f64data1 <= f64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_lte;
+		}
+		puts("VM ERROR");
+		puts("Unhandled lte type.");
+		exit(1);
+
+		end_expr_lte:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		return;
+	}
+
+	if(ee->kind == EXPR_GTE)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = u64data1 >= u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}		
+
+		/*case 2: both are i64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 >= i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}
+
+		/*case 1: both are u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = u32data1 >= u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}		
+		/*case 2: both are i32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = i32data1 >= i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}
+		/*case 1: both are u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = u16data1 >= u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}		
+		/*case 2: both are i16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = i16data1 >= i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}		
+		/*case 1: both are u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = u8data1 >= u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}
+		/*case 2: both are i8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = i8data1 >= i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}
+		/*case 1: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = f32data1 >= f32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}		/*case 1: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			i64data1 = f64data1 >= f64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gte;
+		}
+		
+		puts("VM ERROR");
+		puts("Unhandled gte type.");
+		exit(1);
+
+		end_expr_gte:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+
+	if(ee->kind == EXPR_GT)
+	{
+		int64_t i64data1;
+		int64_t i64data2;		
+		uint64_t u64data1;
+		uint64_t u64data2;
+		int32_t i32data1;
+		int32_t i32data2;
+		uint32_t u32data1;
+		uint32_t u32data2;
+		int16_t i16data1;
+		int16_t i16data2;
+		uint16_t u16data1;		
+		uint16_t u16data2;	
+		int8_t i8data1;
+		int8_t i8data2;
+		uint8_t u8data1;
+		uint8_t u8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		/*case 1: both are u64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+		){
+			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = u64data1 > u64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}		
+
+		/*case 2: both are i64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+		){
+			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
+			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
+			i64data1 = i64data1 > i64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}
+
+		/*case 1: both are u32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+		){
+			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = u32data1 > u32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}		
+		/*case 2: both are i32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+		){
+			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = i32data1 > i32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}
+		/*case 1: both are u16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+		){
+			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = u16data1 > u16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}		
+		/*case 2: both are i16*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+		){
+			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
+			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
+			i64data1 = i16data1 > i16data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}		
+		/*case 1: both are u8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+		){
+			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = u8data1 > u8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}
+		/*case 2: both are i8*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+		){
+			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
+			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
+			i64data1 = i8data1 > i8data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}
+		/*case 1: both are f32*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+		){
+			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
+			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			i64data1 = f32data1 > f32data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}		/*case 1: both are f64*/
+		if(
+			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+		){
+			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			i64data1 = f64data1 > f64data2;
+			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
+			goto end_expr_gt;
+		}
+		
+		puts("VM ERROR");
+		puts("Unhandled gt type.");
+		exit(1);
+
+		end_expr_gt:;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
 		return;
 	}
 
@@ -1028,7 +2044,6 @@ void do_expr(expr_node* ee){
 			
 			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
 			sz = impl_builtin_type_getsz(v);
-			
 			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &sz, 8);
 			goto end_of_builtin_call;
 		}
@@ -1145,7 +2160,7 @@ void do_expr(expr_node* ee){
 			impl_builtin_validate_function(v);
 			goto end_of_builtin_call;
 		}
-		if(streq(ee->symname, "__builtin_validate_function")){
+		if(streq(ee->symname, "__builtin_memcpy")){
 			char* a;
 			char* b;
 			uint64_t c;

@@ -209,21 +209,21 @@ typedef struct stmt{
 
 enum{
 	EXPR_BAD=0,
-	EXPR_BUILTIN_CALL,
-	EXPR_FCALL,
-	EXPR_PAREN, /*Encapsulated expression. Just adds a level of indirection, basically.*/
-	EXPR_SIZEOF, /*takes a type.*/
-	EXPR_INTLIT,
-	EXPR_FLOATLIT,
-	EXPR_STRINGLIT, /*references a global symbol, identical to the gsym*/
-	EXPR_LSYM, /*Local symbol- declared within scope hierarchy or function arguments.*/
-	EXPR_GSYM, /*Global symbol- declared at global scope. */
-	EXPR_SYM, /*Unidentified symbol- unknown type.*/
+	EXPR_BUILTIN_CALL, //DONE
+	EXPR_FCALL, //TODO:invoke ast_call_function
+	EXPR_PAREN,
+	EXPR_SIZEOF, //DONE
+	EXPR_INTLIT, //DONE
+	EXPR_FLOATLIT, //DONE
+	EXPR_STRINGLIT, //DONE
+	EXPR_LSYM, //DONE
+	EXPR_GSYM, //DONE
+	EXPR_SYM, 
 	/*unary postfix operators*/
 	EXPR_POST_INCR,
 	EXPR_POST_DECR,
 	EXPR_INDEX,
-	EXPR_MEMBER, /*.myMember, ->myMember is not supported.*/
+	EXPR_MEMBER, //TODO: invoke method.
 	EXPR_METHOD, /*:myMethod(), the name mangling has to happen during the second pass.*/
 	/*unary prefix operators*/
 	EXPR_CAST,
@@ -233,29 +233,29 @@ enum{
 	EXPR_PRE_INCR,
 	EXPR_PRE_DECR,
 	/*binary operators starting at the bottom*/
-	EXPR_MUL,
-	EXPR_DIV,
-	EXPR_MOD,
+	EXPR_MUL, //DONE
+	EXPR_DIV, //DONE
+	EXPR_MOD, //DONE
 	
-	EXPR_ADD,
-	EXPR_SUB,
-	EXPR_BITOR,
-	EXPR_BITAND,
-	EXPR_BITXOR,
-	EXPR_LSH,
-	EXPR_RSH,
-	EXPR_LOGOR,
-	EXPR_LOGAND,
-	EXPR_LT,
+	EXPR_ADD, //DONE
+	EXPR_SUB, //DONE
+	EXPR_BITOR, //DONE
+	EXPR_BITAND, //DONE
+	EXPR_BITXOR, //DONE
+	EXPR_LSH, //DONE
+	EXPR_RSH, //DONE
+	EXPR_LOGOR, //DONE
+	EXPR_LOGAND, //DONE
+	EXPR_LT, //DONE
 	EXPR_GT,
-	EXPR_LTE,
+	EXPR_LTE, //DONE
 	EXPR_GTE,
 	EXPR_EQ,
 	EXPR_NEQ,
 	EXPR_ASSIGN,
-	EXPR_MOVE,
-	EXPR_CONSTEXPR_FLOAT,
-	EXPR_CONSTEXPR_INT,
+	EXPR_MOVE, //DONE
+	EXPR_CONSTEXPR_FLOAT, //DONE
+	EXPR_CONSTEXPR_INT, //DONE
 	NEXPR_TYPES
 };
 

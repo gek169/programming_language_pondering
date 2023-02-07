@@ -254,6 +254,7 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_EQ) puts("EXPR_EQ");
 	if(c == EXPR_NEQ) puts("EXPR_NEQ");
 	if(c == EXPR_ASSIGN) puts("EXPR_ASSIGN");
+	if(c == EXPR_MOVE) puts("EXPR_MOVE");
 	if(c == EXPR_FCALL) puts("EXPR_FCALL");
 	if(c == EXPR_BUILTIN_CALL) puts("EXPR_BUILTIN_CALL");
 	if(c == EXPR_CONSTEXPR_FLOAT) puts("EXPR_CONSTEXPR_FLOAT");
@@ -300,6 +301,7 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_EQ) puts("EXPR_EQ");
 	if(c == EXPR_NEQ) puts("EXPR_NEQ");
 	if(c == EXPR_ASSIGN) puts("EXPR_ASSIGN");
+	if(c == EXPR_MOVE) puts("EXPR_MOVE");
 	if(c == EXPR_FCALL) puts("EXPR_FCALL");
 	if(c == EXPR_BUILTIN_CALL) puts("EXPR_BUILTIN_CALL");
 	if(c == EXPR_CONSTEXPR_FLOAT) puts("EXPR_CONSTEXPR_FLOAT");
@@ -855,7 +857,6 @@ static void propagate_types(expr_node* ee){
 				ee->subnodes[0]->kind,
 				ee->subnodes[1]->kind
 			);
-		ee->t = type_init();
 		ee->t = ee->subnodes[0]->t;
 		ee->t.is_lvalue = 0;
 		return;
@@ -1373,6 +1374,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->subnodes[0]->t.pointerlevel == 0)
 		if(ee->subnodes[1]->t.pointerlevel == 0)
 		{
+			t_target = type_init();
 			t_target.basetype = 
 			type_promote(
 				ee->subnodes[0]->t.basetype, 
@@ -1443,7 +1445,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		);
 		return;
 	}
-	/*Pointer-pointer eq/neq. Cast the second argument.*/
+	/*Pointer-pointer eq/neq.*/
 	if(ee->kind == EXPR_EQ || ee->kind == EXPR_NEQ)
 	if(ee->subnodes[0]->t.pointerlevel > 0)
 	if(ee->subnodes[1]->t.pointerlevel > 0)
