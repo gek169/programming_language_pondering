@@ -326,20 +326,158 @@ static void* retrieve_variable_memory_pointer(
 }
 
 /*funky is needed so we can find local variable symbols.*/
-void do_expr(symdecl* funky, expr_node* ee){
-
+void do_expr(expr_node* ee){
+	int64_t i = 0;
+	int64_t n_subexpressions = 0;
 	/*Function calls and method calls both require saving information.*/
 	uint64_t saved_cur_func_frame_size = 0;
 	uint64_t saved_cur_expr_stack_usage = 0;
 	uint64_t saved_active_function=0;
+	uint64_t saved_vstack_pointer;
 	/*
 		TODO:
 		* Evaluate all subnodes first.
 		* Keep track of how much the stack pointer changes from each node. It should always shift by one- we even keep track of voids.
 		* if this is a function call...
-			* We have to save the information about our current execution state, such as 
-			func 
+			* We have to save the information about our current execution state. Particularly, the i
 
 	*/
+
+	/*Required for the return value.*/
+	if(	ee->kind == EXPR_FCALL ||
+		ee->kind == EXPR_METHOD ||
+		ee->kind == EXPR_BUILTIN_CALL
+	){
+		uint64_t loc = ast_vm_stack_push_temporary(NULL, ee->t);
+		vm_stack[loc].identification = VM_FARGS_BEGIN;
+		vm_stack[loc].t = ee->t;
+		saved_vstack_pointer = vm_stackpointer;
+		for(i = MAX_FARGS; i >= 0; i--){
+			if(ee->subnodes[i]){
+				do_expr(ee->subnodes[i]);
+				n_subexpressions++;
+			}
+			if(i == 0) break;
+		}
+	}
+	if(
+		ee->kind != EXPR_FCALL &&
+		ee->kind != EXPR_METHOD &&
+		ee->kind != EXPR_BUILTIN_CALL
+	){
+		saved_vstack_pointer = vm_stackpointer;
+		for(i = 0; i < MAX_FARGS; i++){
+			if(ee->subnodes[i]){
+				do_expr(ee->subnodes[i]);
+				n_subexpressions++;
+			}
+			if(ee->subnodes[i] == NULL)
+				break;
+		}
+	}
+	
+	/*TODO: remove this if execution is too slow.*/
+	if( (vm_stackpointer - saved_vstack_pointer) != (uint64_t)n_subexpressions){
+		puts("VM Internal Error");
+		puts("Expression evaluation vstack pointer check failed.");
+		exit(1);
+	}
+
+	if(ee->kind == EXPR_FCALL || ee->kind == EXPR_METHOD){
+		//TODO implement function call.
+
+		//Finally ends with popping everything off.
+		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
+		//pop the last thing off.
+		ast_vm_stack_pop();
+		return;
+	}
+
+	if(ee->kind == EXPR_BUILTIN_CALL){
+		if(streq(ee->symname, "__builtin_emit")){
+			char* s;
+			uint64_t sz;
+			//function arguments are backwards on the stack, more arguments = deeper
+			memcpy(&s, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			memcpy(&sz, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+			impl_builtin_emit(s,sz);
+			goto end_of_builtin_call;
+		}	
+		if(streq(ee->symname, "__builtin_getargc")){
+			int32_t v;
+			v = impl_builtin_getargc();
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, 4);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_getargv")){ //0 arguments
+			char** v;
+			v = impl_builtin_getargv();
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_malloc")){
+			char** v;
+			uint64_t sz;
+			memcpy(&sz, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			v = impl_builtin_malloc(sz);
+			
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_realloc")){
+			char* v;
+			uint64_t sz;
+			//remember: arguments are backwards on the stack! so the first argument is on top...
+			memcpy(&sz, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			memcpy(&v, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+			v = impl_builtin_realloc(v,sz);
+			
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			goto end_of_builtin_call;
+		}		
+		if(streq(ee->symname, "__builtin_type_getsz")){
+			char* v;
+			uint64_t sz;
+			//remember: arguments are backwards on the stack! so the first argument is on top...
+			
+			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			sz = impl_builtin_type_getsz(v);
+			
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &sz, 8);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_struct_metadata")){
+			uint64_t sz;
+			//remember: arguments are backwards on the stack! so the first argument is on top...
+			
+			memcpy(&sz, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			sz = impl_builtin_struct_metadata(sz);
+			
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &sz, 8);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_strdup")){
+			char* v;
+			//remember: arguments are backwards on the stack! so the first argument is on top...
+			
+			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			v = impl_builtin_strdup(v);
+			
+			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			goto end_of_builtin_call;
+		}
+		puts("VM Error");
+		puts("Unhandled builtin call:");
+		puts(ee->symname);
+		exit(1);
+
+		end_of_builtin_call:;
+		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
+		//pop the last thing off.
+		ast_vm_stack_pop();
+		return;
+	}
+
+	
 }
 

@@ -958,6 +958,7 @@ static void validate_function_argument_passing(expr_node* ee){
 	uint64_t nargs;
 	uint64_t got_builtin_arg1_type;
 	uint64_t got_builtin_arg2_type;
+	uint64_t got_builtin_arg3_type;
 	type t_target = {0};
 	for(i = 0; i < MAX_FARGS; i++){
 		if(ee->subnodes[i])
@@ -976,6 +977,8 @@ static void validate_function_argument_passing(expr_node* ee){
 	 	got_builtin_arg1_type = get_builtin_arg1_type(ee->symname);
 	 	if(nargs > 1)
 			got_builtin_arg2_type = get_builtin_arg2_type(ee->symname);
+		if(nargs > 2)
+			got_builtin_arg3_type = get_builtin_arg3_type(ee->symname);
 		/*Check argument 1.*/
 		if(got_builtin_arg1_type == BUILTIN_PROTO_VOID){
 			puts("Internal error: Argument 1 is BUILTIN_PROTO_VOID for EXPR_BUILITIN_CALL. Update metaprogramming.");
@@ -1006,11 +1009,12 @@ static void validate_function_argument_passing(expr_node* ee){
 			t_target.pointerlevel = 0;
 		}
 		throw_if_types_incompatible(
-			t_target, ee->subnodes[0]->t, 
+			t_target, 
+			ee->subnodes[0]->t, 
 			"First argument passed to builtin function is wrong!"
 		);
-		t_target = type_init();
 		if(nargs < 2) return;
+		t_target = type_init();
 		if(got_builtin_arg2_type == BUILTIN_PROTO_VOID){
 			puts("Internal error: Argument 2 is BUILTIN_PROTO_VOID for EXPR_BUILITIN_CALL. Update metaprogramming.");
 			throw_type_error("Internal error: BUILTIN_PROTO_VOID for EXPR_BUILTIN_CALL");
@@ -1043,6 +1047,41 @@ static void validate_function_argument_passing(expr_node* ee){
 			t_target, 
 			ee->subnodes[1]->t, 
 			"Second argument passed to builtin function is wrong!"
+		);
+		if(nargs < 3) return;
+		t_target = type_init();
+		if(got_builtin_arg3_type == BUILTIN_PROTO_VOID){
+			puts("Internal error: Argument 3 is BUILTIN_PROTO_VOID for EXPR_BUILITIN_CALL. Update metaprogramming.");
+			throw_type_error("Internal error: BUILTIN_PROTO_VOID for EXPR_BUILTIN_CALL");
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U8_PTR){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 1;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U8_PTR2){
+			t_target.basetype = BASE_U8;
+			t_target.pointerlevel = 2;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U64_PTR){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 1;
+		}		
+		if(got_builtin_arg3_type == BUILTIN_PROTO_U64){
+			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_I32){
+			t_target.basetype = BASE_I32;
+			t_target.pointerlevel = 0;
+		}
+		throw_if_types_incompatible(
+			t_target, 
+			ee->subnodes[2]->t, 
+			"Third argument passed to builtin function is wrong!"
 		);
 	}
 

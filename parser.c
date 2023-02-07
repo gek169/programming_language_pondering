@@ -1706,7 +1706,7 @@ void expr_parse_assign(expr_node** targ){
 	expr_node* b;
 	expr_parse_logbool(&a);
 	//while(1){
-	if(peek()->data == TOK_OPERATOR){	
+	if(peek()->data == TOK_OPERATOR){
 		if(streq(peek()->text, "=")){
 			consume();
 			c = c_allocX(sizeof(expr_node));

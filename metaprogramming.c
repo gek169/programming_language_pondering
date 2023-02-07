@@ -118,6 +118,10 @@ void impl_builtin_validate_function(char* p_in){
 	validate_function(funk);
 }
 
+void impl_builtin_memcpy(char* a, char* b, uint64_t sz){
+	memcpy(a,b,sz);
+}
+
 
 int is_builtin_name(char* s){
 	if(streq(s, "__builtin_emit")) return 1;
@@ -138,6 +142,7 @@ int is_builtin_name(char* s){
 	if(streq(s, "__builtin_type_getsz")) return 1;
 	if(streq(s, "__builtin_struct_metadata")) return 1;
 	if(streq(s, "__builtin_validate_function")) return 1;
+	if(streq(s, "__builtin_memcpy")) return 1;
 	return 0;
 }
 
@@ -159,6 +164,7 @@ uint64_t get_builtin_nargs(char* s){
 	if(streq(s, "__builtin_realloc")) return 2;
 	if(streq(s, "__builtin_struct_metadata")) return 1;
 	if(streq(s, "__builtin_validate_function")) return 1;
+	if(streq(s, "__builtin_memcpy")) return 3;
 	return 0;
 }
 
@@ -181,6 +187,7 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_validate_function")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_VOID;
 	return 0;
 }
 
@@ -196,12 +203,18 @@ uint64_t get_builtin_arg1_type(char* s){
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 uint64_t get_builtin_arg2_type(char* s){
 	if(streq(s, "__builtin_emit")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_gets")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_U8_PTR;
+	return 0;
+}
+uint64_t get_builtin_arg3_type(char* s){
+	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_U64;
 	return 0;
 }
 

@@ -40,21 +40,23 @@ int impl_builtin_close_ofile();
 strll* impl_builtin_consume();
 uint64_t impl_builtin_emit(char* data, uint64_t sz);
 void impl_builtin_validate_function(char* p_in);
+void impl_builtin_memcpy(char* a, char* b, uint64_t sz);
 
 int is_builtin_name(char* s);
 uint64_t get_builtin_nargs(char* s);
 enum{
-	BUILTIN_PROTO_VOID,
-	BUILTIN_PROTO_U8_PTR,
-	BUILTIN_PROTO_U8_PTR2,
-	BUILTIN_PROTO_U64_PTR,
-	BUILTIN_PROTO_U64,
-	BUILTIN_PROTO_I32
+	BUILTIN_PROTO_VOID=0,
+	BUILTIN_PROTO_U8_PTR=1,
+	BUILTIN_PROTO_U8_PTR2=2,
+	BUILTIN_PROTO_U64_PTR=3,
+	BUILTIN_PROTO_U64=4,
+	BUILTIN_PROTO_I32=5
 };
 
 uint64_t get_builtin_retval(char* s);
 uint64_t get_builtin_arg1_type(char* s);
 uint64_t get_builtin_arg2_type(char* s);
+uint64_t get_builtin_arg3_type(char* s);
 
 /*
 	TODO: push built-in struct types onto the list of typedecls,
