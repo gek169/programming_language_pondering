@@ -4,11 +4,7 @@
 int myint;
 
 fn add1(int a)->double:
-	if(1)
-		return !a * 7+3.0e-4;
-		return a|7+3.0;
-	end
-	myint = cast(u64)--myint;
+	return 1+a;
 end
 
 //used for testing tail

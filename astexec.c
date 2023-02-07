@@ -126,8 +126,8 @@ static uint64_t do_primitive_type_conversion(
 	uint32_t u32data;
 	int64_t i64data;
 	uint64_t u64data;
-	double ddata;
-	float fdata;
+	double f64data;
+	float f32data;
 	if(sizeof(double) != 8 || sizeof(float) != 4 || sizeof(void*) != 8){
 		puts("<Seabass platform error>");
 		puts("The interpreter was written with heavy assumption of the sizes of built-in types.");
@@ -142,248 +142,192 @@ static uint64_t do_primitive_type_conversion(
 		exit(1);
 	}
 	if(srcbase == whatbase) return thing;
+	if(srcbase == BASE_VOID ||
+		whatbase == BASE_VOID ||
+		srcbase > BASE_F64 ||
+		whatbase > BASE_F64 ){
+		puts("VM Error:");
+		puts("Tried to do conversions between INVALID types!");
+		if(srcbase == BASE_STRUCT) puts("srcbase was BASE_STRUCT");
+		if(whatbase == BASE_STRUCT) puts("whatbase was BASE_STRUCT");
+		exit(1);		
+	}
 	/*integers of the same size are just a reinterpret cast...*/
 	if(whatbase == BASE_U8 && srcbase == BASE_I8) return thing;
 	if(whatbase == BASE_U16 && srcbase == BASE_I16) return thing;
 	if(whatbase == BASE_U32 && srcbase == BASE_I32) return thing;
 	if(whatbase == BASE_U64 && srcbase == BASE_I64) return thing;
-	if(
-		srcbase == BASE_U64 ||
-		srcbase == BASE_I64
-	){
-		i64data = thing;
-		u64data = thing;
-	}
-
-	if(srcbase == BASE_F64){
-		memcpy(&ddata, &thing, 8);
-	}
-	if(srcbase == BASE_F32){
-		memcpy(&fdata, &thing, 4);
-	}
-	if(srcbase == BASE_U32 || srcbase == BASE_I32){
-		memcpy(&u32data, &thing,4);
-		memcpy(&i32data, &thing,4);
-	}
-	if(srcbase == BASE_U16 || srcbase == BASE_I16){
-		memcpy(&u16data, &thing,2);
-		memcpy(&i16data, &thing,2);
-	}
-	if(srcbase == BASE_U8 || srcbase == BASE_I8){
-		memcpy(&u8data, &thing,1);
-		memcpy(&i8data, &thing,1);
-	}
-	/*
-		Somewhat intelligent brute force combinatorics.
-		Unsigned to signed never results in a sign extension.
-		signed to unsigned is sign extended
-		signed to signed is sign extended
-	*/
-	/*U8 -> X*/
-	if(srcbase == BASE_U8){
-		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
-			u16data = u8data;
-			memcpy(&thing, 
-			&u16data, 2);
+	/*Generate all possible input interpretations.*/
+	i64data = thing;
+	u64data = thing;
+	memcpy(&f64data, &thing, 8);
+	memcpy(&f32data, &thing, 4);
+	memcpy(&u32data, &thing,4);
+	i32data = u32data;
+	memcpy(&u16data, &thing,2);
+	i16data = u16data;
+	memcpy(&u8data, &thing,1);
+	i8data = u8data;
+	if(whatbase < srcbase){
+		if(whatbase == BASE_U8 ||whatbase == BASE_I8){
+			if(srcbase == BASE_U16 || srcbase == BASE_I16)	u8data=u16data;
+			if(srcbase == BASE_U32 || srcbase == BASE_I32)	u8data=u32data;
+			if(srcbase == BASE_U64 || srcbase == BASE_I64)	u8data=u64data;
+			if(srcbase == BASE_F32)							{i8data=f32data;u8data=i8data;}
+			if(srcbase == BASE_F64)							{i8data=f64data;u8data=i8data;}
+			memcpy(&thing, &u8data, 1);
 			return thing;
 		}
-		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
-			u32data = u8data;
-			memcpy(&thing, 
-			&u32data, 4);
+		if(whatbase == BASE_U16 ||whatbase == BASE_I16){
+			if(srcbase == BASE_U32 || srcbase == BASE_I32)	u16data=u32data;
+			if(srcbase == BASE_U64 || srcbase == BASE_I64)	u16data=u64data;
+			if(srcbase == BASE_F32)							{i16data=f32data;u16data=i16data;}
+			if(srcbase == BASE_F64)							{i16data=f64data;u16data=i16data;}
+			memcpy(&thing, &u16data, 2);
 			return thing;
 		}
-		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
-			u64data = u8data;
+		if(whatbase == BASE_U32 ||whatbase == BASE_I32){
+			if(srcbase == BASE_U64 || srcbase == BASE_I64)	u32data=u64data;
+			if(srcbase == BASE_F32)							{i32data=f32data;u32data=i32data;}
+			if(srcbase == BASE_F64)							{i32data=f64data;u32data=i32data;}
+			memcpy(&thing, &u32data, 4);
+			return thing;
+		}
+		if(whatbase == BASE_U64 ||whatbase == BASE_I64){
+			if(srcbase == BASE_F32)							{i64data=f32data;u64data=i64data;}
+			if(srcbase == BASE_F64)							{i64data=f64data;u64data=i64data;}
+			//memcpy(&thing, &u64data, 8);
 			return u64data;
 		}
+		if(whatbase == BASE_F32){
+			if(srcbase == BASE_F64)							f32data=f64data;
+			memcpy(&thing, &f32data, 4);
+			return thing;
+		}
+		//base_f64 is equal to itself						f64data=f64data;
 	}
-	/*U16 -> X*/
-	if(srcbase == BASE_U16){
-		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
-			u8data = u16data;
-			memcpy(&thing, 
-			&u8data, 1);
-			return thing;
-		}
-		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
-			u32data = u16data;
-			memcpy(&thing, 
-			&u32data, 4);
-			return thing;
-		}
-		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
-			u64data = u16data;
-			return u64data;
-		}
+	//Promoting up?
+	if(whatbase == BASE_F64){
+		if(srcbase == BASE_I8) 								f64data = i8data;
+		if(srcbase == BASE_U8) 								f64data = u8data;
+		
+		if(srcbase == BASE_I16) 							f64data = i16data;
+		if(srcbase == BASE_U16) 							f64data = u16data;
+		
+		if(srcbase == BASE_I32) 							f64data = i32data;
+		if(srcbase == BASE_U32) 							f64data = u32data;
+		
+		if(srcbase == BASE_I64) 							f64data = i64data;
+		if(srcbase == BASE_U64) 							f64data = u64data;
+				
+		if(srcbase == BASE_I64) 							f64data = i64data;
+		if(srcbase == BASE_U64) 							f64data = u64data;
+		
+		if(srcbase == BASE_F32) 							f64data = f32data;
+		memcpy(&thing, &f64data, 8);
+		return thing;
+	}	
+	if(whatbase == BASE_F32){
+		if(srcbase == BASE_I8) 								f32data = i8data;
+		if(srcbase == BASE_U8) 								f32data = u8data;
+		
+		if(srcbase == BASE_I16) 							f32data = i16data;
+		if(srcbase == BASE_U16) 							f32data = u16data;
+		
+		if(srcbase == BASE_I32) 							f32data = i32data;
+		if(srcbase == BASE_U32) 							f32data = u32data;
+		
+		if(srcbase == BASE_I64) 							f32data = i64data;
+		if(srcbase == BASE_U64) 							f32data = u64data;
+				
+		if(srcbase == BASE_U64) 							f32data = u64data;
+		if(srcbase == BASE_I64) 							f32data = i64data;
+		memcpy(&thing, &f32data, 4);
+		return thing;
 	}
-	/*U32 -> X*/
-	if(srcbase == BASE_U32){
-		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
-			u8data = u32data;
-			memcpy(&thing, 
-			&u8data, 1);
-			return thing;
-		}
-		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
-			u16data = u32data;
-			memcpy(&thing, 
-			&u16data, 2);
-			return thing;
-		}
-		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
-			u64data = u32data;
-			return u64data;
-		}
+	if(whatbase == BASE_I64){
+		if(srcbase == BASE_I8) 								i64data = i8data;
+		if(srcbase == BASE_U8) 								i64data = u8data;
+		
+		if(srcbase == BASE_I16) 							i64data = i16data;
+		if(srcbase == BASE_U16) 							i64data = u16data;
+		
+		if(srcbase == BASE_I32) 							i64data = i32data;
+		if(srcbase == BASE_U32) 							i64data = u32data;
+		//memcpy(&thing, &f32data, 4);
+		return i64data;
 	}
-	/*U64 -> X*/
-	if(srcbase == BASE_U64){
-		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
-			u8data = u64data;
-			memcpy(&thing, 
-			&u8data, 1);
-			return thing;
-		}
-		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
-			u16data = u64data;
-			memcpy(&thing, 
-			&u16data, 2);
-			return thing;
-		}
-		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
-			u32data = u64data;
-			memcpy(&thing, 
-			&u32data, 4);
-			return thing;
-		}
+	if(whatbase == BASE_U64){
+		if(srcbase == BASE_I8) 								{i64data = i8data;u64data=i64data;}//must enforce sign extension.
+		if(srcbase == BASE_U8) 								u64data = u8data;
+		
+		if(srcbase == BASE_I16) 							{i64data = i16data;u64data=i64data;}//must enforce sign extension.
+		if(srcbase == BASE_U16) 							u64data = u16data;
+		
+		if(srcbase == BASE_I32) 							{i64data = i32data;u64data=i64data;}//must enforce sign extension.
+		if(srcbase == BASE_U32) 							u64data = u32data;
+				
+		//memcpy(&thing, &u64data, 8);
+		return u64data;
 	}
-	/*i8 -> x*/
-	if(srcbase == BASE_I8){
-		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
-			i16data = i8data;
-			memcpy(&thing, 
-			&i16data, 2);
-			return thing;
+	if(whatbase == BASE_I32){
+		if(srcbase == BASE_U8) 								i32data = u8data;
+		if(srcbase == BASE_I8) 								i32data = i8data;//must enforce sign extension.
+		
+		if(srcbase == BASE_U16) 							i32data = u16data;
+		if(srcbase == BASE_I16) 							i32data = i16data;//must enforce sign extension.
+		memcpy(&thing, &i32data, 4);
+		return thing;
+	}
+	if(whatbase == BASE_U32){
+		if(srcbase == BASE_U8) 								u32data = u8data;
+		if(srcbase == BASE_I8) 								{i32data = i8data;u32data =i32data;}//must enforce sign extension.
+		
+		if(srcbase == BASE_U16) 							u32data = u16data;
+		if(srcbase == BASE_I16) 							{i32data = i16data;u32data =i32data;}//must enforce sign extension.
+		memcpy(&thing, &u32data, 4);
+		return thing;
+	}
+	if(whatbase == BASE_I16){
+		if(srcbase == BASE_U8) 								i16data = u8data;
+		if(srcbase == BASE_I8) 								i16data = i8data;//must enforce sign extension.
+		memcpy(&thing, &i16data, 2);
+		return thing;
+	}
+	if(whatbase == BASE_U16){
+		if(srcbase == BASE_U8) 								u16data = u8data;
+		if(srcbase == BASE_I8) 								{i16data = i8data;u16data=i16data;}//must enforce sign extension.
+		memcpy(&thing, &u16data, 2);
+		return thing;
+	}
+	puts("VM internal error");
+	puts("Unhandled type conversion.");
+	if(srcbase == BASE_U8) puts("from u8");
+	if(srcbase == BASE_I8) puts("from i8");	
+	if(srcbase == BASE_U16) puts("from u16");
+	if(srcbase == BASE_I16) puts("from i16");
+	if(srcbase == BASE_U32) puts("from u32");
+	if(srcbase == BASE_I32) puts("from i32");
+	if(srcbase == BASE_U64) puts("from u64");
+	if(srcbase == BASE_I64) puts("from i64");
+	if(srcbase == BASE_F32) puts("from f32");
+	if(srcbase == BASE_F64) puts("from f64");
+	if(srcbase == BASE_VOID) puts("from void");
+	if(srcbase >= BASE_FUNCTION) puts("from invalid");	
 
-		}
-		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
-			i32data = i8data;
-			memcpy(&thing, 
-			&i32data, 4);
-			return thing;
-
-		}
-		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
-			i64data = i8data;
-			return i64data;
-		}
-	}
-	/*i16 -> x*/
-	if(srcbase == BASE_I16){
-		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
-			i8data = i16data;
-			memcpy(&thing, 
-			&i8data, 1);
-			return thing;
-		}
-		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
-			i32data = i16data;
-			memcpy(&thing, 
-			&i32data, 4);
-			return thing;
-		}
-		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
-			i64data = i16data;
-			return i64data;
-		}
-	}
-	/*i32 -> x*/
-	if(srcbase == BASE_I32){
-		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
-			i8data = i32data;
-			memcpy(&thing, 
-			&i8data, 1);
-			return thing;
-		}
-		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
-			i16data = i32data;
-			memcpy(&thing, 
-			&i16data, 2);
-			return thing;
-		}
-		if((whatbase == BASE_U64 || whatbase == BASE_I64)){
-			i64data = i32data;
-			return i64data;
-		}
-	}
-	/*i64 -> x*/
-	if(srcbase == BASE_I64){
-		if((whatbase == BASE_U8 || whatbase == BASE_I8)){
-			i8data = i64data;
-			memcpy(&thing, 
-			&i8data, 1);
-			return thing;
-		}
-		if((whatbase == BASE_U16 || whatbase == BASE_I16)){
-			i16data = i64data;
-			memcpy(&thing, 
-			&i16data, 2);
-			return thing;
-		}
-		if((whatbase == BASE_U32 || whatbase == BASE_I32)){
-			i32data = i64data;
-			memcpy(&thing, 
-			&i32data, 4);
-			return thing;
-		}
-	}
-
-	/*
-		Float-to-float conversions!
-	*/
-	if(srcbase == BASE_F32 && whatbase == BASE_F64){
-		ddata = fdata;
-		memcpy(&thing, 
-		&ddata, 8);
-		return thing;
-	}
-	if(srcbase == BASE_F64 && whatbase == BASE_F32){
-		fdata = ddata;
-		memcpy(&thing, 
-		&fdata, 4);
-		return thing;
-	}
-	/*
-		Floating point to integer conversions!
-	*/
-
-	//prepare by setting up i64data for copying...
-	if(srcbase == BASE_F64){
-		i64data = ddata;
-	}
-	if(srcbase == BASE_F32){
-		i64data = fdata;
-	}
-	//do the copy!
-	if(whatbase == BASE_U8 || whatbase == BASE_I8){
-		u8data = i64data;
-		memcpy(&thing, 
-		&u8data,1);
-		return thing;
-	}
-	if(whatbase == BASE_U16 || whatbase == BASE_I16){
-		u16data = i64data;
-		memcpy(&thing, 
-		&u16data,2);
-		return thing;
-	}
-	if(whatbase == BASE_U32 || whatbase == BASE_I32){
-		u32data = i64data;
-		memcpy(&thing, &u32data,4);
-		return thing;
-	}
-	//it was one of the 64 bit ones. In which case, i64data already holds the proper result.
-	return i64data;
+	if(whatbase == BASE_U8) puts("to u8");
+	if(whatbase == BASE_I8) puts("to i8");	
+	if(whatbase == BASE_U16) puts("to u16");
+	if(whatbase == BASE_I16) puts("to i16");
+	if(whatbase == BASE_U32) puts("to u32");
+	if(whatbase == BASE_I32) puts("to i32");
+	if(whatbase == BASE_U64) puts("to u64");
+	if(whatbase == BASE_I64) puts("to i64");
+	if(whatbase == BASE_F32) puts("to f32");
+	if(whatbase == BASE_F64) puts("to f64");
+	if(whatbase == BASE_VOID) puts("to void");
+	if(whatbase >= BASE_FUNCTION) puts("to invalid");
+	exit(1);
 }
 
 /*a
@@ -445,7 +389,12 @@ static void* retrieve_variable_memory_pointer(
 	/*Search for local variables in the vstack...*/
 
 	for(i = vm_stackpointer-1-cur_expr_stack_usage; 
-		i > (int64_t)vm_stackpointer-(int64_t)1-(int64_t)cur_expr_stack_usage-(int64_t)cur_func_frame_size; 
+		i > (
+			(int64_t)vm_stackpointer //points to first empty slot
+				-(int64_t)1 //point to the first non-empty slot instead.
+				-(int64_t)cur_expr_stack_usage //how many expression temporaries are there?
+				-(int64_t)cur_func_frame_size //how many variables are there in the frame?
+		); 
 		i--
 	){
 		if(vm_stack[i].identification == VM_FFRAME_BEGIN) break;
