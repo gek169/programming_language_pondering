@@ -1416,6 +1416,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			type qqq;
 			qqq = symbol_table[ee->symid].fargs[i][0];
 			qqq.is_lvalue = 0;
+			qqq.membername = NULL;
 			insert_implied_type_conversion(
 				ee->subnodes+i, 
 				qqq
