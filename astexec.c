@@ -91,21 +91,38 @@ static void* do_ptradd(char* ptr, int64_t num, uint64_t sz){
 /*
 	used for EXPR_MEMBER
 */
-static uint64_t get_offsetof(typedecl* the_struct, char* membername)
+static uint64_t get_offsetof(
+	typedecl* the_struct, 
+	char* membername
+)
 {
 	uint64_t off = 0;
 	uint64_t i;
 	for(i = 0; i < the_struct->nmembers; i++){
 		if(streq(the_struct->members[i].membername, membername))
-			break;
+			return off;
 		off = off + type_getsz(the_struct->members[i]);
 	}
+	puts("VM internal error");
+	puts("Could not find member of struct:");
+	puts(the_struct->name);
+	puts("member:");
+	puts(membername);
+	exit(1);
 	return off;
 }
 
 static uint64_t do_deref(void* ptr, unsigned sz){
 	memcpy(&sz, ptr, sz);
 	return sz;
+}
+
+static void do_assignment(
+	void* ptr,
+	uint64_t val,
+	uint64_t sz
+){
+	memcpy(ptr, &val, sz);
 }
 
 /*
@@ -610,6 +627,11 @@ void do_expr(expr_node* ee){
 			pt = do_deref(p, POINTER_SIZE);
 			levels_of_indirection = levels_of_indirection - 1;
 		}
+		/*
+			pt holds single-level pointer-to-struct.
+
+			Now, we need to add the offset of the member...
+		*/
 		pt = pt + get_offsetof(
 			type_table + ee->subnodes[0]->t.structid, 
 			ee->symname
@@ -649,7 +671,8 @@ void do_expr(expr_node* ee){
 		if(
 			ee->t.basetype == BASE_I64 || 
 			ee->t.basetype == BASE_F64 ||
-			ee->t.basetype == BASE_U64)
+			ee->t.basetype == BASE_U64
+		)
 		{
 			memcpy(p1, &val, 8);
 			goto end_expr_assign;
@@ -657,7 +680,8 @@ void do_expr(expr_node* ee){
 		if(
 			ee->t.basetype == BASE_I32 || 
 			ee->t.basetype == BASE_F32 ||
-			ee->t.basetype == BASE_U32)
+			ee->t.basetype == BASE_U32
+		)
 		{
 			memcpy(p1, &val, 4);
 			goto end_expr_assign;
@@ -689,31 +713,59 @@ void do_expr(expr_node* ee){
 		return;
 	}
 
-	if(ee->kind == EXPR_PRE_INCR){
+	if(
+		ee->kind == EXPR_PRE_INCR ||
+		ee->kind == EXPR_POST_INCR ||
+		ee->kind == EXPR_PRE_DECR ||
+		ee->kind == EXPR_POST_DECR
+	){
 		void* p1;
 		uint64_t val;
+		uint64_t valpre;
 		int32_t i32data;
 		int16_t i16data;
 		int8_t i8data;
 		float f32data;
 		double f64data;
-		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
-		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+		int is_incr;
+		int is_pre;
+		is_incr= 
+		(
+			ee->kind == EXPR_PRE_INCR || 
+			ee->kind == EXPR_POST_INCR
+		);
+		is_pre = 
+		(
+			ee->kind == EXPR_PRE_INCR || 
+			ee->kind == EXPR_PRE_DECR
+		);
+		//it's an lvalue... therefore, a pointer! 
+		//Fetch the pointer and put it in p1!
+		memcpy(
+			&p1, 
+			&vm_stack[vm_stackpointer-1].smalldata, 
+			POINTER_SIZE
+		);
 		//grab the actual value at that address...
-		memcpy(&val, p1, 8);
+		memcpy(&val, p1, 8); valpre = val;
 		//If the actual thing we're changing is a pointer,
 		//we have to determine how much to increment by.
 		//We have to determine how much to increment or decrement.
 		if(ee->t.pointerlevel > 0){
 			uint64_t how_much_to_change;
+			memcpy(&val, p1, 8); valpre = val;
+			//type we are pointing to...
 			type t2;
 			t2 = ee->t;
 			t2.pointerlevel--;
+			//we shift by that size
 			how_much_to_change = type_getsz(t2);
-			val = val + how_much_to_change;
-			memcpy(p1, &val, POINTER_SIZE);
-			//Pre-increment is automatically handled as val will be updated.
-			//val = val - how_much_to_change;//post
+			//shift
+			if(is_incr)
+				val = val + how_much_to_change;
+			if(!is_incr)
+				val = val - how_much_to_change;
+			do_assignment(p1, val, POINTER_SIZE);
 			goto end_expr_pre_incr;
 		}
 		if(
@@ -721,8 +773,10 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U64
 		)
 		{
-			val++;
-			memcpy(p1, &val, 8);
+			memcpy(&val, p1, 8); valpre = val;
+			if(is_incr) val++;
+			if(!is_incr) val--;
+			do_assignment(p1, val, 8);
 			//pre-increment auto handled, val is set
 			//val--;//post
 			goto end_expr_pre_incr;
@@ -731,10 +785,11 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_I32 || 
 			ee->t.basetype == BASE_U32)
 		{
+			memcpy(&val, p1, 4); valpre = val;
 			memcpy(&i32data, &val, 4);
-			i32data++;
+			if(is_incr) i32data++;
+			if(!is_incr) i32data--;
 			memcpy(p1, &i32data, 4);
-			memcpy(&val, &i32data, 4); //pre
 			goto end_expr_pre_incr;
 		}
 		if(
@@ -742,10 +797,11 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U16
 		)
 		{
+			memcpy(&val, p1, 2); valpre = val;
 			memcpy(&i16data, &val, 2);
-			i16data++;
+			if(is_incr) i16data++;
+			if(!is_incr) i16data--;
 			memcpy(p1, &i16data, 2);
-			memcpy(&val, &i16data, 2); //pre
 			goto end_expr_pre_incr;
 		}
 		if(
@@ -753,315 +809,44 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U8
 		)
 		{
+			memcpy(&val, p1, 1); valpre = val;
 			memcpy(&i8data, &val, 1);
-			i8data++;
+			if(is_incr) i8data++;
+			if(!is_incr) i8data--;
 			memcpy(p1, &i8data, 1);
-			memcpy(&val, &i8data, 1); //pre
 			goto end_expr_pre_incr;
 		}
 		if(ee->t.basetype == BASE_F64){
+			memcpy(&val, p1, 8); valpre = val;
+
 			memcpy(&f64data, &val, 8);
-			f64data = f64data + 1;
+			if(is_incr)f64data = f64data + 1;
+			if(!is_incr)f64data = f64data - 1;
 			memcpy(p1, &f64data, 8);
-			memcpy(&val, &f64data, 8);//pre
 			goto end_expr_pre_incr;
 		}	
 		if(ee->t.basetype == BASE_F32){
+			memcpy(&val, p1, 4); valpre = val;
 			memcpy(&f32data, &val, 4);
-			f32data = f32data + 1;
+			if(is_incr)f32data = f32data + 1;
+			if(!is_incr)f32data = f32data - 1;
 			memcpy(p1, &f32data, 4);
-			memcpy(&val, &f32data, 4); //pre
 			goto end_expr_pre_incr;
 		}
+		
 		puts("VM internal error");
-		puts("Unhandled pre_incr type.");
+		puts("Unhandled pre/post incr/decr type.");
+		if(is_pre) puts("was pre");
+		if(!is_pre) puts("was post");
+		if(is_incr) puts("was incr");
+		if(!is_incr) puts("was decr");
 		exit(1);
 
 		end_expr_pre_incr:;
-		vm_stack[vm_stackpointer-1].smalldata = val;
-		vm_stack[vm_stackpointer-1].t = ee->t;
-		return;
-	}
-
-
-	if(ee->kind == EXPR_PRE_DECR){
-		void* p1;
-		uint64_t val;
-		int32_t i32data;
-		int16_t i16data;
-		int8_t i8data;
-		float f32data;
-		double f64data;
-		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
-		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-		//grab the actual value at that address...
-		memcpy(&val, p1, 8);
-		//If the actual thing we're changing is a pointer,
-		//we have to determine how much to increment by.
-		//We have to determine how much to increment or decrement.
-		if(ee->t.pointerlevel > 0){
-			uint64_t how_much_to_change;
-			type t2;
-			t2 = ee->t;
-			t2.pointerlevel--;
-			how_much_to_change = type_getsz(t2);
-			val = val - how_much_to_change;
-			memcpy(p1, &val, POINTER_SIZE);
-			//Pre-increment is automatically handled as val will be updated.
-			//val = val + how_much_to_change;//post
-			goto end_expr_pre_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I64 || 
-			ee->t.basetype == BASE_U64
-		)
-		{
-			val--;
-			memcpy(p1, &val, 8);
-			//pre-increment auto handled, val is set
-			//val++;//post
-			goto end_expr_pre_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I32 || 
-			ee->t.basetype == BASE_U32)
-		{
-			memcpy(&i32data, &val, 4);
-			i32data--;
-			memcpy(p1, &i32data, 4);
-			memcpy(&val, &i32data, 4); //pre
-			goto end_expr_pre_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I16 ||
-			ee->t.basetype == BASE_U16
-		)
-		{
-			memcpy(&i16data, &val, 2);
-			i16data--;
-			memcpy(p1, &i16data, 2);
-			memcpy(&val, &i16data, 2); //pre
-			goto end_expr_pre_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I8 ||
-			ee->t.basetype == BASE_U8
-		)
-		{
-			memcpy(&i8data, &val, 1);
-			i8data--;
-			memcpy(p1, &i8data, 1);
-			memcpy(&val, &i8data, 1); //pre
-			goto end_expr_pre_decr;
-		}
-		if(ee->t.basetype == BASE_F64){
-			memcpy(&f64data, &val, 8);
-			f64data = f64data - 1;
-			memcpy(p1, &f64data, 8);
-			memcpy(&val, &f64data, 8);//pre
-			goto end_expr_pre_decr;
-		}	
-		if(ee->t.basetype == BASE_F32){
-			memcpy(&f32data, &val, 4);
-			f32data = f32data - 1;
-			memcpy(p1, &f32data, 4);
-			memcpy(&val, &f32data, 4); //pre
-			goto end_expr_pre_decr;
-		}
-		puts("VM internal error");
-		puts("Unhandled post_decr type.");
-		exit(1);
-
-		end_expr_pre_decr:;
-		vm_stack[vm_stackpointer-1].smalldata = val;
-		vm_stack[vm_stackpointer-1].t = ee->t;
-		return;
-	}
-
-
-	if(ee->kind == EXPR_POST_INCR){
-		void* p1;
-		uint64_t val;
-		int32_t i32data;
-		int16_t i16data;
-		int8_t i8data;
-		float f32data;
-		double f64data;
-		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
-		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-		//grab the actual value at that address...
-		memcpy(&val, p1, 8);
-		//If the actual thing we're changing is a pointer,
-		//we have to determine how much to increment by.
-		//We have to determine how much to increment or decrement.
-		if(ee->t.pointerlevel > 0){
-			uint64_t how_much_to_change;
-			type t2;
-			t2 = ee->t;
-			t2.pointerlevel--;
-			how_much_to_change = type_getsz(t2);
-			val = val + how_much_to_change;
-			memcpy(p1, &val, POINTER_SIZE);
-			//Pre-increment is automatically handled as val will be updated.
-			val = val - how_much_to_change;//post
-			goto end_expr_post_incr;
-		}
-		if(
-			ee->t.basetype == BASE_I64 || 
-			ee->t.basetype == BASE_U64
-		)
-		{
-			val++;
-			memcpy(p1, &val, 8);
-			//pre-increment auto handled, val is set
-			val--;//post
-			goto end_expr_post_incr;
-		}
-		if(
-			ee->t.basetype == BASE_I32 || 
-			ee->t.basetype == BASE_U32)
-		{
-			memcpy(&i32data, &val, 4);
-			i32data++;
-			memcpy(p1, &i32data, 4);
-			//memcpy(&val, &i32data, 4); //pre
-			goto end_expr_post_incr;
-		}
-		if(
-			ee->t.basetype == BASE_I16 ||
-			ee->t.basetype == BASE_U16
-		)
-		{
-			memcpy(&i16data, &val, 2);
-			i16data++;
-			memcpy(p1, &i16data, 2);
-			//memcpy(&val, &i16data, 2); //pre
-			goto end_expr_post_incr;
-		}
-		if(
-			ee->t.basetype == BASE_I8 ||
-			ee->t.basetype == BASE_U8
-		)
-		{
-			memcpy(&i8data, &val, 1);
-			i8data++;
-			memcpy(p1, &i8data, 1);
-			//memcpy(&val, &i8data, 1); //pre
-			goto end_expr_post_incr;
-		}
-		if(ee->t.basetype == BASE_F64){
-			memcpy(&f64data, &val, 8);
-			f64data = f64data + 1;
-			memcpy(p1, &f64data, 8);
-			//memcpy(&val, &f64data, 8);//pre
-			goto end_expr_post_incr;
-		}	
-		if(ee->t.basetype == BASE_F32){
-			memcpy(&f32data, &val, 4);
-			f32data = f32data + 1;
-			memcpy(p1, &f32data, 4);
-			//memcpy(&val, &f32data, 4); //pre
-			goto end_expr_post_incr;
-		}
-		puts("VM internal error");
-		puts("Unhandled post_incr type.");
-		exit(1);
-
-		end_expr_post_incr:;
-		vm_stack[vm_stackpointer-1].smalldata = val;
-		vm_stack[vm_stackpointer-1].t = ee->t;
-		return;
-	}
-	if(ee->kind == EXPR_POST_DECR){
-		void* p1;
-		uint64_t val;
-		int32_t i32data;
-		int16_t i16data;
-		int8_t i8data;
-		float f32data;
-		double f64data;
-		//it's an lvalue... therefore, a pointer! Fetch the pointer and put it in p1!
-		memcpy(&p1, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-		//grab the actual value at that address...
-		memcpy(&val, p1, 8);
-		//If the actual thing we're changing is a pointer,
-		//we have to determine how much to increment by.
-		//We have to determine how much to increment or decrement.
-		if(ee->t.pointerlevel > 0){
-			uint64_t how_much_to_change;
-			type t2;
-			t2 = ee->t;
-			t2.pointerlevel--;
-			how_much_to_change = type_getsz(t2);
-			val = val - how_much_to_change;
-			memcpy(p1, &val, POINTER_SIZE);
-			//Pre-increment is automatically handled as val will be updated.
-			val = val + how_much_to_change;//post
-			goto end_expr_post_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I64 || 
-			ee->t.basetype == BASE_U64
-		)
-		{
-			val--;
-			memcpy(p1, &val, 8);
-			//pre-increment auto handled, val is set
-			val++;//post
-			goto end_expr_post_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I32 || 
-			ee->t.basetype == BASE_U32)
-		{
-			memcpy(&i32data, &val, 4);
-			i32data--;
-			memcpy(p1, &i32data, 4);
-			//memcpy(&val, &i32data, 4); //pre
-			goto end_expr_post_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I16 ||
-			ee->t.basetype == BASE_U16
-		)
-		{
-			memcpy(&i16data, &val, 2);
-			i16data--;
-			memcpy(p1, &i16data, 2);
-			//memcpy(&val, &i16data, 2); //pre
-			goto end_expr_post_decr;
-		}
-		if(
-			ee->t.basetype == BASE_I8 ||
-			ee->t.basetype == BASE_U8
-		)
-		{
-			memcpy(&i8data, &val, 1);
-			i8data--;
-			memcpy(p1, &i8data, 1);
-			//memcpy(&val, &i8data, 1); //pre
-			goto end_expr_post_decr;
-		}
-		if(ee->t.basetype == BASE_F64){
-			memcpy(&f64data, &val, 8);
-			f64data = f64data - 1;
-			memcpy(p1, &f64data, 8);
-			//memcpy(&val, &f64data, 8);//pre
-			goto end_expr_post_decr;
-		}	
-		if(ee->t.basetype == BASE_F32){
-			memcpy(&f32data, &val, 4);
-			f32data = f32data - 1;
-			memcpy(p1, &f32data, 4);
-			//memcpy(&val, &f32data, 4); //pre
-			goto end_expr_post_decr;
-		}
-		puts("VM internal error");
-		puts("Unhandled pre_decr type.");
-		exit(1);
-
-		end_expr_post_decr:;
-		vm_stack[vm_stackpointer-1].smalldata = val;
+		if(!is_pre)
+			vm_stack[vm_stackpointer-1].smalldata = val;
+		if(is_pre)
+			vm_stack[vm_stackpointer-1].smalldata = valpre;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
@@ -1070,44 +855,42 @@ void do_expr(expr_node* ee){
 	
 	if(ee->kind == EXPR_CAST){
 		uint64_t data;
-		void* p;
 		data = vm_stack[vm_stackpointer-1].smalldata;
-		memcpy(&p, &data, POINTER_SIZE);
-		/*if is lvalue, then do a dereference...*/
+		/*
+		if is_lvalue, then small data was a pointer!
+		do a dereference...
+		*/
 		if(vm_stack[vm_stackpointer-1].t.is_lvalue){
-			data = do_deref((void*)data, type_getsz(ee->t));
+			data = do_deref(
+				(void*)data, 
+				type_getsz(ee->t)
+			);
 		}
 		/*If they were both pointers, we do nothing.*/
 		if(ee->t.pointerlevel > 0)
-			if(vm_stack[vm_stackpointer-1].t.pointerlevel > 0)
+			if(ee->subnodes[0]->t.pointerlevel > 0)
 				goto end_expr_cast;
-		/*if it was integer to pointer, 
-			we're converting from U64 to whatever the integer is.
-			Note that it's impossible for it to be a float, here.
-			that should have already been caught by the validator.
-		*/
+		/*TO POINTER.*/
 		if(ee->t.pointerlevel){
 			data = do_primitive_type_conversion(
 				data,
-				vm_stack[vm_stackpointer-1].t.basetype,
-				BASE_U64
+				vm_stack[vm_stackpointer-1].t.basetype, //srcbase
+				BASE_U64 //whatbase
 			);
 			vm_stack[vm_stackpointer-1].smalldata = data;
 			goto end_expr_cast;
 		}
-		/*
-			If it's pointer to integer, it's the opposite.
-		*/
-		if(vm_stack[vm_stackpointer-1].t.pointerlevel){
+		/*FROM POINTER*/
+		if(ee->subnodes[0]->t.pointerlevel > 0){
 			data = do_primitive_type_conversion(
 				data,
-				BASE_U64,
-				ee->t.basetype
+				BASE_U64, //srcbase
+				ee->t.basetype //whatbase
 			);
 			vm_stack[vm_stackpointer-1].smalldata = data;
 			goto end_expr_cast;
 		}
-		/*It doesn't involve pointers. Neat! We can just do it right here, then:*/
+		/*CONVERSIONW WITHOUT POINTERS*/
 		data = do_primitive_type_conversion(
 			data,
 			vm_stack[vm_stackpointer-1].t.basetype,
@@ -1131,272 +914,222 @@ void do_expr(expr_node* ee){
 		
 		//perform the pointer addition.
 		p = do_ptradd(p, ind, type_getsz(ee->t));
-		memcpy( &vm_stack[vm_stackpointer-2].smalldata, &p, POINTER_SIZE);
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
-		return;
-	}
-	if(ee->kind == EXPR_ADD){
-		int32_t i32data;
-		uint32_t u32data;		
-		int16_t i16data;
-		uint16_t u16data;		
-		int8_t i8data;
-		uint8_t u8data;
-		float f32_1;
-		float f32_2;
-		double f64_1;
-		double f64_2;
-		/*case 1: both are i64 or u64, or pointer arithmetic.*/
-		if(
-			vm_stack[vm_stackpointer-2].t.pointerlevel > 0 ||
-			vm_stack[vm_stackpointer-1].t.pointerlevel > 0 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			/*POINTER_SIZE*/
-			vm_stack[vm_stackpointer-2].smalldata = 
-				vm_stack[vm_stackpointer-1].smalldata + 
-				vm_stack[vm_stackpointer-2].smalldata
-			;
-			goto end_expr_add;
-		}
-		/*case 3: both are i32 or u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			memcpy(&u32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			i32data = i32data + u32data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
-			goto end_expr_add;
-		}
-		/*case 4: both are i16 or u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			memcpy(&u16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			i16data = i16data + u16data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
-			goto end_expr_add;
-		}	
-		/*case 5: both are i8 or u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			memcpy(&u8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			i8data = i8data + u8data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
-			goto end_expr_add;
-		}
-		/*Case 6: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32_1, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			memcpy(&f32_2, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			f32_1 = f32_1 + f32_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
-			goto end_expr_add;
-		}		/*Case 6: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64_1, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			memcpy(&f64_2, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			f64_1 = f64_1 + f64_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
-			goto end_expr_add;
-		}
-		puts("VM ERROR");
-		puts("Unhandled add type.");
-		exit(1);
-
-		end_expr_add:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop();  //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_SUB){
-		int32_t i32data;
-		uint32_t u32data;		
-		int16_t i16data;
-		uint16_t u16data;		
-		int8_t i8data;
-		uint8_t u8data;
-		float f32_1;
-		float f32_2;
-		double f64_1;
-		double f64_2;
-		/*case 1: both are i64 or u64, or pointer arithmetic.*/
-		if(
-			vm_stack[vm_stackpointer-1].t.pointerlevel > 0 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			vm_stack[vm_stackpointer-2].smalldata = 
-				vm_stack[vm_stackpointer-2].smalldata -
-				vm_stack[vm_stackpointer-1].smalldata
-			;
-			goto end_expr_sub;
-		}
-		/*case 3: both are i32 or u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i32data = i32data - u32data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
-			goto end_expr_sub;
-		}
-		/*case 4: both are i16 or u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i16data = i16data - u16data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
-			goto end_expr_sub;
-		}	
-		/*case 5: both are i8 or u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i8data = i8data - u8data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
-			goto end_expr_sub;
-		}
-		/*Case 6: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32_1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32_2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			f32_1 = f32_1 - f32_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
-			goto end_expr_sub;
-		}	
-		/*Case 7: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64_1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64_2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			f64_1 = f64_1 - f64_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
-			goto end_expr_sub;
-		}
-		puts("VM ERROR");
-		puts("Unhandled sub type.");
-		exit(1);
-
-		end_expr_sub:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_LSH){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a<<b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_RSH){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a>>b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_BITOR){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a|b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_BITXOR){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a^b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_BITAND){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a & b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_LOGAND){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a && b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_LOGOR){
-		int64_t a;
-		int64_t b;
-		a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		a = a || b;
-		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-	if(ee->kind == EXPR_COMPL){
-		int64_t b;
-		//a = vm_stack[vm_stackpointer-2].smalldata;
-		b = vm_stack[vm_stackpointer-1].smalldata;
-		b = ~(int64_t)b;
-		vm_stack[vm_stackpointer-1].smalldata = b;
+		memcpy(
+			&vm_stack[vm_stackpointer-2].smalldata, 
+			&p, 
+			POINTER_SIZE
+		);
+		ast_vm_stack_pop(); //toss the second operand.
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
-	if(ee->kind == EXPR_NOT){
+	if(
+		ee->kind == EXPR_ADD ||
+		ee->kind == EXPR_SUB ||
+		ee->kind == EXPR_MUL
+	){
+		int32_t i32data1;	
+		int32_t i32data2;	
+		int16_t i16data1;
+		int16_t i16data2;
+		int8_t i8data1;
+		int8_t i8data2;
+		float f32data1;
+		float f32data2;
+		double f64data1;
+		double f64data2;
+		int optype;
+		optype = ee->kind;
+		/*case 1: both are i64 or u64, or pointer arithmetic.*/
+		if(
+			ee->subnodes[0]->t.pointerlevel > 0 ||
+			ee->subnodes[1]->t.pointerlevel > 0 ||
+			ee->subnodes[1]->t.basetype == BASE_U64 ||
+			ee->subnodes[1]->t.basetype == BASE_I64
+		){
+			/*POINTER_SIZE*/
+			if(optype == EXPR_ADD)
+				vm_stack[vm_stackpointer-2].smalldata = 
+					vm_stack[vm_stackpointer-2].smalldata + 
+					vm_stack[vm_stackpointer-1].smalldata
+				;	
+			if(optype == EXPR_SUB)
+				vm_stack[vm_stackpointer-2].smalldata = 
+					vm_stack[vm_stackpointer-2].smalldata -
+					vm_stack[vm_stackpointer-1].smalldata
+				;
+			if(optype == EXPR_MUL)
+				vm_stack[vm_stackpointer-2].smalldata = 
+					vm_stack[vm_stackpointer-2].smalldata *
+					vm_stack[vm_stackpointer-1].smalldata
+				;
+			goto end_expr_add;
+		}
+		/*case 3: both are i32 or u32*/
+		if(
+			ee->subnodes[0]->t.basetype == BASE_U32 ||
+			ee->subnodes[0]->t.basetype == BASE_I32
+		){
+			memcpy(
+				&i32data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				4
+			);
+			memcpy(
+				&i32data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				4
+			);
+			if(optype == EXPR_ADD)i32data1 = i32data1 + i32data2;
+			if(optype == EXPR_SUB)i32data1 = i32data1 - i32data2;
+			if(optype == EXPR_MUL)i32data1 = i32data1 * i32data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i32data1, 
+				4
+			);
+			goto end_expr_add;
+		}
+		/*case 4: both are i16 or u16*/
+		if(
+			ee->subnodes[0]->t.basetype == BASE_U16 ||
+			ee->subnodes[0]->t.basetype == BASE_I16
+		){
+			memcpy(
+				&i16data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				2
+			);
+			memcpy(
+				&i16data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				2
+			);
+			if(optype == EXPR_ADD)i16data1 = i16data1 + i16data2;
+			if(optype == EXPR_SUB)i16data1 = i16data1 - i16data2;
+			if(optype == EXPR_MUL)i16data1 = i16data1 * i16data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i16data1, 
+				2
+			);
+			goto end_expr_add;
+		}	
+		/*case 5: both are i8 or u8*/
+		if(
+			ee->subnodes[0]->t.basetype == BASE_U8 ||
+			ee->subnodes[0]->t.basetype == BASE_I8
+		){
+			memcpy(
+				&i8data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				1
+			);
+			memcpy(
+				&i8data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				1
+			);
+			if(optype == EXPR_ADD)i8data1 = i8data1 + i8data2;
+			if(optype == EXPR_SUB)i8data1 = i8data1 - i8data2;
+			if(optype == EXPR_MUL)i8data1 = i8data1 * i8data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i8data1, 
+				1
+			);
+			goto end_expr_add;
+		}
+		/*Case 6: both are f32*/
+		if(
+			ee->subnodes[0]->t.basetype == BASE_F32
+		){
+			memcpy(
+				&f32data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				4
+			);
+			memcpy(
+				&f32data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				4
+			);
+			if(optype == EXPR_ADD)f32data1 = f32data1 + f32data2;
+			if(optype == EXPR_SUB)f32data1 = f32data1 - f32data2;
+			if(optype == EXPR_MUL)f32data1 = f32data1 * f32data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&f32data1, 
+				4
+			);
+			goto end_expr_add;
+		}		/*Case 6: both are f64*/
+		if(
+			ee->subnodes[0]->t.basetype == BASE_F64
+		){
+			memcpy(
+				&f64data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				8
+			);
+			memcpy(
+				&f64data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				8
+			);
+			if(optype == EXPR_ADD)f64data1 = f64data1 + f64data2;
+			if(optype == EXPR_SUB)f64data1 = f64data1 - f64data2;
+			if(optype == EXPR_MUL)f64data1 = f64data1 * f64data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&f64data1, 
+				8
+			);
+			goto end_expr_add;
+		}
+		puts("VM ERROR");
+		puts("Unhandled add/sub/mul type.");
+		exit(1);
+
+		end_expr_add:;
+		ast_vm_stack_pop();  //we no longer need the second operand.
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
+	if(
+		ee->kind == EXPR_LSH ||
+		ee->kind == EXPR_RSH ||
+		ee->kind == EXPR_BITOR ||
+		ee->kind == EXPR_BITXOR ||
+		ee->kind == EXPR_BITAND ||
+		ee->kind == EXPR_LOGAND ||
+		ee->kind == EXPR_LOGOR
+	){
+		int64_t a;
 		int64_t b;
+		int op = ee->kind;
+		a = vm_stack[vm_stackpointer-2].smalldata;
 		b = vm_stack[vm_stackpointer-1].smalldata;
-		b = !(int64_t)b;
+		if(op == EXPR_LSH) a = a<<b;
+		if(op == EXPR_RSH) a = a>>b;
+		if(op == EXPR_BITOR) a = a|b;
+		if(op == EXPR_BITXOR) a = a^b;
+		if(op == EXPR_BITAND) a = a&b;
+		if(op == EXPR_LOGAND) a = a&&b;
+		if(op == EXPR_LOGOR) a = a||b;
+		vm_stack[vm_stackpointer-2].smalldata = a;
+		vm_stack[vm_stackpointer-2].t = ee->t;
+		ast_vm_stack_pop(); //we no longer need the second operand.
+		return;
+	}
+
+	if(ee->kind == EXPR_COMPL ||
+	ee->kind == EXPR_NOT){
+		int64_t b;
+		int op = ee->kind;
+		b = vm_stack[vm_stackpointer-1].smalldata;
+		if(op == EXPR_COMPL) b = ~(int64_t)b;
+		if(op == EXPR_NOT) b = !(int64_t)b;
 		vm_stack[vm_stackpointer-1].smalldata = b;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
@@ -1414,67 +1147,103 @@ void do_expr(expr_node* ee){
 		if(
 			ee->t.basetype == BASE_I64
 		){
-			memcpy(&i64data, &vm_stack[vm_stackpointer-1].smalldata, 
-			8);
+			memcpy(
+				&i64data, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				8
+			);
 			i64data = -1 * i64data;
-			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i64data, 
-			8);
+			memcpy(
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				&i64data, 
+				8
+			);
 			goto end_expr_neg;
 		}		
 		/*Case I32*/
 		if(
 			ee->t.basetype == BASE_I32
 		){
-			memcpy(&i32data, &vm_stack[vm_stackpointer-1].smalldata, 
-			4);
+			memcpy(
+				&i32data, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				4
+			);
 			i32data = -1 * i32data;
-			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i32data, 
-			4);
+			memcpy(
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				&i32data, 
+				4
+			);
 			goto end_expr_neg;
 		}		
 		/*Case I16*/
 		if(
 			ee->t.basetype == BASE_I16
 		){
-			memcpy(&i16data, &vm_stack[vm_stackpointer-1].smalldata, 
-			2);
+			memcpy(
+				&i16data, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				2
+			);
 			i16data = -1 * i16data;
-			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i16data, 
-			2);
+			memcpy(
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				&i16data, 
+				2
+			);
 			goto end_expr_neg;
 		}		
 		/*Case I8*/
 		if(
 			ee->t.basetype == BASE_I8
 		){
-			memcpy(&i8data, &vm_stack[vm_stackpointer-1].smalldata, 
-			1);
+			memcpy(
+				&i8data, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				1
+			);
 			i8data = -1 * i8data;
-			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &i8data, 
-			1);
+			memcpy(
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				&i8data, 
+				1
+			);
 			goto end_expr_neg;
 		}
-		/*Case last: f32*/
+		/*Case: f32*/
 		if(
 			ee->t.basetype == BASE_F32
 		){
-			memcpy(&f32_1, &vm_stack[vm_stackpointer-1].smalldata, 
-			4);
+			memcpy(
+				&f32_1, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				4
+			);
 			f32_1 = -1 * f32_1;
-			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &f32_1, 
-			4);
+			memcpy(
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				&f32_1, 
+				4
+			);
 			goto end_expr_neg;
 		}
 
-		/*Case last: f64*/
+		/*Case: f64*/
 		if(
 			ee->t.basetype == BASE_F64
 		){
-			memcpy(&f64_1, &vm_stack[vm_stackpointer-1].smalldata, 
-			8);
+			memcpy(
+				&f64_1, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				8
+			);
 			f64_1 = -1 * f64_1;
-			memcpy(&vm_stack[vm_stackpointer-1].smalldata, &f64_1, 
-			8);
+			memcpy(
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				&f64_1, 
+				8
+			);
 			goto end_expr_neg;
 		}
 		puts("VM ERROR");
@@ -1484,91 +1253,10 @@ void do_expr(expr_node* ee){
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
-	if(ee->kind == EXPR_MUL){
-		int32_t i32data;
-		uint32_t u32data;		
-		int16_t i16data;
-		uint16_t u16data;		
-		int8_t i8data;
-		uint8_t u8data;
-		float f32_1;
-		float f32_2;
-		double f64_1;
-		double f64_2;
-		/*case 1: both are i64 or u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			vm_stack[vm_stackpointer-2].smalldata = 
-				vm_stack[vm_stackpointer-2].smalldata *
-				vm_stack[vm_stackpointer-1].smalldata
-			;
-			goto end_expr_mul;
-		}
-		/*case 3: both are i32 or u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i32data = i32data * u32data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data, 4);
-			goto end_expr_mul;
-		}
-		/*case 4: both are i16 or u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i16data = i16data * u16data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data, 2);
-			goto end_expr_mul;
-		}	
-		/*case 5: both are i8 or u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8 ||
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i8data = i8data * u8data;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data, 1);
-			goto end_expr_mul;
-		}
-		/*Case 6: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32_1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32_2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			f32_1 = f32_1 * f32_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
-			goto end_expr_mul;
-		}	
-		/*Case 7: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64_1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64_2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			f64_1 = f64_1 * f64_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
-			goto end_expr_mul;
-		}
-		puts("VM ERROR");
-		puts("Unhandled mul type.");
-		exit(1);
-
-		end_expr_mul:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
-		return;
-	}
-	if(ee->kind == EXPR_DIV)
+	if(
+		ee->kind == EXPR_DIV ||
+		ee->kind == EXPR_MOD
+	)
 	{
 		int64_t i64data1;
 		int64_t i64data2;		
@@ -1590,6 +1278,7 @@ void do_expr(expr_node* ee){
 		float f32_2;
 		double f64_1;
 		double f64_2;
+		int op = ee->kind;
 		/*case 1: both are u64*/
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
@@ -1599,7 +1288,8 @@ void do_expr(expr_node* ee){
 			8;
 			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
 			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			u64data1 = u64data1 / u64data2;
+			if(op == EXPR_DIV) u64data1 = u64data1 / u64data2;
+			if(op == EXPR_MOD) u64data1 = u64data1 % u64data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u64data1, SIZE_TO_COPY);
 			goto end_expr_div;
 		}		
@@ -1611,7 +1301,8 @@ void do_expr(expr_node* ee){
 			8;
 			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
 			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 / i64data2;
+			if(op == EXPR_DIV) i64data1 = i64data1 / i64data2;
+			if(op == EXPR_MOD) i64data1 = i64data1 % i64data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, SIZE_TO_COPY);
 			goto end_expr_div;
 		}
@@ -1624,7 +1315,8 @@ void do_expr(expr_node* ee){
 			4;
 			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
 			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			u32data1 = u32data1 / u32data2;
+			if(op == EXPR_DIV) u32data1 = u32data1 / u32data2;
+			if(op == EXPR_MOD) u32data1 = u32data1 % u32data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u32data1, SIZE_TO_COPY);
 			goto end_expr_div;
 		}
@@ -1636,7 +1328,8 @@ void do_expr(expr_node* ee){
 			4;
 			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
 			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			i32data1 = i32data1 / i32data2;
+			if(op == EXPR_DIV) i32data1 = i32data1 / i32data2;
+			if(op == EXPR_MOD) i32data1 = i32data1 % i32data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data1, SIZE_TO_COPY);
 			goto end_expr_div;
 		}
@@ -1649,7 +1342,8 @@ void do_expr(expr_node* ee){
 			2;
 			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
 			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			u16data1 = u16data1 / u16data2;
+			if(op == EXPR_DIV) u16data1 = u16data1 / u16data2;
+			if(op == EXPR_MOD) u16data1 = u16data1 % u16data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u16data1, SIZE_TO_COPY);
 			goto end_expr_div;
 		}
@@ -1661,7 +1355,8 @@ void do_expr(expr_node* ee){
 			2;
 			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
 			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			i16data1 = i16data1 / i16data2;
+			if(op == EXPR_DIV) i16data1 = i16data1 / i16data2;
+			if(op == EXPR_MOD) i16data1 = i16data1 % i16data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data1, SIZE_TO_COPY);
 			goto end_expr_div;
 		}
@@ -1672,10 +1367,23 @@ void do_expr(expr_node* ee){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
 			1;
-			u8data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u8data2 = vm_stack[vm_stackpointer-1].smalldata;
-			u8data1 = u8data1 / u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u8data1, SIZE_TO_COPY);
+			memcpy(
+				&u8data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&u8data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
+			if(op == EXPR_DIV) u8data1 = u8data1 / u8data2;
+			if(op == EXPR_MOD) u8data1 = u8data1 % u8data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&u8data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		if(
@@ -1684,710 +1392,90 @@ void do_expr(expr_node* ee){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
 			1;
-			i8data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i8data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i8data1 = i8data1 / i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data1, SIZE_TO_COPY);
+			memcpy(
+				&i8data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&i8data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
+			if(op == EXPR_DIV) i8data1 = i8data1 / i8data2;
+			if(op == EXPR_MOD) i8data1 = i8data1 % i8data2;
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i8data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		/*Case 6: both are f32*/
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
 		){
-			memcpy(&f32_1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32_2, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			4;
+			memcpy(
+				&f32_1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&f32_2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
 			f32_1 = f32_1 / f32_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f32_1, 4);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&f32_1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		/*Case 7: both are f64*/
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
 		){
-			memcpy(&f64_1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64_2, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			unsigned SIZE_TO_COPY;
+			SIZE_TO_COPY = 
+			8;
+			memcpy(
+				&f64_1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&f64_2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
 			f64_1 = f64_1 / f64_2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &f64_1, 8);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&f64_1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		puts("VM ERROR");
-		puts("Unhandled div type.");
+		puts("Unhandled div/mod type.");
 		exit(1);
-
 		end_expr_div:;
 		vm_stack[vm_stackpointer-2].t = ee->t;
 		ast_vm_stack_pop(); //we no longer need the index itself.
 		return;
 	}
-
-	if(ee->kind == EXPR_MOD){
-		int64_t i64data1;
-		int64_t i64data2;		
-		uint64_t u64data1;
-		uint64_t u64data2;
-		int32_t i32data1;
-		int32_t i32data2;
-		uint32_t u32data1;
-		uint32_t u32data2;
-		int16_t i16data1;
-		int16_t i16data2;
-		uint16_t u16data1;		
-		uint16_t u16data2;	
-		int8_t i8data1;
-		int8_t i8data2;
-		uint8_t u8data1;
-		uint8_t u8data2;
-		/*case 1: both are u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			8;
-			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			u64data1 = u64data1 % u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u64data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			8;
-			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 % i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		/*32 bit int*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			4;
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			u32data1 = u32data1 % u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u32data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			4;
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			i32data1 = i32data1 % i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		/*16 bit int*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			2;
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
-			u16data1 = u16data1 % u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u16data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			2;
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i16data1 = i16data1 % i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		/*8 bit int*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			1;
-			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			u8data1 = u8data1 % u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u8data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			unsigned SIZE_TO_COPY;
-			SIZE_TO_COPY = 
-			1;
-			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i8data1 = i8data1 % i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i8data1, SIZE_TO_COPY);
-			goto end_expr_mod;
-		}
-		puts("VM ERROR");
-		puts("Unhandled mod type.");
-		exit(1);
-
-		end_expr_mod:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
-		return;
-	}
-	
-
 	/*
-		Comparisons- No Pointers.
+		COMPARISONS
 	*/
 
-	if(ee->kind == EXPR_LT)
-	{
-		int64_t i64data1;
-		int64_t i64data2;		
-		uint64_t u64data1;
-		uint64_t u64data2;
-		int32_t i32data1;
-		int32_t i32data2;
-		uint32_t u32data1;
-		uint32_t u32data2;
-		int16_t i16data1;
-		int16_t i16data2;
-		uint16_t u16data1;		
-		uint16_t u16data2;	
-		int8_t i8data1;
-		int8_t i8data2;
-		uint8_t u8data1;
-		uint8_t u8data2;
-		float f32data1;
-		float f32data2;
-		double f64data1;
-		double f64data2;
-		/*case 1: both are u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
-		){
-			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = u64data1 < u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}		
-
-		/*case 2: both are i64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 < i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}
-
-		/*case 1: both are u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
-		){
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = u32data1 < u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}		
-		/*case 2: both are i32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = i32data1 < i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}
-		/*case 1: both are u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
-		){
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = u16data1 < u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}		
-		/*case 2: both are i16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = i16data1 < i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}		
-		/*case 1: both are u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
-		){
-			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = u8data1 < u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}
-		/*case 2: both are i8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = i8data1 < i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}
-		/*case 1: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = f32data1 < f32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}		/*case 1: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			i64data1 = f64data1 < f64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lt;
-		}
-		puts("VM ERROR");
-		puts("Unhandled lt type.");
-		exit(1);
-
-		end_expr_lt:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
-		return;
-	}
-	if(ee->kind == EXPR_LTE)
-	{
-		int64_t i64data1;
-		int64_t i64data2;		
-		uint64_t u64data1;
-		uint64_t u64data2;
-		int32_t i32data1;
-		int32_t i32data2;
-		uint32_t u32data1;
-		uint32_t u32data2;
-		int16_t i16data1;
-		int16_t i16data2;
-		uint16_t u16data1;		
-		uint16_t u16data2;	
-		int8_t i8data1;
-		int8_t i8data2;
-		uint8_t u8data1;
-		uint8_t u8data2;
-		float f32data1;
-		float f32data2;
-		double f64data1;
-		double f64data2;
-		/*case 1: both are u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
-		){
-			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = u64data1 <= u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}		
-
-		/*case 2: both are i64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 <= i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}
-
-		/*case 1: both are u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
-		){
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = u32data1 <= u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}		
-		/*case 2: both are i32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = i32data1 <= i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}
-		/*case 1: both are u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
-		){
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = u16data1 <= u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}		
-		/*case 2: both are i16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = i16data1 <= i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}		
-		/*case 1: both are u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
-		){
-			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = u8data1 <= u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}
-		/*case 2: both are i8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = i8data1 <= i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}
-		/*case 1: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = f32data1 <= f32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}		/*case 1: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			i64data1 = f64data1 <= f64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_lte;
-		}
-		puts("VM ERROR");
-		puts("Unhandled lte type.");
-		exit(1);
-
-		end_expr_lte:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
-		return;
-	}
-
-	if(ee->kind == EXPR_GTE)
-	{
-		int64_t i64data1;
-		int64_t i64data2;		
-		uint64_t u64data1;
-		uint64_t u64data2;
-		int32_t i32data1;
-		int32_t i32data2;
-		uint32_t u32data1;
-		uint32_t u32data2;
-		int16_t i16data1;
-		int16_t i16data2;
-		uint16_t u16data1;		
-		uint16_t u16data2;	
-		int8_t i8data1;
-		int8_t i8data2;
-		uint8_t u8data1;
-		uint8_t u8data2;
-		float f32data1;
-		float f32data2;
-		double f64data1;
-		double f64data2;
-		/*case 1: both are u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
-		){
-			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = u64data1 >= u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}		
-
-		/*case 2: both are i64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 >= i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}
-
-		/*case 1: both are u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
-		){
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = u32data1 >= u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}		
-		/*case 2: both are i32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = i32data1 >= i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}
-		/*case 1: both are u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
-		){
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = u16data1 >= u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}		
-		/*case 2: both are i16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = i16data1 >= i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}		
-		/*case 1: both are u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
-		){
-			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = u8data1 >= u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}
-		/*case 2: both are i8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = i8data1 >= i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}
-		/*case 1: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = f32data1 >= f32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}		/*case 1: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			i64data1 = f64data1 >= f64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gte;
-		}
-		
-		puts("VM ERROR");
-		puts("Unhandled gte type.");
-		exit(1);
-
-		end_expr_gte:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-
-	if(ee->kind == EXPR_GT)
-	{
-		int64_t i64data1;
-		int64_t i64data2;		
-		uint64_t u64data1;
-		uint64_t u64data2;
-		int32_t i32data1;
-		int32_t i32data2;
-		uint32_t u32data1;
-		uint32_t u32data2;
-		int16_t i16data1;
-		int16_t i16data2;
-		uint16_t u16data1;		
-		uint16_t u16data2;	
-		int8_t i8data1;
-		int8_t i8data2;
-		uint8_t u8data1;
-		uint8_t u8data2;
-		float f32data1;
-		float f32data2;
-		double f64data1;
-		double f64data2;
-		/*case 1: both are u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
-		){
-			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = u64data1 > u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}		
-
-		/*case 2: both are i64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 > i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}
-
-		/*case 1: both are u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
-		){
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = u32data1 > u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}		
-		/*case 2: both are i32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = i32data1 > i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}
-		/*case 1: both are u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
-		){
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = u16data1 > u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}		
-		/*case 2: both are i16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = i16data1 > i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}		
-		/*case 1: both are u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
-		){
-			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = u8data1 > u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}
-		/*case 2: both are i8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = i8data1 > i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}
-		/*case 1: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = f32data1 > f32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}		/*case 1: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			i64data1 = f64data1 > f64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_gt;
-		}
-		
-		puts("VM ERROR");
-		puts("Unhandled gt type.");
-		exit(1);
-
-		end_expr_gt:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-
-	/*Make things easier for ourselves...*/
+	/*Make things easier for ourselves... We are going to eat them, anyway.*/
 	if(ee->kind == EXPR_EQ || ee->kind == EXPR_NEQ){
-		if(vm_stack[vm_stackpointer-1].t.pointerlevel > 0){
+		if(ee->subnodes[0]->t.pointerlevel > 0){
 			vm_stack[vm_stackpointer-1].t.basetype = BASE_U64;
 			vm_stack[vm_stackpointer-1].t.pointerlevel = 0;
 			vm_stack[vm_stackpointer-2].t.basetype = BASE_U64;
@@ -2395,7 +1483,15 @@ void do_expr(expr_node* ee){
 		}
 	}
 
-	if(ee->kind == EXPR_EQ)
+
+	if(
+		ee->kind == EXPR_LT ||
+		ee->kind == EXPR_LTE ||
+		ee->kind == EXPR_GTE ||
+		ee->kind == EXPR_GT ||
+		ee->kind == EXPR_EQ ||
+		ee->kind == EXPR_NEQ
+	)
 	{
 		int64_t i64data1;
 		int64_t i64data2;		
@@ -2417,15 +1513,21 @@ void do_expr(expr_node* ee){
 		float f32data2;
 		double f64data1;
 		double f64data2;
+		int op = ee->kind;
 		/*case 1: both are u64*/
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
 		){
 			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
 			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = u64data1 == u64data2;
+			if(op == EXPR_LT)  i64data1 = u64data1 < u64data2;
+			if(op == EXPR_LTE) i64data1 = u64data1 <= u64data2;
+			if(op == EXPR_GTE) i64data1 = u64data1 >= u64data2;
+			if(op == EXPR_GT)  i64data1 = u64data1 > u64data2;
+			if(op == EXPR_EQ)  i64data1 = u64data1 == u64data2;
+			if(op == EXPR_NEQ) i64data1 = u64data1 != u64data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}		
 
 		/*case 2: both are i64*/
@@ -2434,9 +1536,14 @@ void do_expr(expr_node* ee){
 		){
 			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
 			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 == i64data2;
+			if(op == EXPR_LT)  i64data1 = i64data1 < i64data2;
+			if(op == EXPR_LTE) i64data1 = i64data1 <= i64data2;
+			if(op == EXPR_GTE) i64data1 = i64data1 >= i64data2;
+			if(op == EXPR_GT)  i64data1 = i64data1 > i64data2;
+			if(op == EXPR_EQ)  i64data1 = i64data1 == i64data2;
+			if(op == EXPR_NEQ) i64data1 = i64data1 != i64data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}
 
 		/*case 1: both are u32*/
@@ -2445,9 +1552,14 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = u32data1 == u32data2;
+			if(op == EXPR_LT)  i64data1 = u32data1 < u32data2;
+			if(op == EXPR_LTE) i64data1 = u32data1 <= u32data2;
+			if(op == EXPR_GTE) i64data1 = u32data1 >= u32data2;
+			if(op == EXPR_GT)  i64data1 = u32data1 > u32data2;
+			if(op == EXPR_EQ)  i64data1 = u32data1 == u32data2;
+			if(op == EXPR_NEQ) i64data1 = u32data1 != u32data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}		
 		/*case 2: both are i32*/
 		if(
@@ -2455,9 +1567,14 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = i32data1 == i32data2;
+			if(op == EXPR_LT)  i64data1 = i32data1 < i32data2;
+			if(op == EXPR_LTE) i64data1 = i32data1 <= i32data2;
+			if(op == EXPR_GTE) i64data1 = i32data1 >= i32data2;
+			if(op == EXPR_GT)  i64data1 = i32data1 > i32data2;
+			if(op == EXPR_EQ)  i64data1 = i32data1 == i32data2;
+			if(op == EXPR_NEQ) i64data1 = i32data1 != i32data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}
 		/*case 1: both are u16*/
 		if(
@@ -2465,9 +1582,14 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
 			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = u16data1 == u16data2;
+			if(op == EXPR_LT)  i64data1 = u16data1 < u16data2;
+			if(op == EXPR_LTE) i64data1 = u16data1 <= u16data2;
+			if(op == EXPR_GTE) i64data1 = u16data1 >= u16data2;
+			if(op == EXPR_GT)  i64data1 = u16data1 > u16data2;
+			if(op == EXPR_EQ)  i64data1 = u16data1 == u16data2;
+			if(op == EXPR_NEQ) i64data1 = u16data1 != u16data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}		
 		/*case 2: both are i16*/
 		if(
@@ -2475,9 +1597,14 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
 			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = i16data1 == i16data2;
+			if(op == EXPR_LT)  i64data1 = i16data1 < i16data2;
+			if(op == EXPR_LTE) i64data1 = i16data1 <= i16data2;
+			if(op == EXPR_GTE) i64data1 = i16data1 >= i16data2;
+			if(op == EXPR_GT)  i64data1 = i16data1 > i16data2;
+			if(op == EXPR_EQ)  i64data1 = i16data1 == i16data2;
+			if(op == EXPR_NEQ) i64data1 = i16data1 != i16data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}		
 		/*case 1: both are u8*/
 		if(
@@ -2485,9 +1612,14 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
 			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = u8data1 == u8data2;
+			if(op == EXPR_LT)  i64data1 = u8data1 < u8data2;
+			if(op == EXPR_LTE) i64data1 = u8data1 <= u8data2;
+			if(op == EXPR_GTE) i64data1 = u8data1 >= u8data2;
+			if(op == EXPR_GT)  i64data1 = u8data1 > u8data2;
+			if(op == EXPR_EQ)  i64data1 = u8data1 == u8data2;
+			if(op == EXPR_NEQ) i64data1 = u8data1 != u8data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}
 		/*case 2: both are i8*/
 		if(
@@ -2495,9 +1627,14 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
 			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = i8data1 == i8data2;
+			if(op == EXPR_LT)  i64data1 = i8data1 < i8data2;
+			if(op == EXPR_LTE) i64data1 = i8data1 <= i8data2;
+			if(op == EXPR_GTE) i64data1 = i8data1 >= i8data2;
+			if(op == EXPR_GT)  i64data1 = i8data1 > i8data2;
+			if(op == EXPR_EQ)  i64data1 = i8data1 == i8data2;
+			if(op == EXPR_NEQ) i64data1 = i8data1 != i8data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}
 		/*case 1: both are f32*/
 		if(
@@ -2505,169 +1642,37 @@ void do_expr(expr_node* ee){
 		){
 			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = f32data1 == f32data2;
+			if(op == EXPR_LT)  i64data1 = f32data1 < f32data2;
+			if(op == EXPR_LTE) i64data1 = f32data1 <= f32data2;
+			if(op == EXPR_GTE) i64data1 = f32data1 >= f32data2;
+			if(op == EXPR_GT)  i64data1 = f32data1 > f32data2;
+			if(op == EXPR_EQ)  i64data1 = f32data1 == f32data2;
+			if(op == EXPR_NEQ) i64data1 = f32data1 != f32data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}		/*case 1: both are f64*/
 		if(
 			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
 		){
 			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
 			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			i64data1 = f64data1 == f64data2;
+			if(op == EXPR_LT)  i64data1 = f64data1 < f64data2;
+			if(op == EXPR_LTE) i64data1 = f64data1 <= f64data2;
+			if(op == EXPR_GTE) i64data1 = f64data1 >= f64data2;
+			if(op == EXPR_GT)  i64data1 = f64data1 > f64data2;
+			if(op == EXPR_EQ)  i64data1 = f64data1 == f64data2;
+			if(op == EXPR_NEQ) i64data1 = f64data1 != f64data2;
 			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_eq;
+			goto end_expr_lt;
 		}
-		
 		puts("VM ERROR");
-		puts("Unhandled isequal type.");
+		puts("Unhandled lt/lte/gte/gt/==/!= type.");
 		exit(1);
-
-		end_expr_eq:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
+		end_expr_lt:;
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
-
-
-
-
-	if(ee->kind == EXPR_NEQ)
-	{
-		int64_t i64data1;
-		int64_t i64data2;		
-		uint64_t u64data1;
-		uint64_t u64data2;
-		int32_t i32data1;
-		int32_t i32data2;
-		uint32_t u32data1;
-		uint32_t u32data2;
-		int16_t i16data1;
-		int16_t i16data2;
-		uint16_t u16data1;		
-		uint16_t u16data2;	
-		int8_t i8data1;
-		int8_t i8data2;
-		uint8_t u8data1;
-		uint8_t u8data2;
-		float f32data1;
-		float f32data2;
-		double f64data1;
-		double f64data2;
-		/*case 1: both are u64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
-		){
-			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = u64data1 != u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}		
-
-		/*case 2: both are i64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
-		){
-			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
-			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
-			i64data1 = i64data1 != i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}
-
-		/*case 1: both are u32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
-		){
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = u32data1 != u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}		
-		/*case 2: both are i32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
-		){
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = i32data1 != i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}
-		/*case 1: both are u16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
-		){
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = u16data1 != u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}		
-		/*case 2: both are i16*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
-		){
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
-			i64data1 = i16data1 != i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}		
-		/*case 1: both are u8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
-		){
-			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = u8data1 != u8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}
-		/*case 2: both are i8*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
-		){
-			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
-			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
-			i64data1 = i8data1 != i8data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}
-		/*case 1: both are f32*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
-		){
-			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
-			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
-			i64data1 = f32data1 != f32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}		/*case 1: both are f64*/
-		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
-		){
-			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
-			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
-			i64data1 = f64data1 != f64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, 8);
-			goto end_expr_neq;
-		}
-		
-		puts("VM ERROR");
-		puts("Unhandled isnequal type.");
-		exit(1);
-
-		end_expr_neq:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the second operand.
-		return;
-	}
-
-
-
 
 	/*
 		Builtin calls, basically the hook that the codegen code gets into the compiletime environment.
@@ -2683,7 +1688,7 @@ void do_expr(expr_node* ee){
 			impl_builtin_emit(s,sz);
 			goto end_of_builtin_call;
 		}
-		if(streq(ee->symname, "__builtin_getargc")){
+		if(streq(ee->symname, "__builtin_getargc")){ //0 args
 			int32_t v;
 			v = impl_builtin_getargc();
 			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, 4);
@@ -2720,19 +1725,34 @@ void do_expr(expr_node* ee){
 			uint64_t sz;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
 			sz = impl_builtin_type_getsz(v);
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &sz, 8);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&sz, 
+				8
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_struct_metadata")){
 			uint64_t sz;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&sz, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			memcpy(
+				&sz, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				8
+			);
 			sz = impl_builtin_struct_metadata(sz);
-			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &sz, 8);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&sz, 
+				8
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_strdup")){
@@ -2854,8 +1874,6 @@ void do_expr(expr_node* ee){
 		exit(1);
 		end_of_builtin_call:;
 		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
-		//DON'T pop the last thing off, it's the return value!
-		//ast_vm_stack_pop();
 		return;
 	}
 

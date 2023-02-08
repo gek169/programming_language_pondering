@@ -1482,7 +1482,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		insert_implied_type_conversion(
 			ee->subnodes + 1,
 			t_target
-		);insert_implied_type_conversion(
+		);
+		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target
 		);
