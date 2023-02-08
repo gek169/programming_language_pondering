@@ -71,7 +71,6 @@ static void astdump_printsymbol(symdecl* s,
 	int should_print_isfunction
 ){
 	char buf[80];
-
 	fputs("\n",stdout);
 	do_indent(indentlevel);
 	if(s->t.is_function) fputs("fn ",stdout);

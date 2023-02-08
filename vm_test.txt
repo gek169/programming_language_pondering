@@ -1,17 +1,54 @@
 
 
-codegen qword i = 1;
+codegen sqword i = 4;
+
+fn codegen get7()->i8:
+	return 7;
+end
+
+
+fn codegen addnums(int a, int b)->int:
+	return a+b;
+end
+
+fn codegen subnums(int a, int b)->int:
+	return a-b;
+end
+
+class myClass
+	int* q
+	int x
+	int y
+	int[50] z
+end
+
+
+method codegen myClass:doStuff()->u64:
+	__builtin_puts("Testing...");
+	if(this.x == 0)
+		__builtin_puts("X is zero.");
+	end
+	if(this.y == 0)
+		__builtin_puts("Y is zero.");
+	end
+	return 3;
+end
+
+
 fn codegen codegen_main():
-	while(i|i)
-		__builtin_puts("Hello world!");
-		i = i - 1;
+	myClass q;
+	myClass b;
+	q.x = 3;
+	i = q.x;
+	q:doStuff();
+	i = subnums(10,5);
+	while(i > 0)
+		__builtin_puts("count me");
+		//if(i == 3) goto enddd end
+		i--;
 	end
 	goto enddd
 	__builtin_puts("Goodbye!");
-
-
-	//TODO: Fix goto
-	
 	:enddd
 	return;
 end

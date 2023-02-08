@@ -85,12 +85,11 @@ static uint64_t ast_vm_stack_push_temporary(char* name, type t){
 	if(t.arraylen == 0)
 	if(t.pointerlevel == 0)
 	if(t.basetype == BASE_STRUCT){
-		if(t.is_lvalue == 0){
+		{
 			puts("<VM ERROR>");
-			puts("Struct Rvalue temporary?");
+			puts("Struct temporary?");
 			exit(1);
 		}
-		t.pointerlevel = 1;
 	}
 	vm_stack[placement].t = t;
 	cur_expr_stack_usage++;
@@ -477,35 +476,38 @@ static void* retrieve_variable_memory_pointer(
 	}
 	/*Search function arguments...*/
 	i = 0;
-	if((int64_t)symbol_table[active_function].nargs > 0)
-		for(
-			j = (int64_t)vm_stackpointer 		/*points at first empty slot*/
-				-(int64_t)1 					/*point at the first non-empty slot.*/
-				-(int64_t)cur_expr_stack_usage /*skip the expression.*/
-				-(int64_t)cur_func_frame_size  /*skip the frame- including local variables.*/
-			;
-			i < (int64_t)symbol_table[active_function].nargs;//i is tracking which argument we're checking.
-		)
-		{
-			if(
-				symbol_table[active_function]
-					.fargs[i]
-					->membername == name
-			){
-				/*We have it!*/
-				/*it's an array, get the ldata*/
-				if(vm_stack[j].t.arraylen > 0)
+	for(
+		j = (int64_t)vm_stackpointer 		/*points at first empty slot*/
+			-(int64_t)1 					/*point at the first non-empty slot.*/
+			-(int64_t)cur_expr_stack_usage /*skip the expression.*/
+			-(int64_t)cur_func_frame_size  /*skip the frame- including local variables.*/
+		;
+		i < (int64_t)symbol_table[active_function].nargs;//i is tracking which argument we're checking.
+	)
+	{
+		//debug_print("Searching Arguments Iteration:",i+1,0);
+		if(
+			streq(
+			symbol_table[active_function]
+				.fargs[i]
+				->membername,
+			name
+			)
+		){
+			/*We have it!*/
+			/*it's an array, get the ldata*/
+			if(vm_stack[j].t.arraylen > 0)
+				return vm_stack[j].ldata;
+			/*it's a struct, get the ldata*/
+			if(vm_stack[j].t.pointerlevel == 0)
+				if(vm_stack[j].t.basetype == BASE_STRUCT)
 					return vm_stack[j].ldata;
-				/*it's a struct, get the ldata*/
-				if(vm_stack[j].t.pointerlevel == 0)
-					if(vm_stack[j].t.basetype == BASE_STRUCT)
-						return vm_stack[j].ldata;
-				/*it's a primitive or pointer, get the smalldata.*/
-				return &(vm_stack[j].smalldata);
-			}
-			i++; /*Keep searching the list of args...*/
-			j--;
+			/*it's a primitive or pointer, get the smalldata.*/
+			return &(vm_stack[j].smalldata);
 		}
+		i++; /*Keep searching the list of args...*/
+		j--;
+	}
 	puts("VM ERROR");
 	puts("Could not find local:");
 	puts(name);
@@ -547,6 +549,8 @@ void do_expr(expr_node* ee){
 		a2
 		a3
 	*/
+
+	//debug_print("Entered an Expression!",0,0);
 	if(	ee->kind == EXPR_FCALL ||
 		ee->kind == EXPR_METHOD ||
 		ee->kind == EXPR_BUILTIN_CALL
@@ -670,17 +674,23 @@ void do_expr(expr_node* ee){
 				p,
 				POINTER_SIZE
 			);
-			levels_of_indirection = levels_of_indirection - 1;
+			levels_of_indirection--;
 		}
+		debug_print("Pointer to struct was:", (uint64_t)pt,0);
 		/*
 			pt holds single-level pointer-to-struct.
 
 			Now, we need to add the offset of the member...
 		*/
-		pt = pt + get_offsetof(
-			type_table + ee->subnodes[0]->t.structid, 
-			ee->symname
-		);
+		{
+			uint64_t off_of;
+			off_of = get_offsetof(
+							type_table + ee->subnodes[0]->t.structid, 
+							ee->symname
+						);
+			//debug_print("Accessing member, off_of was...", off_of,0);
+			pt = pt + off_of;
+		}
 		vm_stack[vm_stackpointer-1].smalldata = pt;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
@@ -790,6 +800,7 @@ void do_expr(expr_node* ee){
 	){
 		void* p1;
 		uint64_t val;
+		uint64_t sz_to_cpy;
 		uint64_t valpre;
 		int32_t i32data;
 		int16_t i16data;
@@ -814,9 +825,7 @@ void do_expr(expr_node* ee){
 			&vm_stack[vm_stackpointer-1].smalldata, 
 			POINTER_SIZE
 		);
-		//If the actual thing we're changing is a pointer,
-		//we have to determine how much to increment by.
-		//We have to determine how much to increment or decrement.
+		//incrementing a pointer.
 		if(ee->t.pointerlevel > 0){
 			uint64_t how_much_to_change;
 			//grab the actual value at that address...
@@ -832,7 +841,7 @@ void do_expr(expr_node* ee){
 				val = val + how_much_to_change;
 			if(!is_incr)
 				val = val - how_much_to_change;
-			do_assignment(p1, val, POINTER_SIZE);
+			memcpy(p1, &val, POINTER_SIZE);
 			goto end_expr_pre_incr;
 		}
 		if(
@@ -841,16 +850,16 @@ void do_expr(expr_node* ee){
 		)
 		{
 			memcpy(&val, p1, 8); valpre = val;
+			//debug_print("Valpre:", valpre,0);
 			if(is_incr) val++;
 			if(!is_incr) val--;
-			do_assignment(p1, val, 8);
-			//pre-increment auto handled, val is set
-			//val--;//post
+			memcpy(p1, &val, 8);
 			goto end_expr_pre_incr;
 		}
 		if(
 			ee->t.basetype == BASE_I32 || 
-			ee->t.basetype == BASE_U32)
+			ee->t.basetype == BASE_U32
+		)
 		{
 			memcpy(&val, p1, 4); valpre = val;
 			memcpy(&i32data, &val, 4);
@@ -909,9 +918,9 @@ void do_expr(expr_node* ee){
 		exit(1);
 
 		end_expr_pre_incr:;
-		if(!is_pre)
-			vm_stack[vm_stackpointer-1].smalldata = val;
 		if(is_pre)
+			vm_stack[vm_stackpointer-1].smalldata = val;
+		if(!is_pre)
 			vm_stack[vm_stackpointer-1].smalldata = valpre;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
@@ -928,11 +937,13 @@ void do_expr(expr_node* ee){
 		*/
 		//debug_print("Doing a cast...",0,0);
 		if(ee->subnodes[0]->t.is_lvalue){
+		//	debug_print("Undoing LVALUE, currently it is:",data,0);
 			memcpy(
 				&data, 
 				(void*)data,
 				type_getsz(ee->subnodes[0]->t)
 			);
+		//	debug_print("Undid LVALUE, the result as a u64 was:",data,0);
 		}
 		/*If they were both pointers, we do nothing.*/
 		if(ee->t.pointerlevel > 0)
@@ -964,8 +975,10 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].t.basetype,
 			ee->t.basetype
 		);
-		vm_stack[vm_stackpointer-1].smalldata = data;
 		end_expr_cast:;
+		//debug_print("Cast ends with:",data,0);
+		vm_stack[vm_stackpointer-1].smalldata = data;
+		//debug_print("The value is...", vm_stack[vm_stackpointer-1].smalldata,0);
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
@@ -2080,6 +2093,10 @@ void do_expr(expr_node* ee){
 		return;
 	}
 
+	puts("VM error");
+	puts("Unhandled expression node type.");
+	exit(1);
+
 }
 
 
@@ -2100,6 +2117,19 @@ void ast_execute_function(symdecl* s){
 		type t = type_init();
 		ast_vm_stack_push_temporary(NULL,t);
 		nscopes = 0;
+	}
+
+	{uint64_t i;
+		for(i = 0; i < nsymbols; i++){
+			if(s == symbol_table+i){
+				active_function = i;
+				goto found_our_boy;
+			}
+		}
+		puts("VM error");
+		puts("Could not find our boy :-(");
+		exit(1);
+		found_our_boy:;
 	}
 	/*make sure that s is a function with a body.*/
 	if(
@@ -2179,15 +2209,18 @@ void ast_execute_function(symdecl* s){
 				int64_t i;
 				stmt* cur_stmt = stmt_list + which_stmt;
 				for(i = 0; i < cur_stmt->goto_vardiff; i++){
-					debug_print("goto popping variables...",0,0);
+					//debug_print("goto popping variables...",0,0);
 					ast_vm_stack_pop();
 				}
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
-					debug_print("goto popping stacks...",0,0);
+					//debug_print("goto popping stacks...",0,0);
 					scopestack_pop();
 				}
 				//find our new position...
 				stmt_list = scopestack_gettop()->stmts;
+				which_stmt = cur_stmt->goto_where_in_scope;
+				goto continue_executing_scope;
+				/*
 				for(i = 0; i < (int64_t)scopestack_gettop()->nstmts; i++){
 					if(
 						(uint64_t)(cur_stmt->referenced_loop) == (uint64_t)(stmt_list+i)
@@ -2198,6 +2231,7 @@ void ast_execute_function(symdecl* s){
 						goto continue_executing_scope;
 					}
 				}
+				*/
 				puts("Goto, searching for its jump target, fell through.");
 				goto do_error;
 			}
@@ -2246,7 +2280,8 @@ void ast_execute_function(symdecl* s){
 					puts("STMT_WHILE or STMT_IF caused more than one temporary to be placed on the stack!");
 					goto do_error;
 				}
-				if(vm_stack[vm_stackpointer].smalldata){
+				//debug_print("While or If got This from its expression: ",vm_stack[vm_stackpointer-1].smalldata,0);
+				if(vm_stack[vm_stackpointer-1].smalldata){
 					cur_stmt = stmt_list + which_stmt;
 					//It has been decided. we are going to be executing this block.
 					ast_vm_stack_pop();
