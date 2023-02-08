@@ -438,7 +438,7 @@ static void propagate_types(expr_node* ee){
 		}
 		if(t.pointerlevel == 0)
 			if(t.basetype == BASE_STRUCT){
-				if(t.is_lvalue == 0)
+				/*if(t.is_lvalue == 0)
 				{
 					throw_type_error_with_expression_enums(
 						"Can't have Rvalue struct! a=me",
@@ -446,6 +446,7 @@ static void propagate_types(expr_node* ee){
 						EXPR_BAD
 					);
 				}
+				*/
 				t.pointerlevel = 1;
 				t.is_lvalue = 0;
 			}
@@ -462,6 +463,7 @@ static void propagate_types(expr_node* ee){
 		}
 		if(t.pointerlevel == 0)
 			if(t.basetype == BASE_STRUCT){
+				/*
 				if(t.is_lvalue == 0)
 				{
 					throw_type_error_with_expression_enums(
@@ -470,6 +472,7 @@ static void propagate_types(expr_node* ee){
 						EXPR_BAD
 					);
 				}
+				*/
 				t.pointerlevel = 1;
 				t.is_lvalue = 0;
 			}

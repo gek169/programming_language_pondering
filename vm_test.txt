@@ -16,39 +16,51 @@ fn codegen subnums(int a, int b)->int:
 end
 
 class myClass
-	int* q
 	int x
 	int y
-	int[50] z
+	int z
 end
 
 
 method codegen myClass:doStuff()->u64:
 	__builtin_puts("Testing...");
-	if(this.x == 0)
-		__builtin_puts("X is zero.");
+	if(this.x == 3)
+		return 3;
 	end
-	if(this.y == 0)
-		__builtin_puts("Y is zero.");
-	end
-	return 3;
+	return 0;
+end
+
+fn codegen assignArrayMember(int* a):
+	a[3] = 2;
+	return;
 end
 
 
-fn codegen codegen_main():
-	myClass q;
-	myClass b;
-	q.x = 3;
-	i = q.x;
-	q:doStuff();
-	i = subnums(10,5);
+fn codegen odegen_main():
+	myClass classy;
+	myClass* f;
+
+	int[20] myArray;
+	int* myptr;
+
+	i = 3;
+	
+	classy.x = 3+1;
+	f = classy;
+	f = cast(myClass*)f;
+	//i = (cast(myClass*)(f)).x;
+	i = f.x;
+
+
+	//arrays work!
+	assignArrayMember(myArray);
+	i=myArray[3];
+
+	
 	while(i > 0)
 		__builtin_puts("count me");
-		//if(i == 3) goto enddd end
 		i--;
 	end
-	goto enddd
 	__builtin_puts("Goodbye!");
-	:enddd
 	return;
 end

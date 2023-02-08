@@ -67,6 +67,7 @@ static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 	if(s->t.arraylen == 0)
 	if(s->t.pointerlevel == 0)
 	if(s->t.basetype == BASE_STRUCT){
+		debug_print("Allocating a struct!",0,0);
 		vm_stack[placement].ldata = calloc(type_getsz(s->t),1);
 	}
 	return placement;
@@ -467,9 +468,9 @@ static void* retrieve_variable_memory_pointer(
 						return vm_stack[i].ldata;
 						
 					if(vm_stack[i].t.pointerlevel == 0)
-						if(vm_stack[i].t.basetype == BASE_STRUCT)
+						if(vm_stack[i].t.basetype == BASE_STRUCT){
 							return vm_stack[i].ldata;
-				
+						}
 					return &(vm_stack[i].smalldata);
 				}
 		if(i == 0) break;
@@ -619,7 +620,6 @@ void do_expr(expr_node* ee){
 		saved_cur_expr_stack_usage = cur_expr_stack_usage;
 		saved_active_function= active_function;
 		saved_vstack_pointer = vm_stackpointer;
-
 		ast_execute_function(symbol_table + ee->symid);
 		
 		cur_func_frame_size = saved_cur_func_frame_size;
@@ -667,6 +667,7 @@ void do_expr(expr_node* ee){
 			You can access the members of a struct with arbitrary levels of indirection.
 			and if it is more than one, then we need to dereference a pointer-to-pointer.
 		*/
+		debug_print("Pointer to struct was (before):", (uint64_t)pt,0);
 		while(levels_of_indirection > 1){
 			memcpy(&p, &pt, POINTER_SIZE);
 			memcpy(
@@ -675,8 +676,9 @@ void do_expr(expr_node* ee){
 				POINTER_SIZE
 			);
 			levels_of_indirection--;
+			debug_print("Pointer to struct was (iter):", (uint64_t)pt,0);
 		}
-		debug_print("Pointer to struct was:", (uint64_t)pt,0);
+		debug_print("Pointer to struct was (after):", (uint64_t)pt,0);
 		/*
 			pt holds single-level pointer-to-struct.
 
@@ -690,6 +692,10 @@ void do_expr(expr_node* ee){
 						);
 			//debug_print("Accessing member, off_of was...", off_of,0);
 			pt = pt + off_of;
+		}
+		debug_print("<EXPR_MEMBER> here's the final address:", (uint64_t)pt,0);
+		if(((int*)pt)[0] == 3){
+			debug_print("<Overhead> I can see it... It's here:", pt,0);
 		}
 		vm_stack[vm_stackpointer-1].smalldata = pt;
 		vm_stack[vm_stackpointer-1].t = ee->t;
@@ -937,13 +943,13 @@ void do_expr(expr_node* ee){
 		*/
 		//debug_print("Doing a cast...",0,0);
 		if(ee->subnodes[0]->t.is_lvalue){
-		//	debug_print("Undoing LVALUE, currently it is:",data,0);
+			debug_print("Undoing LVALUE, currently it is:",data,0);
 			memcpy(
 				&data, 
 				(void*)data,
 				type_getsz(ee->subnodes[0]->t)
 			);
-		//	debug_print("Undid LVALUE, the result as a u64 was:",data,0);
+			debug_print("Undid LVALUE, the result as a u64 was:",data,0);
 		}
 		/*If they were both pointers, we do nothing.*/
 		if(ee->t.pointerlevel > 0)

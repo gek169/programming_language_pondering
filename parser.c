@@ -248,9 +248,12 @@ void parse_gvardecl(){
 	require(type_can_be_variable(t), "Invalid type for global variable.");
 	require(peek()->data == TOK_IDENT, "Identifier required in global variable declaration.");
 	require(!is_builtin_name(peek()->text),"Hey, What are you tryna pull? Defining the builtins? As global variables? Huh?");
-
-	if(t.arraylen == 0) t.is_lvalue = 1;
-
+	t.is_lvalue = 1;
+	if(t.arraylen > 0) 				t.is_lvalue = 0;
+	if(t.pointerlevel == 0){
+		if(t.basetype == BASE_STRUCT) 
+			t.is_lvalue = 0;
+	}
 
 	/*TODO: predeclaration.*/
 	if(peek_ident_is_already_used_globally()){
@@ -1821,6 +1824,11 @@ void parse_lvardecl(){
 	require(!is_builtin_name(peek()->text),"Hey, What are you tryna pull? Defining the builtins?");
 	s.t.is_lvalue = 1;
 	if(s.t.arraylen > 0) s.t.is_lvalue = 0;
+	if(s.t.pointerlevel == 0){
+		if(s.t.basetype == BASE_STRUCT){
+			s.t.is_lvalue = 0;
+		}
+	}
 	//TODO: check for invalid declarations.
 	require(!ident_is_used_locally(peek()->text), "That identifier is already in use for a local variable. Aliasing is not allowed.");
 
