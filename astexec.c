@@ -423,12 +423,12 @@ static void* retrieve_variable_memory_pointer(
 			/*if it has no cdata- initialize it!*/
 			if(symbol_table[i].cdata == NULL){
 				uint64_t sz = type_getsz(symbol_table[i].t);
-				debug_print("Having to allocate global storage...",0,0);
+				debug_print("\nHaving to allocate global storage...",0,0);
 				symbol_table[i].cdata = calloc(
 					sz,1
 				);
 				if(symbol_table[i].cdata == NULL){
-					puts("failed trying to calloc a global variable's cdata.");
+					puts("\nfailed trying to calloc a global variable's cdata.");
 					exit(1);
 				}
 				symbol_table[i].cdata_sz = sz;
@@ -2198,7 +2198,7 @@ void ast_execute_function(symdecl* s){
 						goto continue_executing_scope;
 					}
 				}
-				puts("Goto for loop fell through.");
+				puts("Goto, searching for its jump target, fell through.");
 				goto do_error;
 			}
 			if(stmt_kind == STMT_RETURN){
