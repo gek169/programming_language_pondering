@@ -2175,12 +2175,14 @@ void ast_execute_function(symdecl* s){
 			if(which_stmt >= scopestack_gettop()->nstmts){
 				uint64_t i;
 				if(scopestack_gettop() == s->fbody) {
-					puts("VM WARNING:");
-					puts("Function Body Fell Through during execution.");
-					puts("This is undefined behavior- add a 'return' statement.");
-					puts("Function:");
-					puts(s->name);
-					goto do_return;
+					/*
+						puts("VM WARNING:");
+						puts("Function Body Fell Through during execution.");
+						puts("This is undefined behavior- add a 'return' statement.");
+						puts("Function:");
+						puts(s->name);
+					*/
+					goto do_return_fallthrough;
 				}
 				//else, we have to clear our variables...
 				ast_vm_stack_pop_temporaries();
@@ -2320,13 +2322,20 @@ void ast_execute_function(symdecl* s){
 	do_return:
 		ast_vm_stack_pop_temporaries();
 		ast_vm_stack_pop_lvars();
-		ast_vm_stack_pop();
 		return;
 
 	do_error:
 	puts("While executing function:");
 	puts(s->name);
 	exit(1);
+	do_return_fallthrough:{
+		uint64_t i;
+		//clear our variables.
+		ast_vm_stack_pop_temporaries();
+		for(i = 0; i < scopestack_gettop()->nsyms;i++) ast_vm_stack_pop();
+		//we have to remove ourselves.
+		scopestack_pop();
+	}
 }
 
 
