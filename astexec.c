@@ -77,8 +77,7 @@ static void ast_vm_stack_pop(){
 	}
 	if(vm_stack[vm_stackpointer-1].identification == VM_EXPRESSION_TEMPORARY) cur_expr_stack_usage--;
 	if(vm_stack[vm_stackpointer-1].identification == VM_VARIABLE) cur_func_frame_size--;
-	if(vm_stack[vm_stackpointer-1].ldata)
-		free(vm_stack[vm_stackpointer-1].ldata);
+	if(vm_stack[vm_stackpointer-1].ldata) free(vm_stack[vm_stackpointer-1].ldata);
 	vm_stack[vm_stackpointer-1].ldata = NULL;
 	vm_stack[vm_stackpointer-1].vname = NULL; /*Don't want to accidentally pick this up in the future!*/
 	vm_stackpointer--;
@@ -586,19 +585,13 @@ void do_expr(expr_node* ee){
 		//ast_vm_stack_pop();
 		return;
 	}
-	if(ee->kind == EXPR_LSYM){
+	if(ee->kind == EXPR_LSYM || ee->kind == EXPR_GSYM){
 		void* p;		
 		uint64_t general;
-		p = retrieve_variable_memory_pointer(ee->symname, 0);
-
-		general = ast_vm_stack_push_temporary(NULL, ee->t);
-		memcpy(&vm_stack[general].smalldata,&p,8);
-		return;
-	}
-	if(ee->kind == EXPR_GSYM){
-		void* p;		
-		uint64_t general;
-		p = retrieve_variable_memory_pointer(ee->symname, 1);
+		if(ee->kind == EXPR_LSYM)
+			p = retrieve_variable_memory_pointer(ee->symname, 0);
+		if(ee->kind == EXPR_GSYM)
+			p = retrieve_variable_memory_pointer(ee->symname, 1);
 		general = ast_vm_stack_push_temporary(NULL, ee->t);
 		memcpy(&vm_stack[general].smalldata,&p,8);
 		return;
@@ -607,9 +600,8 @@ void do_expr(expr_node* ee){
 		void* p;
 		uint64_t general;
 		p = symbol_table[ee->symid].cdata;
-
 		general = ast_vm_stack_push_temporary(NULL, ee->t);
-		memcpy(&vm_stack[general].smalldata,&p,8);
+		memcpy(&vm_stack[general].smalldata,&p,POINTER_SIZE);
 		return;
 	}
 	if(ee->kind == EXPR_MEMBER){ /*the actual operation is to get a pointer to the member.*/
@@ -660,9 +652,13 @@ void do_expr(expr_node* ee){
 		void* p1;
 		uint64_t val;
 		//it's an lvalue... therefore, a pointer
-		memcpy(&p1, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+		memcpy(
+			&p1, 
+			&vm_stack[vm_stackpointer-2].smalldata, 
+			POINTER_SIZE
+		);
 		//grab some number of bytes...
-		memcpy(&val, &vm_stack[vm_stackpointer-1].smalldata, 8);
+
 		//If it's a pointer, we copy 8 bytes.
 		if(ee->t.pointerlevel > 0){
 			memcpy(p1, &val, POINTER_SIZE);
@@ -674,6 +670,11 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U64
 		)
 		{
+			memcpy(
+				&val, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				8
+			);
 			memcpy(p1, &val, 8);
 			goto end_expr_assign;
 		}
@@ -683,6 +684,11 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U32
 		)
 		{
+			memcpy(
+				&val, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				4
+			);
 			memcpy(p1, &val, 4);
 			goto end_expr_assign;
 		}
@@ -691,6 +697,11 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U16
 		)
 		{
+			memcpy(
+				&val, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				2
+			);
 			memcpy(p1, &val, 2);
 			goto end_expr_assign;
 		}
@@ -699,6 +710,11 @@ void do_expr(expr_node* ee){
 			ee->t.basetype == BASE_U8
 		)
 		{
+			memcpy(
+				&val, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				1
+			);
 			memcpy(p1, &val, 1);
 			goto end_expr_assign;
 		}
@@ -739,20 +755,18 @@ void do_expr(expr_node* ee){
 			ee->kind == EXPR_PRE_INCR || 
 			ee->kind == EXPR_PRE_DECR
 		);
-		//it's an lvalue... therefore, a pointer! 
-		//Fetch the pointer and put it in p1!
+		//get lvalue's address.
 		memcpy(
 			&p1, 
 			&vm_stack[vm_stackpointer-1].smalldata, 
 			POINTER_SIZE
 		);
-		//grab the actual value at that address...
-		memcpy(&val, p1, 8); valpre = val;
 		//If the actual thing we're changing is a pointer,
 		//we have to determine how much to increment by.
 		//We have to determine how much to increment or decrement.
 		if(ee->t.pointerlevel > 0){
 			uint64_t how_much_to_change;
+			//grab the actual value at that address...
 			memcpy(&val, p1, 8); valpre = val;
 			//type we are pointing to...
 			type t2;
@@ -818,7 +832,6 @@ void do_expr(expr_node* ee){
 		}
 		if(ee->t.basetype == BASE_F64){
 			memcpy(&val, p1, 8); valpre = val;
-
 			memcpy(&f64data, &val, 8);
 			if(is_incr)f64data = f64data + 1;
 			if(!is_incr)f64data = f64data - 1;
@@ -860,7 +873,7 @@ void do_expr(expr_node* ee){
 		if is_lvalue, then small data was a pointer!
 		do a dereference...
 		*/
-		if(vm_stack[vm_stackpointer-1].t.is_lvalue){
+		if(ee->subnodes[0]->t.is_lvalue){
 			data = do_deref(
 				(void*)data, 
 				type_getsz(ee->t)
@@ -890,7 +903,7 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].smalldata = data;
 			goto end_expr_cast;
 		}
-		/*CONVERSIONW WITHOUT POINTERS*/
+		/*CONVERSION WITHOUT POINTERS*/
 		data = do_primitive_type_conversion(
 			data,
 			vm_stack[vm_stackpointer-1].t.basetype,
@@ -980,9 +993,9 @@ void do_expr(expr_node* ee){
 				&vm_stack[vm_stackpointer-1].smalldata, 
 				4
 			);
-			if(optype == EXPR_ADD)i32data1 = i32data1 + i32data2;
-			if(optype == EXPR_SUB)i32data1 = i32data1 - i32data2;
-			if(optype == EXPR_MUL)i32data1 = i32data1 * i32data2;
+			if(optype == EXPR_ADD) i32data1 = i32data1 + i32data2;
+			if(optype == EXPR_SUB) i32data1 = i32data1 - i32data2;
+			if(optype == EXPR_MUL) i32data1 = i32data1 * i32data2;
 			memcpy(
 				&vm_stack[vm_stackpointer-2].smalldata, 
 				&i32data1, 
@@ -1005,9 +1018,9 @@ void do_expr(expr_node* ee){
 				&vm_stack[vm_stackpointer-1].smalldata, 
 				2
 			);
-			if(optype == EXPR_ADD)i16data1 = i16data1 + i16data2;
-			if(optype == EXPR_SUB)i16data1 = i16data1 - i16data2;
-			if(optype == EXPR_MUL)i16data1 = i16data1 * i16data2;
+			if(optype == EXPR_ADD) i16data1 = i16data1 + i16data2;
+			if(optype == EXPR_SUB) i16data1 = i16data1 - i16data2;
+			if(optype == EXPR_MUL) i16data1 = i16data1 * i16data2;
 			memcpy(
 				&vm_stack[vm_stackpointer-2].smalldata, 
 				&i16data1, 
@@ -1030,9 +1043,9 @@ void do_expr(expr_node* ee){
 				&vm_stack[vm_stackpointer-1].smalldata, 
 				1
 			);
-			if(optype == EXPR_ADD)i8data1 = i8data1 + i8data2;
-			if(optype == EXPR_SUB)i8data1 = i8data1 - i8data2;
-			if(optype == EXPR_MUL)i8data1 = i8data1 * i8data2;
+			if(optype == EXPR_ADD) i8data1 = i8data1 + i8data2;
+			if(optype == EXPR_SUB) i8data1 = i8data1 - i8data2;
+			if(optype == EXPR_MUL) i8data1 = i8data1 * i8data2;
 			memcpy(
 				&vm_stack[vm_stackpointer-2].smalldata, 
 				&i8data1, 
@@ -1123,13 +1136,15 @@ void do_expr(expr_node* ee){
 		return;
 	}
 
-	if(ee->kind == EXPR_COMPL ||
-	ee->kind == EXPR_NOT){
+	if(
+		ee->kind == EXPR_COMPL ||
+		ee->kind == EXPR_NOT
+	){
 		int64_t b;
 		int op = ee->kind;
 		b = vm_stack[vm_stackpointer-1].smalldata;
-		if(op == EXPR_COMPL) b = ~(int64_t)b;
-		if(op == EXPR_NOT) b = !(int64_t)b;
+		if(op == EXPR_COMPL) b = ~b;
+		if(op == EXPR_NOT) b = !b;
 		vm_stack[vm_stackpointer-1].smalldata = b;
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
@@ -1281,7 +1296,7 @@ void do_expr(expr_node* ee){
 		int op = ee->kind;
 		/*case 1: both are u64*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+			ee->subnodes[0]->t.basetype == BASE_U64
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
@@ -1290,11 +1305,15 @@ void do_expr(expr_node* ee){
 			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
 			if(op == EXPR_DIV) u64data1 = u64data1 / u64data2;
 			if(op == EXPR_MOD) u64data1 = u64data1 % u64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u64data1, SIZE_TO_COPY);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&u64data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}		
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+			ee->subnodes[0]->t.basetype == BASE_I64
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
@@ -1303,66 +1322,118 @@ void do_expr(expr_node* ee){
 			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
 			if(op == EXPR_DIV) i64data1 = i64data1 / i64data2;
 			if(op == EXPR_MOD) i64data1 = i64data1 % i64data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i64data1, SIZE_TO_COPY);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i64data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		/*32 bit int*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+			ee->subnodes[0]->t.basetype == BASE_U32
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
 			4;
-			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			memcpy(
+				&u32data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&u32data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
 			if(op == EXPR_DIV) u32data1 = u32data1 / u32data2;
 			if(op == EXPR_MOD) u32data1 = u32data1 % u32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u32data1, SIZE_TO_COPY);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&u32data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+			ee->subnodes[0]->t.basetype == BASE_I32
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
 			4;
-			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			memcpy(
+				&i32data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&i32data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
 			if(op == EXPR_DIV) i32data1 = i32data1 / i32data2;
 			if(op == EXPR_MOD) i32data1 = i32data1 % i32data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i32data1, SIZE_TO_COPY);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i32data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		/*16 bit int*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+			ee->subnodes[0]->t.basetype == BASE_U16
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
 			2;
-			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			memcpy(
+				&u16data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&u16data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
 			if(op == EXPR_DIV) u16data1 = u16data1 / u16data2;
 			if(op == EXPR_MOD) u16data1 = u16data1 % u16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &u16data1, SIZE_TO_COPY);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&u16data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+			ee->subnodes[0]->t.basetype == BASE_I16
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
 			2;
-			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, SIZE_TO_COPY);
-			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, SIZE_TO_COPY);
+			memcpy(
+				&i16data1, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				SIZE_TO_COPY
+			);
+			memcpy(
+				&i16data2, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				SIZE_TO_COPY
+			);
 			if(op == EXPR_DIV) i16data1 = i16data1 / i16data2;
 			if(op == EXPR_MOD) i16data1 = i16data1 % i16data2;
-			memcpy(&vm_stack[vm_stackpointer-2].smalldata, &i16data1, SIZE_TO_COPY);
+			memcpy(
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				&i16data1, 
+				SIZE_TO_COPY
+			);
 			goto end_expr_div;
 		}
 		/*8 bit int*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+			ee->subnodes[0]->t.basetype == BASE_U8
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
@@ -1387,7 +1458,7 @@ void do_expr(expr_node* ee){
 			goto end_expr_div;
 		}
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+			ee->subnodes[0]->t.basetype == BASE_I8
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
@@ -1413,7 +1484,7 @@ void do_expr(expr_node* ee){
 		}
 		/*Case 6: both are f32*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+			ee->subnodes[0]->t.basetype == BASE_F32
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
@@ -1438,7 +1509,7 @@ void do_expr(expr_node* ee){
 		}
 		/*Case 7: both are f64*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+			ee->subnodes[0]->t.basetype == BASE_F64
 		){
 			unsigned SIZE_TO_COPY;
 			SIZE_TO_COPY = 
@@ -1453,6 +1524,7 @@ void do_expr(expr_node* ee){
 				&vm_stack[vm_stackpointer-1].smalldata, 
 				SIZE_TO_COPY
 			);
+			//we don't have fmod
 			f64_1 = f64_1 / f64_2;
 			memcpy(
 				&vm_stack[vm_stackpointer-2].smalldata, 
@@ -1465,8 +1537,8 @@ void do_expr(expr_node* ee){
 		puts("Unhandled div/mod type.");
 		exit(1);
 		end_expr_div:;
-		vm_stack[vm_stackpointer-2].t = ee->t;
-		ast_vm_stack_pop(); //we no longer need the index itself.
+		ast_vm_stack_pop(); //get rid of the second operand.
+		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	/*
@@ -1877,6 +1949,9 @@ void do_expr(expr_node* ee){
 		return;
 	}
 
-	
 }
+
+
+
+
 

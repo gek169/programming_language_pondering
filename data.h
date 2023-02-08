@@ -215,12 +215,12 @@ enum{
 	//They will be removed when I am done with the VM's expression executor.
 	EXPR_BAD=0,
 	EXPR_BUILTIN_CALL, //DONE
-	EXPR_FCALL, //TODO:invoke ast_call_function
+	EXPR_FCALL, //TODO: invoke ast_call_function
 	//EXPR_PAREN,
 	EXPR_SIZEOF, //DONE
 	EXPR_INTLIT, //DONE
 	EXPR_FLOATLIT, //DONE
-	EXPR_STRINGLIT, //DONE
+	EXPR_STRINGLIT, //DONE (after lsym and gsym)
 	EXPR_LSYM, //DONE
 	EXPR_GSYM, //DONE
 	EXPR_SYM, //E_WONTFIX
@@ -229,7 +229,7 @@ enum{
 	EXPR_POST_DECR, //DONE
 	EXPR_INDEX, //DONE
 	EXPR_MEMBER, //DONE
-	EXPR_METHOD, //TODO: invoke method.
+	EXPR_METHOD, //TODO: invoke ast_call_function
 	/*unary prefix operators*/
 	EXPR_CAST, //DONE
 	EXPR_NEG, //DONE
