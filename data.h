@@ -163,7 +163,6 @@ enum{
 	STMT_EXPR,
 	STMT_LABEL,
 	STMT_GOTO,
-	STMT_GOTO_,
 	STMT_WHILE,
 	STMT_FOR,
 	STMT_IF,
@@ -338,6 +337,10 @@ extern uint64_t ntypedecls;
 extern uint64_t nsymbols;
 extern uint64_t nscopes;
 extern uint64_t nloops; /*Needed for identifying the parent loop.*/
+
+static inline scope* scopestack_gettop(){
+	return scopestack[nscopes-1];
+}
 
 static inline int peek_is_fname(){
 	if(peek()->data != TOK_IDENT) return 0;

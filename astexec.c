@@ -28,7 +28,13 @@ static uint64_t ast_vm_stack_push(){
 	return vm_stackpointer++;
 }
 static uint64_t ast_vm_stack_push_lvar(symdecl* s){
-	uint64_t placement = ast_vm_stack_push();
+	uint64_t placement;
+	if(cur_expr_stack_usage){
+		puts("VM error");
+		puts("Tried to push local variable in the middle of an expression? Huh?");
+	}
+
+	placement = ast_vm_stack_push();
 	cur_func_frame_size++;
 	vm_stack[placement].vname = s->name;
 	vm_stack[placement].identification = VM_VARIABLE;
@@ -81,6 +87,14 @@ static void ast_vm_stack_pop(){
 	vm_stack[vm_stackpointer-1].ldata = NULL;
 	vm_stack[vm_stackpointer-1].vname = NULL; /*Don't want to accidentally pick this up in the future!*/
 	vm_stackpointer--;
+}
+
+static void ast_vm_stack_pop_temporaries(){
+	while(cur_expr_stack_usage > 0) ast_vm_stack_pop();
+}
+
+static void ast_vm_stack_pop_lvars(){
+	while(cur_func_frame_size > 0) ast_vm_stack_pop();
 }
 
 static void* do_ptradd(char* ptr, int64_t num, uint64_t sz){
@@ -414,59 +428,59 @@ static void* retrieve_variable_memory_pointer(
 		i--
 	){
 		if(vm_stack[i].identification == VM_FFRAME_BEGIN) break;
-			if(vm_stack[i].identification == VM_VARIABLE)
-				if(vm_stack[i].vname)
-					if(streq(name, vm_stack[i].vname)){
-					
-						if(vm_stack[i].t.arraylen > 0)
+		
+		if(vm_stack[i].identification == VM_VARIABLE)
+			if(vm_stack[i].vname)
+				if(streq(name, vm_stack[i].vname)){
+				
+					if(vm_stack[i].t.arraylen > 0)
+						return vm_stack[i].ldata;
+						
+					if(vm_stack[i].t.pointerlevel == 0)
+						if(vm_stack[i].t.basetype == BASE_STRUCT)
 							return vm_stack[i].ldata;
-							
-						if(vm_stack[i].t.pointerlevel == 0)
-							if(vm_stack[i].t.basetype == BASE_STRUCT)
-								return vm_stack[i].ldata;
-					
-						return &(vm_stack[i].smalldata);
-					}
+				
+					return &(vm_stack[i].smalldata);
+				}
 		if(i == 0) break;
 	}
 	/*Search function arguments...*/
 	i = 0;
-	for(
-		j = (int64_t)vm_stackpointer /*points at first empty slot*/
-			-(int64_t)1 /*point at the first non-empty slot.*/
-			-(int64_t)cur_expr_stack_usage /*skip the expression.*/
-			-(int64_t)cur_func_frame_size  /*skip the frame- including local variables.*/
-		;
-		i < (int64_t)symbol_table[active_function].nargs;//MORE ARGS
-		j--												 //DEEPER
-	)
-	{
-		if(
-			symbol_table[active_function]
-				.fargs[i]
-				->membername == name
-		){
-			/*We have it!*/
-			/*it's an array, get the ldata*/
-			if(vm_stack[j].t.arraylen > 0)
-				return vm_stack[j].ldata;
-			/*it's a struct, get the ldata*/
-			if(vm_stack[j].t.pointerlevel == 0)
-				if(vm_stack[j].t.basetype == BASE_STRUCT)
+	if((int64_t)symbol_table[active_function].nargs > 0)
+		for(
+			j = (int64_t)vm_stackpointer 		/*points at first empty slot*/
+				-(int64_t)1 					/*point at the first non-empty slot.*/
+				-(int64_t)cur_expr_stack_usage /*skip the expression.*/
+				-(int64_t)cur_func_frame_size  /*skip the frame- including local variables.*/
+			;
+			i < (int64_t)symbol_table[active_function].nargs;//i is tracking which argument we're checking.
+		)
+		{
+			if(
+				symbol_table[active_function]
+					.fargs[i]
+					->membername == name
+			){
+				/*We have it!*/
+				/*it's an array, get the ldata*/
+				if(vm_stack[j].t.arraylen > 0)
 					return vm_stack[j].ldata;
-			/*it's a primitive or pointer, get the smalldata.*/
-			return &(vm_stack[j].smalldata);
+				/*it's a struct, get the ldata*/
+				if(vm_stack[j].t.pointerlevel == 0)
+					if(vm_stack[j].t.basetype == BASE_STRUCT)
+						return vm_stack[j].ldata;
+				/*it's a primitive or pointer, get the smalldata.*/
+				return &(vm_stack[j].smalldata);
+			}
+			i++; /*Keep searching the list of args...*/
+			j--;
 		}
-		i++; /*Keep searching the list of args...*/
-		j--; /*Go deeper...*/
-	}
 	puts("VM ERROR");
 	puts("Could not find local:");
 	puts(name);
 	exit(1);
 }
 
-/*funky is needed so we can find local variable symbols.*/
 void do_expr(expr_node* ee){
 	int64_t i = 0;
 	int64_t n_subexpressions = 0;
@@ -508,7 +522,7 @@ void do_expr(expr_node* ee){
 	){
 		uint64_t loc = ast_vm_stack_push_temporary(NULL, ee->t);
 		vm_stack[loc].t = ee->t;
-		saved_vstack_pointer = vm_stackpointer;
+		saved_vstack_pointer = vm_stackpointer; //NOTE: saved after pushing the temporary. Before subexpressions.
 		for(i = MAX_FARGS-1; i >= 0; i--)
 		{
 			if(ee->subnodes[i])
@@ -525,7 +539,7 @@ void do_expr(expr_node* ee){
 		ee->kind != EXPR_METHOD &&
 		ee->kind != EXPR_BUILTIN_CALL
 	){
-		saved_vstack_pointer = vm_stackpointer;
+		saved_vstack_pointer = vm_stackpointer; //saved before calling sub expressions.
 		for(i = 0; i < MAX_FARGS; i++){
 			if(ee->subnodes[i]){
 				do_expr(ee->subnodes[i]);
@@ -571,9 +585,7 @@ void do_expr(expr_node* ee){
 		saved_active_function= active_function;
 		saved_vstack_pointer = vm_stackpointer;
 
-		/*TODO: invoke ast_call_function*/
-			puts("VM ERROR- expression fcall/method is NYI");
-			exit(1);
+		ast_execute_function(symbol_table + ee->symid);
 		
 		cur_func_frame_size = saved_cur_func_frame_size;
 		cur_expr_stack_usage = saved_cur_expr_stack_usage;
@@ -1755,41 +1767,76 @@ void do_expr(expr_node* ee){
 			char* s;
 			uint64_t sz;
 			//function arguments are backwards on the stack, more arguments = deeper
-			memcpy(&s, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-			memcpy(&sz, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+			memcpy(
+				&s, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			memcpy(
+				&sz, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				POINTER_SIZE
+			);
 			impl_builtin_emit(s,sz);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_getargc")){ //0 args
 			int32_t v;
 			v = impl_builtin_getargc();
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, 4);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				4
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_getargv")){ //0 arguments
 			char** v;
 			v = impl_builtin_getargv();
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_malloc")){
 			char** v;
 			uint64_t sz;
-			memcpy(&sz, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			memcpy(
+				&sz, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				8
+			);
 			v = impl_builtin_malloc(sz);
-			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_realloc")){
 			char* v;
 			uint64_t sz;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-			memcpy(&sz, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			memcpy(
+				&sz, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				8
+			);
 			v = impl_builtin_realloc(v,sz);
 			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}		
 		if(streq(ee->symname, "__builtin_type_getsz")){
@@ -1831,17 +1878,29 @@ void do_expr(expr_node* ee){
 			char* v;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
 			v = impl_builtin_strdup(v);
 			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_free")){
 			char* v;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
 			impl_builtin_free(v);
 			
 			//memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
@@ -1851,7 +1910,11 @@ void do_expr(expr_node* ee){
 			int32_t v;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, 4);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				4
+			);
 			impl_builtin_exit(v);
 			
 			//memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
@@ -1859,22 +1922,23 @@ void do_expr(expr_node* ee){
 		}
 		if(streq(ee->symname, "__builtin_get_ast")){
 			char* v;
-			//remember: arguments are backwards on the stack! so the first argument is on top...
-			
-			//memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, 4);
 			v = (char*) impl_builtin_get_ast();
-			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_peek")){
 			char* v;
-			//remember: arguments are backwards on the stack! so the first argument is on top...
-			
-			//memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, 4);
 			v = (char*) impl_builtin_peek();
 			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_consume")){
@@ -1884,14 +1948,22 @@ void do_expr(expr_node* ee){
 			//memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, 4);
 			v = (char*) impl_builtin_consume();
 			
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&v, 
+				POINTER_SIZE
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_puts")){
 			char* v;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
 			impl_builtin_puts(v);
 			
 			//memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
@@ -1902,8 +1974,16 @@ void do_expr(expr_node* ee){
 			uint64_t sz;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-			memcpy(&sz, &vm_stack[vm_stackpointer-2].smalldata, 8);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			memcpy(
+				&sz, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				8
+			);
 			impl_builtin_gets(v,sz);
 			
 			//memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
@@ -1914,10 +1994,18 @@ void do_expr(expr_node* ee){
 			int32_t q;
 			//remember: arguments are backwards on the stack! so the first argument is on top...
 			
-			memcpy(&v, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
+			memcpy(
+				&v, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
 			//memcpy(&q, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			q = impl_builtin_open_ofile(v);
-			memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &q, 4);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&q, 
+				4
+			);
 			goto end_of_builtin_call;
 		}
 		if(streq(ee->symname, "__builtin_close_ofile")){
@@ -1952,6 +2040,192 @@ void do_expr(expr_node* ee){
 }
 
 
+typedef struct{
+	uint64_t pos;
+	uint64_t is_in_loop; //
+}vm_scope_position_execution_info;
 
+
+vm_scope_position_execution_info scope_positions[0x10000];
+
+void ast_execute_function(symdecl* s){
+	uint64_t which_stmt = 0;
+	stmt* stmt_list = NULL;
+	uint64_t stmt_kind = 0;
+	/*are we just starting? The first function returns void.*/
+	if(vm_stackpointer == 0){
+		type t = type_init();
+		ast_vm_stack_push_temporary(NULL,t);
+		nscopes = 0;
+	}
+	/*make sure that s is a function with a body.*/
+	if(
+		s->t.is_function == 0 ||
+		s->fbody == NULL
+	)
+	{
+		puts("VM Error");
+		puts("Tried to execute incomplete or non-function symbol:");
+		puts(s->name);
+		exit(1);
+	}
+	/*Set up execution environment*/
+	cur_expr_stack_usage = 0;
+	cur_func_frame_size = 0;
+	scopestack_push(s->fbody);
+
+
+	begin_executing_scope:
+		{
+			uint64_t i;
+			for(i = 0; i < scopestack_gettop()->nsyms; i++){
+				ast_vm_stack_push_lvar(scopestack_gettop()->syms+i);
+			}
+		}
+		while(1){
+			stmt_list = scopestack_gettop()->stmts;
+			if(which_stmt >= scopestack_gettop()->nstmts){
+				uint64_t i;
+				if(scopestack_gettop() == s->fbody) {
+					puts("VM WARNING:");
+					puts("Function Body Fell Through during execution.");
+					puts("This is undefined behavior- add a 'return' statement.");
+					puts("Function:");
+					puts(s->name);
+					goto do_return;
+				}
+				//else, we have to clear our variables...
+				ast_vm_stack_pop_temporaries();
+				for(i = 0; i < scopestack_gettop()->nsyms;i++) ast_vm_stack_pop();
+				//we have to remove ourselves.
+				scopestack_pop();
+				which_stmt = scope_positions[nscopes-1].pos;
+				if(scope_positions[nscopes-1].is_in_loop == 0) which_stmt++; //if we are in a loop, we don't want to!
+				continue;
+			}
+			/*
+				TODO: Handle loops.
+			*/
+			stmt_kind = stmt_list[which_stmt].kind;
+			if(
+				stmt_kind == STMT_NOP || 
+				stmt_kind == STMT_LABEL
+			){
+				which_stmt++; 
+				continue;
+			}
+			if(stmt_kind == STMT_BAD || stmt_kind >= NSTMT_TYPES){
+				puts("VM ERROR:");
+				puts("INVALID statement kind!");
+				goto do_error;
+			}
+			if(stmt_kind == STMT_EXPR){
+				uint64_t saved_vstack_pointer;
+				saved_vstack_pointer = vm_stackpointer;
+				do_expr(stmt_list[which_stmt].expressions[0]);
+				if(saved_vstack_pointer+1 != vm_stackpointer){
+					puts("VM INTERNAL ERROR");
+					puts("STMT_EXPR caused more than one temporary to be placed on the stack!");
+					goto do_error;
+				}
+				ast_vm_stack_pop();
+				goto do_next_stmt;
+			}
+			if(stmt_kind == STMT_GOTO){
+				int64_t i;
+				stmt* cur_stmt = stmt_list + which_stmt;
+				for(i = 0; i < cur_stmt->goto_vardiff; i++){
+					ast_vm_stack_pop();
+				}
+				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
+					scopestack_pop();
+				}
+				//find our new position...
+				stmt_list = scopestack_gettop()->stmts;
+				for(i = 0; i < (int64_t)scopestack_gettop()->nstmts; i++){
+					if(cur_stmt->referenced_loop == stmt_list+i){
+						which_stmt = i;
+						scope_positions[nscopes-1].pos = i;
+						scope_positions[nscopes-1].is_in_loop = 0;
+						continue;
+					}
+				}
+				puts("Goto for loop fell through.");
+				goto do_error;
+			}
+			if(stmt_kind == STMT_RETURN){
+				int64_t i;
+				uint64_t retval;
+				uint64_t has_retval = 0;
+				stmt* cur_stmt = stmt_list + which_stmt;
+				if((stmt_list[which_stmt].expressions[0])){
+					uint64_t saved_vstack_pointer;
+					has_retval = 1;
+					saved_vstack_pointer = vm_stackpointer;
+					do_expr(stmt_list[which_stmt].expressions[0]);
+					if(saved_vstack_pointer+1 != vm_stackpointer){
+						puts("VM INTERNAL ERROR");
+						puts("STMT_EXPR caused more than one temporary to be placed on the stack!");
+						goto do_error;
+					}
+					retval = vm_stack[vm_stackpointer-1].smalldata;
+					ast_vm_stack_pop();
+				}
+				for(i = 0; i < cur_stmt->goto_vardiff; i++){
+					ast_vm_stack_pop();
+				}
+				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
+					scopestack_pop();
+				}
+			}
+			
+			if(
+				stmt_kind == STMT_WHILE ||
+				stmt_kind == STMT_IF
+			){
+				uint64_t saved_vstack_pointer;
+				stmt* cur_stmt;
+
+
+				saved_vstack_pointer = vm_stackpointer;
+				do_expr(stmt_list[which_stmt].expressions[0]);
+				if(saved_vstack_pointer+1 != vm_stackpointer)
+				{
+					puts("VM INTERNAL ERROR");
+					puts("STMT_WHILE or STMT_IF caused more than one temporary to be placed on the stack!");
+					goto do_error;
+				}
+				if(vm_stack[vm_stackpointer].smalldata){
+					cur_stmt = stmt_list + which_stmt;
+					//It has been decided. we are going to be executing this block.
+					ast_vm_stack_pop();
+					scope_positions[nscopes-1].pos = which_stmt;
+					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 1;
+					which_stmt = 0;
+					scopestack_push(cur_stmt->myscope);
+					//start executing that scope!
+					goto begin_executing_scope;
+				}
+				ast_vm_stack_pop();
+				goto do_next_stmt;
+			}
+
+
+			do_next_stmt:
+			which_stmt++;
+			continue;
+		}
+
+
+	do_return:
+		ast_vm_stack_pop_temporaries();
+		ast_vm_stack_pop_lvars();
+		return;
+
+	do_error:
+	puts("While executing function:");
+	puts(s->name);
+	exit(1);
+}
 
 

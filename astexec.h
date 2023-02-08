@@ -16,6 +16,7 @@ typedef struct{
 }ast_vm_stack_elem;
 
 
-uint64_t determine_fn_variable_stack_placements(symdecl* s);
+
+void ast_execute_function(symdecl* s); //execute function in the AST VM.
 
 
