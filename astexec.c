@@ -639,14 +639,6 @@ void do_expr(expr_node* ee){
 			p = retrieve_variable_memory_pointer(ee->symname, 0);
 		if(ee->kind == EXPR_GSYM)
 			p = retrieve_variable_memory_pointer(ee->symname, 1);
-		/*
-			debug_print("Found Local/Global Symbol:",0,0);
-			debug_print(ee->symname,0,0);
-			debug_print("Its address is:",(uint64_t)p,0);
-			debug_print("~~~~~",0,0);
-			if(ee->t.is_lvalue)
-				debug_print("<The result is an lvalue>",0,0);
-		*/
 		general = ast_vm_stack_push_temporary(NULL, ee->t);
 		memcpy(
 			&vm_stack[general].smalldata,
@@ -814,7 +806,6 @@ void do_expr(expr_node* ee){
 	){
 		void* p1;
 		uint64_t val;
-		uint64_t sz_to_cpy;
 		uint64_t valpre;
 		int32_t i32data;
 		int16_t i16data;
@@ -2141,7 +2132,7 @@ void ast_execute_function(symdecl* s){
 			}
 		}
 		puts("VM error");
-		puts("Could not find our boy :-(");
+		puts("Could not find our boy");
 		exit(1);
 		found_our_boy:;
 	}
@@ -2168,6 +2159,9 @@ void ast_execute_function(symdecl* s){
 			for(i = 0; i < scopestack_gettop()->nsyms; i++){
 				ast_vm_stack_push_lvar(scopestack_gettop()->syms+i);
 			}
+			scope_positions[nscopes-1].pos = 0;
+			scope_positions[nscopes-1].is_in_loop = 0;
+			which_stmt = 0;
 		}
 	continue_executing_scope:
 		while(1){
@@ -2186,7 +2180,8 @@ void ast_execute_function(symdecl* s){
 				}
 				//else, we have to clear our variables...
 				ast_vm_stack_pop_temporaries();
-				for(i = 0; i < scopestack_gettop()->nsyms;i++) ast_vm_stack_pop();
+				for(i = 0; i < scopestack_gettop()->nsyms;i++) 
+					ast_vm_stack_pop();
 				//we have to remove ourselves.
 				scopestack_pop();
 				which_stmt = scope_positions[nscopes-1].pos;
@@ -2201,8 +2196,7 @@ void ast_execute_function(symdecl* s){
 				stmt_kind == STMT_NOP || 
 				stmt_kind == STMT_LABEL
 			){
-				which_stmt++; 
-				continue;
+				goto do_next_stmt;
 			}
 			if(stmt_kind == STMT_BAD || stmt_kind >= NSTMT_TYPES){
 				puts("VM ERROR:");
@@ -2210,14 +2204,7 @@ void ast_execute_function(symdecl* s){
 				goto do_error;
 			}
 			if(stmt_kind == STMT_EXPR){
-				uint64_t saved_vstack_pointer;
-				saved_vstack_pointer = vm_stackpointer;
 				do_expr(stmt_list[which_stmt].expressions[0]);
-				if(saved_vstack_pointer+1 != vm_stackpointer){
-					puts("VM INTERNAL ERROR");
-					puts("STMT_EXPR caused more than one temporary to be placed on the stack!");
-					goto do_error;
-				}
 				ast_vm_stack_pop();
 				goto do_next_stmt;
 			}
@@ -2236,20 +2223,26 @@ void ast_execute_function(symdecl* s){
 				stmt_list = scopestack_gettop()->stmts;
 				which_stmt = cur_stmt->goto_where_in_scope;
 				goto continue_executing_scope;
-				/*
-				for(i = 0; i < (int64_t)scopestack_gettop()->nstmts; i++){
-					if(
-						(uint64_t)(cur_stmt->referenced_loop) == (uint64_t)(stmt_list+i)
-					){
-						which_stmt = i;
-						scope_positions[nscopes-1].pos = i;
-						scope_positions[nscopes-1].is_in_loop = 0;
-						goto continue_executing_scope;
-					}
+			}
+			if(stmt_kind == STMT_SWITCH){
+				int64_t val;int64_t i;char* name;
+				stmt* cur_stmt;
+
+
+				cur_stmt = stmt_list + which_stmt;
+				do_expr(stmt_list[which_stmt].expressions[0]);
+				val = vm_stack[vm_stackpointer-1].smalldata;
+				ast_vm_stack_pop();
+				//val %= cur_stmt->switch_nlabels;
+				//perform a goto within the current scope.
+				name = cur_stmt->switch_label_list[val];
+				for(i = 0; i < (int64_t)cur_stmt->whereami->nstmts; i++){
+					if(stmt_list[i].kind == STMT_LABEL)
+						if(streq(name, stmt_list[i].referenced_label_name)){
+							which_stmt = i;
+							goto continue_executing_scope;
+						}
 				}
-				*/
-				puts("Goto, searching for its jump target, fell through.");
-				goto do_error;
 			}
 			if(stmt_kind == STMT_RETURN){
 				int64_t i;
@@ -2257,15 +2250,8 @@ void ast_execute_function(symdecl* s){
 				uint64_t has_retval = 0;
 				stmt* cur_stmt = stmt_list + which_stmt;
 				if((stmt_list[which_stmt].expressions[0])){
-					uint64_t saved_vstack_pointer;
 					has_retval = 1;
-					saved_vstack_pointer = vm_stackpointer;
 					do_expr(stmt_list[which_stmt].expressions[0]);
-					if(saved_vstack_pointer+1 != vm_stackpointer){
-						puts("VM INTERNAL ERROR");
-						puts("STMT_RETURN caused more than one temporary to be placed on the stack!");
-						goto do_error;
-					}
 					retval = vm_stack[vm_stackpointer-1].smalldata;
 					ast_vm_stack_pop();
 				}
@@ -2284,18 +2270,8 @@ void ast_execute_function(symdecl* s){
 				stmt_kind == STMT_WHILE ||
 				stmt_kind == STMT_IF
 			){
-				uint64_t saved_vstack_pointer;
 				stmt* cur_stmt;
-
-
-				saved_vstack_pointer = vm_stackpointer;
 				do_expr(stmt_list[which_stmt].expressions[0]);
-				if(saved_vstack_pointer+1 != vm_stackpointer)
-				{
-					puts("VM INTERNAL ERROR");
-					puts("STMT_WHILE or STMT_IF caused more than one temporary to be placed on the stack!");
-					goto do_error;
-				}
 				//debug_print("While or If got This from its expression: ",vm_stack[vm_stackpointer-1].smalldata,0);
 				if(vm_stack[vm_stackpointer-1].smalldata){
 					cur_stmt = stmt_list + which_stmt;
@@ -2303,13 +2279,54 @@ void ast_execute_function(symdecl* s){
 					ast_vm_stack_pop();
 					scope_positions[nscopes-1].pos = which_stmt;
 					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 1;
-					which_stmt = 0;
 					scopestack_push(cur_stmt->myscope);
-					//start executing that scope!
 					goto begin_executing_scope;
 				}
 				ast_vm_stack_pop();
 				goto do_next_stmt;
+			}
+			if(stmt_kind == STMT_FOR){
+				stmt* cur_stmt;
+				int64_t retval;
+				int64_t i;
+				cur_stmt = stmt_list + which_stmt;
+				if(scope_positions[nscopes-1].is_in_loop){
+					//iterate.
+
+					do_expr(stmt_list[which_stmt].expressions[2]);
+					ast_vm_stack_pop();
+
+					//comparison...
+					do_expr(stmt_list[which_stmt].expressions[1]);
+						retval = vm_stack[vm_stackpointer-1].smalldata;
+					ast_vm_stack_pop();
+					
+					if(retval == 0){
+						scope_positions[nscopes-1].is_in_loop = 0;
+						goto do_next_stmt;
+					}
+					// we are still doing it!
+					scope_positions[nscopes-1].pos = which_stmt;
+					scopestack_push(cur_stmt->myscope);
+					goto begin_executing_scope;
+				}
+				//Do the initialization expression.
+				do_expr(stmt_list[which_stmt].expressions[0]);
+				//throw the value away!
+				ast_vm_stack_pop();
+				//do the second expression...
+				do_expr(stmt_list[which_stmt].expressions[1]);
+				//get that value.
+				retval = vm_stack[vm_stackpointer-1].smalldata;
+				ast_vm_stack_pop();
+				scope_positions[nscopes-1].pos = which_stmt;
+				if(retval == 0){
+					scope_positions[nscopes-1].is_in_loop = 0;
+					goto do_next_stmt;
+				}
+				scope_positions[nscopes-1].is_in_loop = 1;
+				scopestack_push(cur_stmt->myscope);
+				goto begin_executing_scope;
 			}
 
 
