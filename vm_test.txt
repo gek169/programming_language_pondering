@@ -23,10 +23,10 @@ end
 
 
 method codegen myClass:doStuff()->u64:
-	__builtin_puts("Testing...");
 	if(this.x == 3)
-		return 3;
+		__builtin_puts("I can indeed see that.");
 	end
+	this.x = 3;
 	return 0;
 end
 
@@ -35,28 +35,25 @@ fn codegen assignArrayMember(int* a):
 	return;
 end
 
+fn codegen manipClass(myClass* p):
+	if(p.x == 3)
+		__builtin_puts("I can also indeed see that.");
+	end
+	p.x = 3;
+end
 
-fn codegen odegen_main():
+
+fn codegen codegen_main():
 	myClass classy;
 	myClass* f;
-
-	int[20] myArray;
-	int* myptr;
-
-	i = 3;
+	classy.x = 3;
+	__builtin_puts("_______________________________");
+	classy:doStuff();
+	manipClass(classy);
+	__builtin_puts("_______________________________");
+	classy.x = 3;
 	
-	classy.x = 3+1;
-	f = classy;
-	f = cast(myClass*)f;
-	//i = (cast(myClass*)(f)).x;
-	i = f.x;
-
-
-	//arrays work!
-	assignArrayMember(myArray);
-	i=myArray[3];
-
-	
+	return;
 	while(i > 0)
 		__builtin_puts("count me");
 		i--;

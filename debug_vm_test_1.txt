@@ -1,0 +1,49 @@
+Allocating a struct!
+Found Local/Global Symbol:
+classy
+Its address is:
+94031113999200
+~~~~~
+Pointer to struct was (before):
+94031113999200
+Pointer to struct was (after):
+94031113999200
+<EXPR_MEMBER> here's the final address:
+94031113999204
+@Assignment! Pointer is:
+94031113999204
+_______________________________
+Found Local/Global Symbol:
+classy
+Its address is:
+94031113999200
+~~~~~
+Found Local/Global Symbol:
+this
+Its address is:
+94031093983096
+~~~~~
+Pointer to struct was (before):
+94031093983096
+Pointer to struct was (after):
+94031093983096
+<EXPR_MEMBER> here's the final address:
+94031093983096
+@Assignment! Pointer is:
+94031093983096
+_______________________________
+Found Local/Global Symbol:
+classy
+Its address is:
+94031113999200
+~~~~~
+Pointer to struct was (before):
+94031113999200
+Pointer to struct was (after):
+94031113999200
+<EXPR_MEMBER> here's the final address:
+94031113999204
+<Overhead> I can see it... It's here:
+94031113999204
+@Assignment! Pointer is:
+94031113999204

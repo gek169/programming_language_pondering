@@ -774,11 +774,15 @@ void parse_fn(int is_method){
 	if(is_method){
 		require(peek_is_typename(), "method statement requires a typename- the struct it operates on");
 		t_method_struct = parse_type();
+
 		require(t_method_struct.pointerlevel == 0, "must be a struct name");
 		require(t_method_struct.arraylen == 0, "must be a struct name");
 		require(t_method_struct.basetype == BASE_STRUCT, "must be a struct name");
 		require(t_method_struct.structid < ntypedecls, "Must be a valid struct");
+
 		t_method_struct.pointerlevel = 1;
+		/*it is indeed an lvalue thing.*/
+		t_method_struct.is_lvalue = 1;
 
 		/*Optionally consume a colon the method mystruct:myfunction*/
 		if(peek()->data == TOK_OPERATOR)
@@ -827,6 +831,7 @@ void parse_fn(int is_method){
 		require(!peek_is_fname(), "fn argument cannot be named after a function.");
 		require(!peek_is_typename(), "fn argument cannot be named after a type.");
 		t_temp.membername = strdup(peek()->text);
+		t_temp.is_lvalue = 1;
 		require(nargs < MAX_FARGS, "fn has too many arguments.");
 		/*validate that function arguments thus far are not by the same name.*/
 		for(k = 0; k < nargs; k++){
@@ -841,7 +846,6 @@ void parse_fn(int is_method){
 		}
 
 		s.fargs[nargs] = c_allocX(sizeof(type));
-		t_temp.is_lvalue = 1;
 		s.fargs[nargs][0] = t_temp;
 		consume(); /*Eat the identifier.*/
 		nargs++;
