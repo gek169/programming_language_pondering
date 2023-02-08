@@ -88,7 +88,7 @@ void compile_unit(strll* _unit){
 	while(1){
 		peek_always_not_null = 0;
 		if(peek() == NULL) {
-			unit_throw_if_had_incomplete();
+			
 			break;
 		}
 		if(peek()->data == TOK_SEMIC){
@@ -143,6 +143,23 @@ void compile_unit(strll* _unit){
 	/*
 		TODO: Do some compilation.
 	*/
+	unit_throw_if_had_incomplete();
+	//astdump();
+	//search for the codegen function and try to execute it.
+	{unsigned long i;
+		for(i = 0; i < nsymbols; i++){
+			if(streq(symbol_table[i].name, "codegen_main")){
+				require(symbol_table[i].is_codegen > 0, "codegen_main must be declared codegen.");
+				require(symbol_table[i].t.is_function, "codegen_main must be a function.");
+				require(symbol_table[i].t.basetype == BASE_VOID, "codegen_main must return nothing!");
+				require(symbol_table[i].t.pointerlevel == 0 , "codegen_main must return nothing, not even a pointer to nothing!");
+				require(symbol_table[i].nargs == 0, "codegen_main must take zero arguments. That's how I call it.");
+				//IT'S TIME!!!!
+				ast_execute_function(symbol_table+i);
+				exit(0);
+			}
+		}
+	}
 	astdump();
 	exit(0);
 }
@@ -201,6 +218,7 @@ void parse_gvardecl(){
 	uint64_t is_new_symbol = 0;
 	uint64_t is_predecl = 0;
 	uint64_t is_codegen = 0;
+	int had_equals = 0;
 	type t = {0};
 	int64_t cval;
 	double fval;
@@ -296,6 +314,7 @@ void parse_gvardecl(){
 	if(peek()->data == TOK_OPERATOR)
 	if(streq(peek()->text, "="))
 	{
+		had_equals = 1;
 		require(!is_predecl, "Predeclaration of global variable may not have a definition.");
 		consume(); //eat the equals sign!
 
@@ -351,10 +370,14 @@ void parse_gvardecl(){
 				if(t.basetype == BASE_U64 || t.basetype == BASE_I64){
 					int64_t t;
 					t = cval;
-					memcpy(symbol_table[symid].cdata, &t, 8);
+					memcpy(
+						symbol_table[symid].cdata, 
+						&t, 
+						8
+					);
 					symbol_table[symid].cdata_sz = 8;
 					goto end;
-				}				
+				}
 			}
 			if(t.pointerlevel > 0){
 				uint64_t t;
@@ -370,6 +393,7 @@ void parse_gvardecl(){
 	
 	/*No initial assignment is allowed.*/
 	end:;
+	if(had_equals)require(symbol_table[symid].cdata != NULL, "Global Variable Initial value failed!");
 	consume_semicolon("Global Variable declaration statement must end in a semicolon.");
 	return;
 }

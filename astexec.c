@@ -10,6 +10,25 @@
 #include "metaprogramming.h"
 #include "astexec.h"
 
+
+static uint64_t is_debugging = 1;
+
+static void debug_print(char* msg, uint64_t printme1, uint64_t printme2){
+	if(is_debugging == 0) return;
+	char buf[100];
+	puts(msg);
+
+	if(printme1){
+		mutoa(buf, printme1);
+		puts(buf);
+	}
+	if(printme2){
+		mutoa(buf, printme2);
+		puts(buf);
+	}
+}
+
+
 /*
 	VM Stack, used for the codegen stack.
 */
@@ -23,6 +42,8 @@ static uint64_t vm_stackpointer = 0;
 */
 uint64_t cur_func_frame_size = 0;
 uint64_t cur_expr_stack_usage = 0;
+
+
 
 static uint64_t ast_vm_stack_push(){
 	return vm_stackpointer++;
@@ -126,7 +147,16 @@ static uint64_t get_offsetof(
 }
 
 static uint64_t do_deref(void* ptr, unsigned sz){
-	memcpy(&sz, ptr, sz);
+	if(sz > 8){
+		puts("VM Internal error");
+		puts("VM was asked to dereference more than 8 bytes...");
+		exit(1);
+	}
+	memcpy(
+		&sz, 
+		ptr, 
+		sz
+	);
 	return sz;
 }
 
@@ -393,6 +423,7 @@ static void* retrieve_variable_memory_pointer(
 			/*if it has no cdata- initialize it!*/
 			if(symbol_table[i].cdata == NULL){
 				uint64_t sz = type_getsz(symbol_table[i].t);
+				debug_print("Having to allocate global storage...",0,0);
 				symbol_table[i].cdata = calloc(
 					sz,1
 				);
@@ -604,14 +635,20 @@ void do_expr(expr_node* ee){
 			p = retrieve_variable_memory_pointer(ee->symname, 0);
 		if(ee->kind == EXPR_GSYM)
 			p = retrieve_variable_memory_pointer(ee->symname, 1);
+		//debug_print("Found Local/Global Symbol. Address:",(uint64_t)p,0);
 		general = ast_vm_stack_push_temporary(NULL, ee->t);
-		memcpy(&vm_stack[general].smalldata,&p,8);
+		memcpy(
+			&vm_stack[general].smalldata,
+			&p,
+			POINTER_SIZE
+		);
 		return;
 	}
 	if(ee->kind == EXPR_STRINGLIT){
 		void* p;
 		uint64_t general;
 		p = symbol_table[ee->symid].cdata;
+		//debug_print("Found String Literal. Address:",(uint64_t)p,0);
 		general = ast_vm_stack_push_temporary(NULL, ee->t);
 		memcpy(&vm_stack[general].smalldata,&p,POINTER_SIZE);
 		return;
@@ -628,7 +665,11 @@ void do_expr(expr_node* ee){
 		*/
 		while(levels_of_indirection > 1){
 			memcpy(&p, &pt, POINTER_SIZE);
-			pt = do_deref(p, POINTER_SIZE);
+			memcpy(
+				&pt,
+				p,
+				POINTER_SIZE
+			);
 			levels_of_indirection = levels_of_indirection - 1;
 		}
 		/*
@@ -885,10 +926,12 @@ void do_expr(expr_node* ee){
 		if is_lvalue, then small data was a pointer!
 		do a dereference...
 		*/
+		//debug_print("Doing a cast...",0,0);
 		if(ee->subnodes[0]->t.is_lvalue){
-			data = do_deref(
-				(void*)data, 
-				type_getsz(ee->t)
+			memcpy(
+				&data, 
+				(void*)data,
+				type_getsz(ee->subnodes[0]->t)
 			);
 		}
 		/*If they were both pointers, we do nothing.*/
@@ -2082,6 +2125,7 @@ void ast_execute_function(symdecl* s){
 				ast_vm_stack_push_lvar(scopestack_gettop()->syms+i);
 			}
 		}
+	continue_executing_scope:
 		while(1){
 			stmt_list = scopestack_gettop()->stmts;
 			if(which_stmt >= scopestack_gettop()->nstmts){
@@ -2135,19 +2179,23 @@ void ast_execute_function(symdecl* s){
 				int64_t i;
 				stmt* cur_stmt = stmt_list + which_stmt;
 				for(i = 0; i < cur_stmt->goto_vardiff; i++){
+					debug_print("goto popping variables...",0,0);
 					ast_vm_stack_pop();
 				}
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
+					debug_print("goto popping stacks...",0,0);
 					scopestack_pop();
 				}
 				//find our new position...
 				stmt_list = scopestack_gettop()->stmts;
 				for(i = 0; i < (int64_t)scopestack_gettop()->nstmts; i++){
-					if(cur_stmt->referenced_loop == stmt_list+i){
+					if(
+						(uint64_t)(cur_stmt->referenced_loop) == (uint64_t)(stmt_list+i)
+					){
 						which_stmt = i;
 						scope_positions[nscopes-1].pos = i;
 						scope_positions[nscopes-1].is_in_loop = 0;
-						continue;
+						goto continue_executing_scope;
 					}
 				}
 				puts("Goto for loop fell through.");
@@ -2165,7 +2213,7 @@ void ast_execute_function(symdecl* s){
 					do_expr(stmt_list[which_stmt].expressions[0]);
 					if(saved_vstack_pointer+1 != vm_stackpointer){
 						puts("VM INTERNAL ERROR");
-						puts("STMT_EXPR caused more than one temporary to be placed on the stack!");
+						puts("STMT_RETURN caused more than one temporary to be placed on the stack!");
 						goto do_error;
 					}
 					retval = vm_stack[vm_stackpointer-1].smalldata;
@@ -2177,8 +2225,11 @@ void ast_execute_function(symdecl* s){
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
 					scopestack_pop();
 				}
+				if(has_retval){
+					vm_stack[vm_stackpointer -1 - s->nargs].smalldata = retval;
+				}
+				goto do_return;
 			}
-			
 			if(
 				stmt_kind == STMT_WHILE ||
 				stmt_kind == STMT_IF

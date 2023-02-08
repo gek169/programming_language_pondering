@@ -1628,10 +1628,11 @@ static void validate_goto_target(stmt* me, char* name){
 				if(streq(stmtlist[j].referenced_label_name,name))
 				{
 					//assign it!
-					me->referenced_loop = stmtlist + j;
+					me->referenced_loop = ((stmt*)stmtlist) + j;
 					//assign scopediff
 					me->goto_scopediff = scopediff_sofar;
 					me->goto_vardiff = vardiff_sofar;
+					me->goto_where_in_scope = j;
 					return;
 				}
 		}

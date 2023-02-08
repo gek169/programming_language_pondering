@@ -1,0 +1,20 @@
+
+
+codegen qword i = 1;
+fn codegen codegen_main():
+
+	i = i;
+	i = i;
+	while(i)
+		__builtin_puts("Hello world!");
+		i = i - 1;
+	end
+	__builtin_puts("Goodbye!");
+
+
+	//TODO: Fix goto
+	goto enddd
+	
+	return;
+	:enddd
+end

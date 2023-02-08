@@ -204,6 +204,7 @@ typedef struct stmt{
 	char* filename;
 	int64_t goto_scopediff; /*how many scopes deep does this go?*/
 	int64_t goto_vardiff; /*How many local variables have to be popped to achieve the context switch?*/
+	int64_t goto_where_in_scope; /*What exact statement are we going to?*/
 } stmt;
 
 enum{
