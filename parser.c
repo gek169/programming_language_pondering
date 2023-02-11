@@ -1363,6 +1363,18 @@ void expr_parse_postfix(expr_node** targ){ //the valid postfixes are --, ++, [],
 				before_f = NULL;
 				continue;
 			}
+			if(streq(peek()->text,".&")){
+				consume();
+				before_f = c_allocX(sizeof(expr_node));
+				before_f->kind = EXPR_MEMBERPTR;
+				before_f->subnodes[0] = f; /*expression evaluating to struct with 1 or more levels of indirection.*/
+				require(peek()->data == TOK_IDENT, "Member pointer access syntax requires an identifier.");
+				before_f->symname = strdup(peek()->text);
+				consume(); //eat the identifier.
+				f = before_f;
+				before_f = NULL;
+				continue;
+			}
 			if(streq(peek()->text, ":")){
 				consume(); //eat the colon
 				before_f = c_allocX(sizeof(expr_node));

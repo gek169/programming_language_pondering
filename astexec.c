@@ -707,6 +707,52 @@ void do_expr(expr_node* ee){
 		vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
+
+	if(ee->kind == EXPR_MEMBERPTR){ /*the actual operation is to get a pointer to the member.*/
+		void* p;
+		uint64_t pt;
+		uint64_t levels_of_indirection;
+		pt = vm_stack[vm_stackpointer-1].smalldata;
+		levels_of_indirection = ee->subnodes[0]->t.pointerlevel;
+		//if(ee->subnodes[0]->t.is_lvalue != 0) levels_of_indirection++;
+		/*
+			You can access the members of a struct with arbitrary levels of indirection.
+			and if it is more than one, then we need to dereference a pointer-to-pointer.
+		*/
+	//	debug_print("Pointer to struct was (before):", (uint64_t)pt,0);
+		while(levels_of_indirection > 1){
+			memcpy(&p, &pt, POINTER_SIZE);
+			memcpy(
+				&pt,
+				p,
+				POINTER_SIZE
+			);
+			levels_of_indirection--;
+			//debug_print("Pointer to struct was (iter):", (uint64_t)pt,0);
+		}
+	//	debug_print("Pointer to struct was (after):", (uint64_t)pt,0);
+		/*
+			pt holds single-level pointer-to-struct.
+
+			Now, we need to add the offset of the member...
+		*/
+		{
+			uint64_t off_of;
+			off_of = get_offsetof(
+							type_table + ee->subnodes[0]->t.structid, 
+							ee->symname
+						);
+			//debug_print("Accessing member, off_of was...", off_of,0);
+			pt = pt + off_of;
+		}
+//		debug_print("<EXPR_MEMBER> here's the final address:", (uint64_t)pt,0);
+	//	if(((int*)pt)[0] == 3){
+	//		debug_print("<Overhead> I can see it... It's here:", pt,0);
+	//	}
+		vm_stack[vm_stackpointer-1].smalldata = pt;
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		return;
+	}
 	if(ee->kind == EXPR_MOVE){
 		//POINTER_SIZE
 		void* p1;

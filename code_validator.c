@@ -238,6 +238,7 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_PRE_INCR) puts("EXPR_PRE_INCR");
 	if(c == EXPR_INDEX) puts("EXPR_INDEX");
 	if(c == EXPR_MEMBER) puts("EXPR_MEMBER");
+	if(c == EXPR_MEMBERPTR) puts("EXPR_MEMBERPTR");
 	if(c == EXPR_METHOD) puts("EXPR_METHOD");
 	if(c == EXPR_CAST) puts("EXPR_CAST");
 	if(c == EXPR_NEG) puts("EXPR_NEG");
@@ -286,6 +287,7 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_PRE_INCR) puts("EXPR_PRE_INCR");
 	if(c == EXPR_INDEX) puts("EXPR_INDEX");
 	if(c == EXPR_MEMBER) puts("EXPR_MEMBER");
+	if(c == EXPR_MEMBERPTR) puts("EXPR_MEMBERPTR");
 	if(c == EXPR_METHOD) puts("EXPR_METHOD");
 	if(c == EXPR_CAST) puts("EXPR_CAST");
 	if(c == EXPR_NEG) puts("EXPR_NEG");
@@ -409,6 +411,7 @@ static void propagate_types(expr_node* ee){
 	if(ee->kind != EXPR_INDEX) /*You can index pointers...*/
 	if(ee->kind != EXPR_METHOD) /*You invoke methods on or with pointers.*/
 	if(ee->kind != EXPR_MEMBER) /*You can get members of structs which are pointed to.*/
+	if(ee->kind != EXPR_MEMBERPTR) /*You can get pointers to members of structs which are pointed to.*/
 	{
 		if(ee->subnodes[0])
 			if(ee->subnodes[0]->t.pointerlevel > 0)
@@ -661,6 +664,8 @@ static void propagate_types(expr_node* ee){
 					ee->t.pointerlevel++;
 				}
 				//handle: struct member is also a struct, but not pointer to struct.
+				//note that for an array of structs, pointerlevel was already set,
+				//so we don't have to worry about that here.
 				if(ee->t.basetype == BASE_STRUCT)
 				if(ee->t.pointerlevel == 0){
 					ee->t.is_lvalue = 0;
@@ -691,6 +696,58 @@ static void propagate_types(expr_node* ee){
 		}
 		return;
 	}
+
+	if(ee->kind == EXPR_MEMBERPTR){
+			//int found = 0;
+			t = ee->subnodes[0]->t;
+			if(t.basetype != BASE_STRUCT)
+				throw_type_error_with_expression_enums(
+					"Can't access member of non-struct! a=me",
+					ee->kind,
+					ee->subnodes[0]->kind
+				);
+			if(t.structid >= ntypedecls)
+				throw_type_error("Internal error, invalid struct ID for EXPR_MEMBERPTR");
+			if(ee->symname == NULL)
+				throw_type_error("Internal error, EXPR_MEMBERPTR had null symname...");
+			for(j = 0; j < type_table[t.structid].nmembers; j++){
+				if(
+					streq(
+						type_table[t.structid].members[j].membername,
+						ee->symname
+					)
+				){
+				//	found = 1;
+					ee->t = type_table[t.structid].members[j];
+					ee->t.is_lvalue = 0;
+					//handle: struct member is array.
+					if(ee->t.arraylen > 0){
+						ee->t.arraylen = 0;
+					}
+					ee->t.pointerlevel++;
+					//handle:struct member is function
+					if(ee->t.is_function){
+						puts("Error: Struct member is function. How did that happen?");
+						throw_type_error("Struct member is function.");
+					}
+					ee->t.membername = NULL; /*We don't want it!*/
+					return;
+				}
+			}
+			{
+				puts("Struct:");
+				puts(type_table[t.structid].name);
+				puts("Does not have member, therefore cannot retrieve pointer:");
+				puts(ee->symname);
+				throw_type_error_with_expression_enums(
+					"Struct lacking member. a=me",
+					ee->kind,
+					EXPR_BAD
+				);
+				validator_exit_err();
+			}
+			return;
+		}
 	if(ee->kind == EXPR_METHOD){
 		char* c;
 		t = ee->subnodes[0]->t;
@@ -1408,6 +1465,15 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	) return;
 
 	if(ee->kind == EXPR_MEMBER){
+		t_target = ee->subnodes[0]->t;
+		t_target.is_lvalue = 0; //must be: not an lvalue.
+		insert_implied_type_conversion(
+			ee->subnodes+0, 
+			t_target
+		);
+		return;
+	}
+	if(ee->kind == EXPR_MEMBERPTR){
 		t_target = ee->subnodes[0]->t;
 		t_target.is_lvalue = 0; //must be: not an lvalue.
 		insert_implied_type_conversion(

@@ -31,6 +31,13 @@ class containsSubClass
 	sqword bruh
 end	
 
+class containsArrayOfSubclasses
+	int a
+	int b
+	myClass[40] thingies
+	int[400] integers
+end
+
 
 method codegen myClass:doStuff()->u64:
 	if(this.x == 3)
@@ -165,8 +172,8 @@ fn codegen codegen_main():
 
 	containsSubClass qqq;
 	qqq.alfred := classy;
-	qqq.bigboy := f;
-	f.x = 3;
+	qqq.bigboy := cast(myClass*)f;
+	(cast(myClass*)f).x = 3;
 	i = qqq.bigboy.x;
 	if(1)
 		char[500] buf
@@ -189,17 +196,60 @@ fn codegen codegen_main():
 		//declared at the end... oh! interesting...
 		double whomstvedaintly
 	end
-/*
+	if(1)
+			char[500] buf
+			int* temp
+		//test structs more thoroughly.
+			containsArrayOfSubclasses fff;
+			f.y = 17.3e-0;
+			fff.thingies + 3 := f;
+			i = (fff.thingies + 3).y;
+		//
+			__builtin_itoa(buf, i);
+			__builtin_puts("This is I after assigning from fff.thingies of 3 dot y:");
+			__builtin_puts(buf);
+
+			(fff.thingies + 3).y = 400;
+			f = fff.&thingies + 3;
+			i = f.y;
+		//
+			__builtin_itoa(buf, i);
+			__builtin_puts("This is I after assigning from fff.thingies of f.y, after f was assigned fff.thingies + 3:");
+			__builtin_puts(buf);
+			temp = fff.&integers;
+			temp[37] = 12;
+			temp[37] = 13;
+			i = fff.integers[37];
+			__builtin_itoa(buf, i);
+			__builtin_puts("This is I after assigning to an aliased integer array in its members.:");
+			__builtin_puts(buf);
+	end
+
 	i = 0;
 
 	myGlobalLoopCounter = 3;
 	tail_test_pow = 2.0;
 	i = tail_test();
+	if(1)
+		char[500] buf;
+		__builtin_itoa(buf, i);
+		__builtin_puts("This is I after tail_test:");
+		__builtin_puts(buf);
+	end
+
 	myGlobalLoopCounter = 10;
 	i = tail_test2();
+	if(1)
+		char[500] buf;
+		__builtin_itoa(buf, i);
+		__builtin_puts("This is I after tail_test2:");
+		__builtin_puts(buf);
+	end
 
 	i = subnums(3,0);
-*/
+
+
+	
 	while((i > 0) /*|| 1*/
 	)
 		__builtin_puts("count me");
