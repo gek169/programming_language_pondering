@@ -185,7 +185,8 @@ fn codegen codegen_main():
 		__builtin_ftoa(buf, whomstvedaintly);
 		__builtin_puts("Here's whomstvedaintly:");
 		__builtin_puts(buf);
-		
+
+		//declared at the end... oh! interesting...
 		double whomstvedaintly
 	end
 /*
