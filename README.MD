@@ -26,7 +26,27 @@ This means, for instance:
 * Seabass does not have a standard template library, standard library, or any other set of
 standard runtime functions, as such is not portable between platforms.
 
-* 
+* Seabass does not  have garbage collection or array bounds checking.
+
+## What makes it different from, say, C?
+
+Other than the obvious syntax changes? Well...
+
+* No function pointers.
+
+* switch does not do bounds checking, and automatically assumes a 0-n integer value. it uses goto labels.
+
+* More well-defined behavior.
+
+* No early returns for && and ||. Control flow is always explicit.
+
+* Methods. You can define functions that operate on structs.
+
+* You cannot pass or  use structs by value.
+
+* Dedicated `memcpy` operator: `:=`
+
+
 
 
 
