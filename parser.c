@@ -828,7 +828,7 @@ void parse_fn(int is_method){
 		/*mangle the name*/
 		t = strcata("__method_", type_table[t_method_struct.structid].name);
 		require(t != NULL, "strcata failed");
-		t = strcataf1(t, "_");
+		t = strcataf1(t, "_____");
 		require(t != NULL, "strcata failed");
 		n = strcatafb(t,n);
 		require(n != NULL, "strcatfb failed");

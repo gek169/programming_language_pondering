@@ -761,7 +761,7 @@ static void propagate_types(expr_node* ee){
 			do name mangling.
 		*/
 		c = strcata("__method_", type_table[t.structid].name);
-		c = strcataf1(c, "_");
+		c = strcataf1(c, "_____");
 		c = strcataf1(c, ee->method_name);
 		ee->symname = c;
 		for(j = 0; j < nsymbols; j++)
