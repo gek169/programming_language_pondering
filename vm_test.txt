@@ -142,7 +142,7 @@ fn codegen codegen_main():
 	tail_test_pow = 2.0;
 	i = tail_test();
 
-	while(i > 0)
+	while((i > 0) || 0)
 		__builtin_puts("count me");
 		i--;
 	end
