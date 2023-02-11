@@ -2138,7 +2138,7 @@ void ast_execute_function(symdecl* s){
 		nscopes = 0;
 	}
 
-	begin_executing_function:scopestack_push(s->fbody);
+	begin_executing_function:
 	{uint64_t i;
 		for(i = 0; i < nsymbols; i++){
 			if(s == symbol_table+i){
