@@ -119,8 +119,9 @@ end
 
 fn inline pure impl_streq(char* a, char* b)->i64;
 fn streq_tester():
-
-	char* a char* b int i
+	char* a 
+	char* b 
+	int i
 
 	a  = "Hello!";
 	b = "Goodbye!";
