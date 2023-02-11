@@ -208,7 +208,7 @@ You can use everything in this repository and relicense it however you see fit.
 
 No copyleft, no copyright. Just write code!
 
-Let all that your things be done with charity.
+Let all your things be done with charity.
 
 If you want me to get paid back for what I have given you, then ask the Lord Jesus Christ to repay me.
 
