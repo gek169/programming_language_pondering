@@ -106,6 +106,7 @@ fn codegen codegen_main():
 
 	containsSubClass qqq;
 	qqq.alfred := f;
+	f.x = 3;
 	i = qqq.alfred.x;
 
 	while(i > 0)
