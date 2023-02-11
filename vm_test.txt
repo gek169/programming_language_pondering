@@ -132,9 +132,9 @@ fn codegen codegen_main():
 	i = classy.x;
 
 	
-	if(0)
+	if("Hello" strneq "Hello1")
 		__builtin_puts("Yes!");
-	elseif(get7() & 0)
+	elif(get7()&0)
 		__builtin_puts("Maybe?");
 	elseif( 0 & (get7() || get7()))
 		__builtin_puts("Perhaps?");

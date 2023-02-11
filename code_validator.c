@@ -260,6 +260,8 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_GT) puts("EXPR_GT");
 	if(c == EXPR_GTE) puts("EXPR_GTE");
 	if(c == EXPR_EQ) puts("EXPR_EQ");
+	if(c == EXPR_STREQ) puts("EXPR_STREQ");
+	if(c == EXPR_STRNEQ) puts("EXPR_STRNEQ");
 	if(c == EXPR_NEQ) puts("EXPR_NEQ");
 	if(c == EXPR_ASSIGN) puts("EXPR_ASSIGN");
 	if(c == EXPR_MOVE) puts("EXPR_MOVE");
@@ -306,6 +308,8 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_GT) puts("EXPR_GT");
 	if(c == EXPR_GTE) puts("EXPR_GTE");
 	if(c == EXPR_EQ) puts("EXPR_EQ");
+	if(c == EXPR_STREQ) puts("EXPR_STREQ");
+	if(c == EXPR_STRNEQ) puts("EXPR_STRNEQ");
 	if(c == EXPR_NEQ) puts("EXPR_NEQ");
 	if(c == EXPR_ASSIGN) puts("EXPR_ASSIGN");
 	if(c == EXPR_MOVE) puts("EXPR_MOVE");
@@ -387,6 +391,8 @@ static void propagate_types(expr_node* ee){
 
 
 	/*Forbid pointers for arithmetic purposes.*/
+	if(ee->kind != EXPR_STREQ)
+	if(ee->kind != EXPR_STRNEQ)
 	if(ee->kind != EXPR_EQ)
 	if(ee->kind != EXPR_NEQ)
 	if(ee->kind != EXPR_ADD)
@@ -814,6 +820,34 @@ static void propagate_types(expr_node* ee){
 		return;
 	}
 	
+	if(ee->kind == EXPR_STREQ){
+		t = ee->subnodes[0]->t;
+		t2 = ee->subnodes[1]->t;
+		if(t.pointerlevel != 1 ||
+			t2.pointerlevel != 1 ||
+			t.basetype != BASE_U8 ||
+			t2.basetype != BASE_U8){
+				throw_type_error("EXPR_STREQ requires two char pointers!");
+			}
+		ee->t = type_init();
+		ee->t.basetype = BASE_I64;
+		ee->t.is_lvalue = 0;
+		return;
+	}
+	if(ee->kind == EXPR_STRNEQ){
+		t = ee->subnodes[0]->t;
+		t2 = ee->subnodes[1]->t;
+		if(t.pointerlevel != 1 ||
+			t2.pointerlevel != 1 ||
+			t.basetype != BASE_U8 ||
+			t2.basetype != BASE_U8){
+				throw_type_error("EXPR_STRNEQ requires two char pointers!");
+			}
+		ee->t = type_init();
+		ee->t.basetype = BASE_I64;
+		ee->t.is_lvalue = 0;
+		return;
+	}
 
 	if(ee->kind == EXPR_EQ ||
 		ee->kind == EXPR_NEQ ||
@@ -1433,6 +1467,34 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			);
 			return;
 		}
+	/*streq always takes two pointers.*/
+	if(ee->kind == EXPR_STREQ){
+		t_target = type_init();
+		t_target.basetype = BASE_U8;
+		t_target.pointerlevel = 1;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}	if(ee->kind == EXPR_STRNEQ){
+		t_target = type_init();
+		t_target.basetype = BASE_U8;
+		t_target.pointerlevel = 1;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
 
 	/*Add Where the first one is a pointer...*/
 	if(ee->kind == EXPR_ADD)

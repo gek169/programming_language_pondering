@@ -1640,8 +1640,40 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-2].t.pointerlevel = 0;
 		}
 	}
-
-
+	if(ee->kind == EXPR_STREQ){
+		char* p1;
+		char* p2;
+		p1 = (char*)vm_stack[vm_stackpointer-2].smalldata;
+		p2 = (char*)vm_stack[vm_stackpointer-1].smalldata;
+		if(p1 == NULL || p2 == NULL){
+			puts("VM error");
+			puts("streq got NULL");
+			puts("In function:");
+			puts(symbol_table[active_function].name);
+			exit(1);
+		}
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		vm_stack[vm_stackpointer-1].smalldata = !!streq(p1,p2);
+		return;
+	}
+	if(ee->kind == EXPR_STRNEQ){
+		char* p1;
+		char* p2;
+		p1 = (char*)vm_stack[vm_stackpointer-2].smalldata;
+		p2 = (char*)vm_stack[vm_stackpointer-1].smalldata;
+		if(p1 == NULL || p2 == NULL){
+			puts("VM error");
+			puts("streq got NULL");
+			puts("In function:");
+			puts(symbol_table[active_function].name);
+			exit(1);
+		}
+		ast_vm_stack_pop(); //we no longer need the index itself.
+		vm_stack[vm_stackpointer-1].t = ee->t;
+		vm_stack[vm_stackpointer-1].smalldata = !streq(p1,p2);
+		return;
+	}
 	if(
 		ee->kind == EXPR_LT ||
 		ee->kind == EXPR_LTE ||

@@ -879,6 +879,7 @@ static void tokenizer(
 			(current_meta = current_meta->right)
 
 		){
+			if(current_meta->data != TOK_STRING)
 			if(current_meta->text){
 				/*Recognize keywords*/
 				if(
@@ -928,6 +929,7 @@ static void tokenizer(
 					streq(current_meta->text, "while") ||
 					streq(current_meta->text, "for") ||
 					streq(current_meta->text, "goto")||
+					streq(current_meta->text, "jump")||
 					streq(current_meta->text, "switch")|| /*very different from C, optimized jump table*/
 					streq(current_meta->text, "return")|| /*same as C*/
 					streq(current_meta->text, "tail")|| /*tail call*/
@@ -936,18 +938,21 @@ static void tokenizer(
 					streq(current_meta->text, "pub")|| /*used to declare as exporting.*/
 					streq(current_meta->text, "public")|| /*used to declare as exporting.*/
 					streq(current_meta->text, "predecl")|| /*used to predeclare*/
-					streq(current_meta->text, "struct")|| /*used for type declarations.*/
-					streq(current_meta->text, "class")|| /*used for type declarations.*/
-					streq(current_meta->text, "method")|| /*used for type declarations.*/
-					streq(current_meta->text, "codegen")|| /*used for type declarations.*/
-					streq(current_meta->text, "constexpri")|| /*used for type declarations.*/
-					streq(current_meta->text, "constexprf")|| /*used for type declarations.*/
-					streq(current_meta->text, "pure")|| /*used to declare as exporting.*/
+					streq(current_meta->text, "struct")||
+					streq(current_meta->text, "class")|| 
+					streq(current_meta->text, "method")||
+					streq(current_meta->text, "codegen")||
+					streq(current_meta->text, "constexpri")|| 
+					streq(current_meta->text, "constexprf")|| 
+					streq(current_meta->text, "pure")|| /*enforce purity.*/
 					streq(current_meta->text, "asm") /*extension*/
 					/*Builtins for metaprogramming.*/
 				){
 					current_meta->data = (void*)18;
 				}
+
+				if(streq(current_meta->text, "streq"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "strneq"))current_meta->data = TOK_OPERATOR;
 				/*Delete escaped newlines and spaces.*/
 				if(
 					current_meta->data == (void*)19 || /*MAGIC escaped newline*/

@@ -118,7 +118,10 @@ static inline uint64_t ID_KEYW_STRING(const char* s){
 	if(streq("if",s)) return 17;
 	if(streq("else",s)) return 18;
 	if(streq("while",s)) return 19;
+
 	if(streq("goto",s)) return 20;
+	if(streq("jump",s)) return 20;
+
 	if(streq("return",s)) return 22;
 	if(streq("tail",s)) return 23;
 	if(streq("sizeof",s)) return 24;

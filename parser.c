@@ -1658,6 +1658,32 @@ void expr_parse_compare(expr_node** targ){
 				b = NULL;
 				continue;
 			}
+			if(streq(peek()->text, "streq")){
+				consume();
+				c = c_allocX(sizeof(expr_node));
+				c->kind = EXPR_STREQ;
+				expr_parse_bit(&b);
+				c->subnodes[0] = a;
+				c->subnodes[1] = b;
+				//fold it in...
+				a = c;
+				c = NULL;
+				b = NULL;
+				continue;
+			}	
+			if(streq(peek()->text, "strneq")){
+				consume();
+				c = c_allocX(sizeof(expr_node));
+				c->kind = EXPR_STRNEQ;
+				expr_parse_bit(&b);
+				c->subnodes[0] = a;
+				c->subnodes[1] = b;
+				//fold it in...
+				a = c;
+				c = NULL;
+				b = NULL;
+				continue;
+			}
 			if(streq(peek()->text, "!=")){
 				consume();
 				c = c_allocX(sizeof(expr_node));
