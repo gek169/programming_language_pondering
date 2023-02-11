@@ -1842,6 +1842,10 @@ static void walk_assign_lsym_gsym(){
 		}
 		if(stmtlist[i].kind == STMT_ELIF){
 			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
+			if(qq.pointerlevel > 0)
+				throw_type_error("Cannot branch on pointer in elif stmt.");
+			if(qq.basetype == BASE_VOID)
+				throw_type_error("Cannot branch on void in elif stmt.");
 			if(
 				(qq.pointerlevel > 0) ||
 				(qq.basetype == BASE_STRUCT) ||
@@ -1849,7 +1853,7 @@ static void walk_assign_lsym_gsym(){
 				(qq.basetype == BASE_F64) ||
 				(qq.basetype == BASE_F32) 
 			)
-			throw_type_error("elif statement has non-integer conditional expression..");
+				throw_type_error("elif statement has non-integer conditional expression..");
 			qq = type_init();
 			qq.basetype = BASE_I64;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);

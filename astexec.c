@@ -2298,6 +2298,7 @@ void ast_execute_function(symdecl* s){
 				stmt_kind == STMT_ELIF
 			){
 				stmt* cur_stmt;
+				//scope_positions[nscopes-1].is_else_chaining = 0;
 				do_expr(stmt_list[which_stmt].expressions[0]);
 				//debug_print("While or If got This from its expression: ",vm_stack[vm_stackpointer-1].smalldata,0);
 				if(scope_positions[nscopes-1].is_else_chaining == 0)
@@ -2309,10 +2310,10 @@ void ast_execute_function(symdecl* s){
 					//It has been decided. we are going to be executing this block.
 					ast_vm_stack_pop();
 					scope_positions[nscopes-1].pos = which_stmt;
+					scope_positions[nscopes-1].is_else_chaining = 0;
 					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 1;
 					scopestack_push(cur_stmt->myscope);
 					//while, if, and elif never chain elses if they execute their body.
-					scope_positions[nscopes-1].is_else_chaining = 0;
 					goto begin_executing_scope;
 				} else {
 					if(stmt_kind == STMT_IF || stmt_kind == STMT_ELIF)

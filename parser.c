@@ -1882,14 +1882,15 @@ void parse_if(){
 }
 
 void parse_elif(){
+	int endmode = 0;
 	stmt* me;
-	int endmode;
 	me = parser_push_statement();
 	consume_keyword("elif");
 	me->kind = STMT_ELIF;
-	require(peek()->data == TOK_OPAREN, "elif needs an opening parentheses"); consume();
+	me->nexpressions = 1;
+	require(peek()->data == TOK_OPAREN, "if needs an opening parentheses"); consume();
 	parse_expr((expr_node**)(me->expressions + 0) );
-	require(peek()->data == TOK_CPAREN, "elif needs a closing parentheses"); consume();
+	require(peek()->data == TOK_CPAREN, "if needs a closing parentheses"); consume();
 
 	me->myscope = c_allocX(sizeof(scope));
 		scopestack_push(me->myscope);
@@ -1904,7 +1905,8 @@ void parse_elif(){
 	if(endmode == 2){
 		parse_elif(); return;
 	}
-	parse_error("Internal error: parse_elif endmode fell through (should be impossible)");
+	parse_error("Internal error: parse_if endmode fell through (should be impossible)");
+	//TODO: parse_elif()/parse_else()
 }
 void parse_else(){
 	stmt* me;
@@ -1916,7 +1918,6 @@ void parse_else(){
 			parse_stmts();
 		scopestack_pop();
 	return;
-
 }
 
 void parse_while(){
