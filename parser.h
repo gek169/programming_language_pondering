@@ -140,6 +140,7 @@ static inline uint64_t ID_KEYW_STRING(const char* s){
 	if(streq("for",s)) return 35;
 	if(streq("elif",s)) return 36;
 	if(streq("elseif",s)) return 36;
+	if(streq("pure",s)) return 37;
 	puts("Internal Error: Unknown keyw_string, add it:");
 	puts(s);
 	exit(1);

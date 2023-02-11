@@ -153,6 +153,8 @@ fn codegen codegen_main():
 	myGlobalLoopCounter = 10;
 	i = tail_test2();
 
+	i = subnums(3,0);
+
 	while((i > 0) /*|| 1*/
 	)
 		__builtin_puts("count me");

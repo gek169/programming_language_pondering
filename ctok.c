@@ -942,6 +942,7 @@ static void tokenizer(
 					streq(current_meta->text, "codegen")|| /*used for type declarations.*/
 					streq(current_meta->text, "constexpri")|| /*used for type declarations.*/
 					streq(current_meta->text, "constexprf")|| /*used for type declarations.*/
+					streq(current_meta->text, "pure")|| /*used to declare as exporting.*/
 					streq(current_meta->text, "asm") /*extension*/
 					/*Builtins for metaprogramming.*/
 				){

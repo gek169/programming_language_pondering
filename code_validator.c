@@ -177,6 +177,15 @@ static void assign_lsym_gsym(expr_node* ee){
 						puts(ee->symname);
 					validator_exit_err();
 				}
+				if(symbol_table[active_function].is_pure){
+					puts("VALIDATOR ERROR!");
+					puts("You may not use global variables in pure functions.");
+					puts("This is the variable you are not allowed to access:");
+					puts(ee->symname);
+					puts("This is the function you tried to access it from:");
+					puts(symbol_table[active_function].name);
+					validator_exit_err();
+				}
 				ee->kind = EXPR_GSYM;
 				ee->symid = i;
 				//this function is impure because it uses global variables.
@@ -707,6 +716,18 @@ static void propagate_types(expr_node* ee){
 					puts("Was apparently somehow called, as a method, on a non-matching struct.");
 					throw_type_error("Method shenanigans");
 				}
+				if(symbol_table[active_function].is_pure)
+					if(symbol_table[j].is_pure == 0){
+						puts("<VALIDATOR ERROR>");
+						puts("You tried to invoke this method:");
+						puts(ee->method_name);
+						puts("On a struct of this type:");
+						puts(type_table[t.structid].name);
+						puts("But that method is not declared 'pure', and you are trying to invoke it in a pure function.");
+						puts("The pure function's name is:");
+						puts(symbol_table[active_function].name);
+						throw_type_error("Purity check failure.");
+					}
 				//count how many subnodes we have.
 				for(i = 0; ee->subnodes[i] != NULL; i++);
 				if(i != symbol_table[j].nargs){
@@ -735,8 +756,18 @@ static void propagate_types(expr_node* ee){
 	}
 	if(ee->kind == EXPR_FCALL){
 		if(ee->symid >= nsymbols){
-			throw_type_error("EXPR_FCALL erroneously has bad symbol ID. This should have been resolved in parser.c");
+			throw_type_error("INTERNAL ERROR: EXPR_FCALL erroneously has bad symbol ID. This should have been resolved in parser.c");
 		}
+		if(symbol_table[active_function].is_pure > 0)
+			if(symbol_table[ee->symid].is_pure == 0){
+				puts("<VALIDATOR ERROR>");
+				puts("You tried to invoke this function:");
+				puts(symbol_table[ee->symid].name);
+				puts("But that function is not declared 'pure', and you are trying to invoke it in a pure function.");
+				puts("The pure function's name is:");
+				puts(symbol_table[active_function].name);
+				throw_type_error("Purity check failure.");
+			}
 		ee->t = symbol_table[ee->symid].t;
 		ee->t.is_function = 0;
 		ee->t.funcid = 0;
@@ -1876,6 +1907,18 @@ static void walk_assign_lsym_gsym(){
 			scopestack_pop();
 		}
 		if(stmtlist[i].kind == STMT_TAIL){
+			if(symbol_table[active_function].is_pure){
+				for(i = 0; i < nsymbols; i++)
+					if(symbol_table[i].name)
+						if(streq(symbol_table[i].name, stmtlist[i].referenced_label_name))
+							if(symbol_table[i].is_pure == 0){
+								puts("Validator Error!");
+								puts("Tail statement in function:");
+								puts(symbol_table[active_function].name);
+								puts("Tails-off to a function not explicitly defined as pure.");
+								validator_exit_err();
+							}
+			}
 			scopestack_push(current_scope);
 			assign_scopediff_vardiff(
 				stmtlist+i,
@@ -1893,6 +1936,14 @@ static void walk_assign_lsym_gsym(){
 				puts("This function:");
 				puts(symbol_table[active_function].name);
 				puts("Was declared 'codegen' so you cannot use 'asm' blocks in it.");
+				validator_exit_err();
+			}
+			if(symbol_table[active_function].is_pure > 0){
+				puts("VALIDATION ERROR!");
+				puts("asm blocks may not exist in pure functions.");
+				puts("This function:");
+				puts(symbol_table[active_function].name);
+				puts("Was declared 'pure' so you cannot use 'asm' blocks in it.");
 				validator_exit_err();
 			}
 		}
@@ -1956,12 +2007,6 @@ void validate_function(symdecl* funk){
 	}
 	/*DONE: Assign loop pointers to continue and break statements. It also does goto.*/
 
-	/*
-		TODO:
-		determine is_pure. 
-		Must be done at end of compilation when all symbols are defined,
-		so that other functions can be assessed as well.
-	*/
 
 	n_discovered_labels = 0;
 	if(discovered_labels) free(discovered_labels);

@@ -121,6 +121,7 @@ typedef struct{
 	uint64_t is_incomplete; /*incomplete symbol, such as a predeclaration or extern.*/
 	uint64_t is_codegen; /*Compiletime only?*/
 	uint64_t is_impure; /*exactly what it says*/
+	uint64_t is_pure;
 	uint64_t is_impure_globals_or_asm; /*contains impure behavior.*/
 	uint64_t is_impure_uses_incomplete_symbols; /*uses incomplete symbols.*/
 	/*Code generator data.*/

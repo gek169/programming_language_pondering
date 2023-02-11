@@ -223,26 +223,29 @@ void parse_gvardecl(){
 	int64_t cval;
 	double fval;
 	uint64_t symid = 0xFFffFFffFFff;
-	if(peek()->data == TOK_KEYWORD){
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("codegen")){
 			consume();
 			is_codegen = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("predecl")){
 			consume();
 			is_predecl = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("pub")){
 			is_pub = 1;
 			consume();
 			if(!peek()) parse_error("Global variable declaration parsing halted: NULL");
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("static")){
+			require(!is_pub, "Cannot have public and static, they are opposites!");
 			is_pub = 0;
 			consume();
 			if(!peek()) parse_error("Global variable declaration parsing halted: NULL");
 		}
-	}
 	require(peek_is_typename(),"Global variable declaration parsing requires a typename");
 	t = parse_type();
 	require(type_can_be_variable(t), "Invalid type for global variable.");
@@ -412,26 +415,32 @@ void parse_datastmt(){
 	require(peek()->data == TOK_KEYWORD, "data statement must begin with \"data\" ");
 	require(ID_KEYW(peek()) == ID_KEYW_STRING("data"), "data statement must begin with \"data\" ");
 	consume();
-	if(peek()->data == TOK_KEYWORD){
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("codegen")){
 			consume();
 			is_codegen = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
+
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("predecl")){
 			consume();
 			is_predecl = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("pub")){
 			is_pub = 1;
 			consume();
 			if(!peek()) parse_error("Data declaration parsing halted: NULL");
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("static")){
+			require(!is_pub, "Cannot have public and static at the same time! They are opposites!");
 			is_pub = 0;
 			consume();
 			if(!peek()) parse_error("Data declaration parsing halted: NULL");
 		}
-	}
+
+	require(peek_is_typename() || peek()->data == TOK_KEYWORD, "data statement requires typename or keyword.");
 	if(ID_KEYW(peek()) == ID_KEYW_STRING("string")){
 		t.basetype = BASE_U8;
 		consume();
@@ -742,6 +751,7 @@ void parse_fn(int is_method){
 	uint64_t is_pub = 0;
 	uint64_t is_predecl = 0;
 	uint64_t is_codegen = 0;
+	uint64_t is_pure = 0;
 	uint64_t symid;
 	uint64_t nargs = 0;
 	uint64_t k;
@@ -756,24 +766,34 @@ void parse_fn(int is_method){
 	consume(); //Eat fn or method
 
 	//optionally eat any qualifiers...
-	if(peek()->data == TOK_KEYWORD){
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("codegen")){
 			consume();
 			is_codegen = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("predecl")){
 			consume();
 			is_predecl = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("pub")){
 			consume();
 			is_pub = 1;
 		}
+	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("static")){
-			consume();
+			require(!is_pub, "Cannot have public and static, they are opposites!");
 			is_pub = 0;
+			consume();
 		}
-	}
+	if(peek()->data == TOK_KEYWORD)
+		if(ID_KEYW(peek()) == ID_KEYW_STRING("pure")){
+			require(!is_pub, "Cannot have public and static, they are opposites!");
+			is_pure = 1;
+			consume();
+		}
+
 	if(is_method){
 		require(peek_is_typename(), "method statement requires a typename- the struct it operates on");
 		t_method_struct = parse_type();
@@ -924,6 +944,7 @@ void parse_fn(int is_method){
 					);
 				require(symbol_table[i].is_codegen == is_codegen,"fn Predeclaration-definition mismatch (is_codegen)");
 				require(symbol_table[i].is_pub == is_pub,"fn Predeclaration-definition mismatch (is_pub)");
+				require(symbol_table[i].is_pure == is_pure,"fn Predeclaration-definition mismatch (is_pub)");
 				require(symbol_table[i].t.basetype == t.basetype, "fn Predeclaration-definition mismatch (basetype)");
 				require(symbol_table[i].t.pointerlevel == t.pointerlevel, "fn Predeclaration-definition mismatch (pointerlevel)");
 				require(symbol_table[i].t.arraylen == t.arraylen, "fn Predeclaration-definition mismatch (arraylen)");
