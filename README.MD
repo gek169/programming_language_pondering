@@ -85,7 +85,7 @@ i16: sshort, short
 u32: uint, ulong
 i32: int, long, sint, slong
 u64: qword, uqword, ullong
-s64: sqword, llong, sllong
+i64: sqword, llong, sllong
 f32: float
 f64: double 
 ```
@@ -111,7 +111,7 @@ standard runtime functions, as such is not portable between platforms.
 
 they will do nothing on a target which does not utilize multithreading.
 
-Multithreading must be achieved by using `asm` blocks. 
+Multithreading must be achieved by using `asm` blocks, either directly, or wrapped in a function.
 
 * Seabass does not  have garbage collection or array bounds checking.
 
@@ -170,6 +170,16 @@ It works by creating a function with a specially mangled name that has `myStruct
 
 * Local variables may not have initial values (Due to how their allocation happens)
 
+* No `const`. Can't really enforce it, anyway.
+
+* No address-of operator. You cannot take the address of something.
+
+Instead, you can take the address of struct members, with `myStruct.&myMember`
+
+This was done to make writing register allocators easier.
+
+if you want something to reside in memory so you can take its address, declare an array with one element.
+
 ## Is the language standardized?
 
 Not yet. The language is planned to be standardized later, when it is more mature.
@@ -179,6 +189,13 @@ Not yet. The language is planned to be standardized later, when it is more matur
 at the moment, you probably shouldn't. It's not mature yet. When it is mature, I plan to move the repository
 
 to a dedicated URL, probably SEABASS_LANG or something along those lines.
+
+As for why you would use the final version? Power.
+
+The language's metaprogramming facilities are, as far as I can tell, unmatched among statically compiled programming languages.
+
+Raw power for the programmer, and ease of programming are the top priorities of the project.
+
 
 ## What License is the project under?
 
@@ -203,7 +220,10 @@ Submit an issue on the repository.
 * Double must be 8 bytes. No 10-byte floats.
 
 * The parser and validator assume that the target is 64 bit. This is planned to be changed in the future, to allow
-defining a target register size.
+defining a target register size. 
+Defining non-codegen variables beyond the size should be able to be prohibited by the parser,
+and conditional/bitwise expressions will no longer insert implicit casts to `i64` but instead `i32` or `i16` or whatever
+the register size is.
 
 * The compiletime VM (which is used for executing `codegen` code) and in general the entire compiler
  requires a 64 bit machine. However, I will write the standard to allow different sizes.
