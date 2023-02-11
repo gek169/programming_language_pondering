@@ -87,10 +87,18 @@ end
 codegen int myGlobalLoopCounter = 10;
 codegen double tail_test_pow = 0;
 
+fn codegen tail_test2()->u64:
+	if(myGlobalLoopCounter > 0)
+		myGlobalLoopCounter--;
+		return 1 + tail_test2();
+	end
+	return 1.0e+1;
+end
+
 fn codegen tail_test()->i64:
 	myGlobalLoopCounter--;
 	tail_test_pow = tail_test_pow + tail_test_pow;
-	if(myGlobalLoopCounter > 0)
+	if(myGlobalLoopCounter > 1)
 		tail tail_test
 	end
 	return tail_test_pow;
@@ -138,11 +146,13 @@ fn codegen codegen_main():
 
 	i = 0;
 
-	myGlobalLoopCounter = 4;
+	myGlobalLoopCounter = 3;
 	tail_test_pow = 2.0;
 	i = tail_test();
+	myGlobalLoopCounter = 10;
+	i = tail_test2();
 
-	while((i > 0) //|| 1
+	while((i > 0) /*|| 1*/
 	)
 		__builtin_puts("count me");
 		i--;
