@@ -221,6 +221,12 @@ static void astdump_printstmt(stmt* s, uint64_t indentlevel){
 	if(s->kind == STMT_IF){
 		fputs("if",stdout);
 	}
+	if(s->kind == STMT_ELIF){
+		fputs("elif",stdout);
+	}
+	if(s->kind == STMT_ELSE){
+		fputs("else",stdout);
+	}
 	if(s->kind == STMT_RETURN){
 		fputs("return ",stdout);
 		mutoa(buf, s->goto_scopediff);

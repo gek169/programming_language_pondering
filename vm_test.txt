@@ -21,6 +21,12 @@ class myClass
 	int z
 end
 
+class containsSubClass
+	myClass alfred
+	myClass bigboy
+	sqword bruh
+end	
+
 
 method codegen myClass:doStuff()->u64:
 	if(this.x == 3)
@@ -82,9 +88,26 @@ fn codegen codegen_main():
 	classy:doStuff();
 	manipClass(classy);
 	__builtin_puts("_______________________________");
+
+	
 	classy.x = 3;
 	switch_test(2);
-	return;
+
+
+	f = classy;
+	__builtin_puts("________________________Now for the real test!");
+	f.x = 7;
+	i = classy.x;
+	if(0)
+		__builtin_puts("Yes!");
+	else
+		__builtin_puts("No!");
+	end
+
+	containsSubClass qqq;
+	qqq.alfred := f;
+	i = qqq.alfred.x;
+
 	while(i > 0)
 		__builtin_puts("count me");
 		i--;

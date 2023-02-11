@@ -624,6 +624,7 @@ static void propagate_types(expr_node* ee){
 			){
 			//	found = 1;
 				ee->t = type_table[t.structid].members[j];
+				ee->t.is_lvalue = 1;
 				//handle: struct member is array.
 				if(ee->t.arraylen){
 					ee->t.is_lvalue = 0;
@@ -1277,11 +1278,21 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		ee->kind == EXPR_PRE_INCR ||
 		ee->kind == EXPR_POST_DECR ||
 		ee->kind == EXPR_PRE_DECR ||
-		ee->kind == EXPR_MEMBER ||
+		//ee->kind == EXPR_MEMBER ||
 		ee->kind == EXPR_CAST ||
 		ee->kind == EXPR_CONSTEXPR_FLOAT ||
 		ee->kind == EXPR_CONSTEXPR_INT
 	) return;
+
+	if(ee->kind == EXPR_MEMBER){
+		t_target = ee->subnodes[0]->t;
+		t_target.is_lvalue = 0; //must be: not an lvalue.
+		insert_implied_type_conversion(
+			ee->subnodes+0, 
+			t_target
+		);
+		return;
+	}
 	
 	if(ee->kind == EXPR_INDEX){
 		t_target.basetype = BASE_I64;
@@ -1825,6 +1836,20 @@ static void walk_assign_lsym_gsym(){
 				(qq.basetype == BASE_F32) 
 			)
 			throw_type_error("If statement has non-integer conditional expression..");
+			qq = type_init();
+			qq.basetype = BASE_I64;
+			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
+		}
+		if(stmtlist[i].kind == STMT_ELIF){
+			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
+			if(
+				(qq.pointerlevel > 0) ||
+				(qq.basetype == BASE_STRUCT) ||
+				(qq.basetype == BASE_VOID) ||
+				(qq.basetype == BASE_F64) ||
+				(qq.basetype == BASE_F32) 
+			)
+			throw_type_error("elif statement has non-integer conditional expression..");
 			qq = type_init();
 			qq.basetype = BASE_I64;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);

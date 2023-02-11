@@ -700,6 +700,9 @@ void parse_struct_member(uint64_t sid){
 	}
 	type_table[sid].members = re_allocX(type_table[sid].members, (++type_table[sid].nmembers)*sizeof(type));
 	type_table[sid].members[type_table[sid].nmembers-1] = t;
+	t.is_lvalue = 1;
+	if(t.arraylen > 0) t.is_lvalue = 0;
+	if(t.pointerlevel == 0) if(t.basetype == BASE_STRUCT) t.is_lvalue = 0; //struct member of struct is not lvalue.
 	//consume_semicolon("Struct member declaration requires semicolon.");
 }
 
@@ -822,8 +825,9 @@ void parse_fn(int is_method){
 		t_temp = type_init();
 		t_temp = parse_type();
 		require(t_temp.arraylen == 0, "Cannot pass array to function.");
-		if(t_temp.basetype == BASE_STRUCT && t_temp.pointerlevel == 0)
+		if(t_temp.basetype == BASE_STRUCT && t_temp.pointerlevel == 0){
 			t_temp.pointerlevel=1; //fn myfunc(mystruct x): turns into fn myfunc(mystruct* x):
+		}
 		if(t_temp.basetype == BASE_VOID)
 			require(t_temp.pointerlevel > 0, "Cannot pass void into function.");
 		
@@ -1844,7 +1848,12 @@ void parse_lvardecl(){
 	return;
 }
 
+void parse_elif();
+void parse_else();
+int parse_stmts_allow_else_chain();
+
 void parse_if(){
+	int endmode = 0;
 	//TODO
 	stmt* me;
 	me = parser_push_statement();
@@ -1857,8 +1866,57 @@ void parse_if(){
 
 	me->myscope = c_allocX(sizeof(scope));
 		scopestack_push(me->myscope);
+			endmode = parse_stmts_allow_else_chain();
+		scopestack_pop();
+	if(endmode == 0){
+		consume(); return; //eat the end!
+	}
+	if(endmode == 1){
+		parse_else(); return;
+	}
+	if(endmode == 2){
+		parse_elif(); return;
+	}
+	parse_error("Internal error: parse_if endmode fell through (should be impossible)");
+	//TODO: parse_elif()/parse_else()
+}
+
+void parse_elif(){
+	stmt* me;
+	int endmode;
+	me = parser_push_statement();
+	consume_keyword("elif");
+	me->kind = STMT_ELIF;
+	require(peek()->data == TOK_OPAREN, "elif needs an opening parentheses"); consume();
+	parse_expr((expr_node**)(me->expressions + 0) );
+	require(peek()->data == TOK_CPAREN, "elif needs a closing parentheses"); consume();
+
+	me->myscope = c_allocX(sizeof(scope));
+		scopestack_push(me->myscope);
+			endmode = parse_stmts_allow_else_chain();
+		scopestack_pop();
+	if(endmode == 0){
+		consume(); return; //eat the end!
+	}
+	if(endmode == 1){
+		parse_else(); return;
+	}
+	if(endmode == 2){
+		parse_elif(); return;
+	}
+	parse_error("Internal error: parse_elif endmode fell through (should be impossible)");
+}
+void parse_else(){
+	stmt* me;
+	me = parser_push_statement();
+	me->kind = STMT_ELSE;
+	consume_keyword("else");
+		me->myscope = c_allocX(sizeof(scope));
+		scopestack_push(me->myscope);
 			parse_stmts();
 		scopestack_pop();
+	return;
+
 }
 
 void parse_while(){
@@ -1985,6 +2043,24 @@ void parse_stmts(){
 	consume();
 }
 
+int  parse_stmts_allow_else_chain(){
+	while(
+		!peek_match_keyw("end")
+		&&
+		!peek_match_keyw("else")
+		&&
+		!peek_match_keyw("elif")
+	) parse_stmt();
+
+	if(peek_match_keyw("end")) return 0;
+	if(peek_match_keyw("else")) return 1;
+	if(peek_match_keyw("elif")) return 2;
+
+	parse_error(
+	"If/elif Statement list ends with 'end' or 'else' or 'elif'"
+	);	
+}
+
 void parse_label(){
 	//TODO
 	stmt* me;
@@ -2071,7 +2147,15 @@ void parse_stmt(){
 	//TODO
 	while(peek()->data == TOK_SEMIC) consume();
 	if(peek_match_keyw("end"))
-		return;
+	{
+		parse_error("Internal error: 'end' reached parse_stmt.");
+	}
+	if(peek_match_keyw("else")){
+		parse_error("stray else in program.");
+	}
+	if(peek_match_keyw("elif")){
+		parse_error("stray elif in program.");
+	}
 	if(peek_match_keyw("if")) {
 		parse_if();
 		return;

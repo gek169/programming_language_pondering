@@ -922,6 +922,8 @@ static void tokenizer(
 					streq(current_meta->text, "end")|| /*We're doing lua-style syntax!*/
 					streq(current_meta->text, "continue")||
 					streq(current_meta->text, "if")||
+					streq(current_meta->text, "elif")||
+					streq(current_meta->text, "elseif")||
 					streq(current_meta->text, "else")||
 					streq(current_meta->text, "while") ||
 					streq(current_meta->text, "for") ||

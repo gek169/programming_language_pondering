@@ -67,7 +67,7 @@ static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 	if(s->t.arraylen == 0)
 	if(s->t.pointerlevel == 0)
 	if(s->t.basetype == BASE_STRUCT){
-		debug_print("Allocating a struct!",0,0);
+		//debug_print("Allocating a struct!",0,0);
 		vm_stack[placement].ldata = calloc(type_getsz(s->t),1);
 	}
 	return placement;
@@ -423,7 +423,7 @@ static void* retrieve_variable_memory_pointer(
 			/*if it has no cdata- initialize it!*/
 			if(symbol_table[i].cdata == NULL){
 				uint64_t sz = type_getsz(symbol_table[i].t);
-				debug_print("\nHaving to allocate global storage...",0,0);
+//				debug_print("\nHaving to allocate global storage...",0,0);
 				symbol_table[i].cdata = calloc(
 					sz,1
 				);
@@ -639,6 +639,12 @@ void do_expr(expr_node* ee){
 			p = retrieve_variable_memory_pointer(ee->symname, 0);
 		if(ee->kind == EXPR_GSYM)
 			p = retrieve_variable_memory_pointer(ee->symname, 1);
+/*
+		debug_print("Retrieved symbol variable memory pointer.",0,0);
+		debug_print("Its name is:",0,0);
+		debug_print(ee->symname,0,0);
+		debug_print("Its address is:",(uint64_t)p,0);
+*/
 		general = ast_vm_stack_push_temporary(NULL, ee->t);
 		memcpy(
 			&vm_stack[general].smalldata,
@@ -662,12 +668,12 @@ void do_expr(expr_node* ee){
 		uint64_t levels_of_indirection;
 		pt = vm_stack[vm_stackpointer-1].smalldata;
 		levels_of_indirection = ee->subnodes[0]->t.pointerlevel;
-		if(ee->subnodes[0]->t.is_lvalue != 0)levels_of_indirection++;
+		//if(ee->subnodes[0]->t.is_lvalue != 0) levels_of_indirection++;
 		/*
 			You can access the members of a struct with arbitrary levels of indirection.
 			and if it is more than one, then we need to dereference a pointer-to-pointer.
 		*/
-		//debug_print("Pointer to struct was (before):", (uint64_t)pt,0);
+	//	debug_print("Pointer to struct was (before):", (uint64_t)pt,0);
 		while(levels_of_indirection > 1){
 			memcpy(&p, &pt, POINTER_SIZE);
 			memcpy(
@@ -678,7 +684,7 @@ void do_expr(expr_node* ee){
 			levels_of_indirection--;
 			//debug_print("Pointer to struct was (iter):", (uint64_t)pt,0);
 		}
-		//debug_print("Pointer to struct was (after):", (uint64_t)pt,0);
+	//	debug_print("Pointer to struct was (after):", (uint64_t)pt,0);
 		/*
 			pt holds single-level pointer-to-struct.
 
@@ -693,7 +699,7 @@ void do_expr(expr_node* ee){
 			//debug_print("Accessing member, off_of was...", off_of,0);
 			pt = pt + off_of;
 		}
-	//	debug_print("<EXPR_MEMBER> here's the final address:", (uint64_t)pt,0);
+//		debug_print("<EXPR_MEMBER> here's the final address:", (uint64_t)pt,0);
 	//	if(((int*)pt)[0] == 3){
 	//		debug_print("<Overhead> I can see it... It's here:", pt,0);
 	//	}
@@ -728,9 +734,16 @@ void do_expr(expr_node* ee){
 		);
 		//grab some number of bytes...
 		//debug_print("@Assignment! Pointer is:",(uint64_t)p1,0);
+
 		//If it's a pointer, we copy 8 bytes.
 		if(ee->t.pointerlevel > 0){
+			memcpy(
+				&val, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
 			memcpy(p1, &val, POINTER_SIZE);
+			//debug_print("<DEBUG ASSIGNMENT> Val was:",val,0);
 			goto end_expr_assign;
 		}
 		if(
@@ -940,7 +953,7 @@ void do_expr(expr_node* ee){
 		if is_lvalue, then small data was a pointer!
 		do a dereference...
 		*/
-		//debug_print("Doing a cast...",0,0);
+//		debug_print("Doing a cast...",0,0);
 		if(ee->subnodes[0]->t.is_lvalue){
 			//debug_print("Undoing LVALUE, currently it is:",data,0);
 			memcpy(
@@ -948,7 +961,7 @@ void do_expr(expr_node* ee){
 				(void*)data,
 				type_getsz(ee->subnodes[0]->t)
 			);
-			//debug_print("Undid LVALUE, the result as a u64 was:",data,0);
+	//		debug_print("Undid LVALUE, the result as a u64 was:",data,0);
 		}
 		/*If they were both pointers, we do nothing.*/
 		if(ee->t.pointerlevel > 0)
@@ -2107,7 +2120,8 @@ void do_expr(expr_node* ee){
 
 typedef struct{
 	uint64_t pos;
-	uint64_t is_in_loop; //
+	uint64_t is_in_loop;
+	uint64_t is_else_chaining;
 }vm_scope_position_execution_info;
 
 
@@ -2161,6 +2175,7 @@ void ast_execute_function(symdecl* s){
 			}
 			scope_positions[nscopes-1].pos = 0;
 			scope_positions[nscopes-1].is_in_loop = 0;
+			scope_positions[nscopes-1].is_else_chaining = 0;
 			which_stmt = 0;
 		}
 	continue_executing_scope:
@@ -2168,6 +2183,7 @@ void ast_execute_function(symdecl* s){
 			stmt_list = scopestack_gettop()->stmts;
 			if(which_stmt >= scopestack_gettop()->nstmts){
 				uint64_t i;
+				scope_positions[nscopes-1].is_else_chaining = 0;
 				if(scopestack_gettop() == s->fbody) {
 					/*
 						puts("VM WARNING:");
@@ -2194,10 +2210,19 @@ void ast_execute_function(symdecl* s){
 			stmt_kind = stmt_list[which_stmt].kind;
 			if(
 				stmt_kind == STMT_NOP || 
-				stmt_kind == STMT_LABEL
+				stmt_kind == STMT_LABEL 
 			){
 				goto do_next_stmt;
 			}
+			if(scope_positions[nscopes-1].is_else_chaining == 0)
+				if(stmt_kind == STMT_ELSE || stmt_kind == STMT_ELIF){
+					goto do_next_stmt;
+				}
+			//if is_else_chaining is set, but the statement is not an else or elif...
+			if(scope_positions[nscopes-1].is_else_chaining > 0)
+				if(stmt_kind != STMT_ELSE && stmt_kind != STMT_ELIF){
+					scope_positions[nscopes-1].is_else_chaining = 0;
+				}
 			if(stmt_kind == STMT_BAD || stmt_kind >= NSTMT_TYPES){
 				puts("VM ERROR:");
 				puts("INVALID statement kind!");
@@ -2243,6 +2268,7 @@ void ast_execute_function(symdecl* s){
 							goto continue_executing_scope;
 						}
 				}
+				goto do_next_stmt;
 			}
 			if(stmt_kind == STMT_RETURN){
 				int64_t i;
@@ -2268,11 +2294,16 @@ void ast_execute_function(symdecl* s){
 			}
 			if(
 				stmt_kind == STMT_WHILE ||
-				stmt_kind == STMT_IF
+				stmt_kind == STMT_IF || 
+				stmt_kind == STMT_ELIF
 			){
 				stmt* cur_stmt;
 				do_expr(stmt_list[which_stmt].expressions[0]);
 				//debug_print("While or If got This from its expression: ",vm_stack[vm_stackpointer-1].smalldata,0);
+				if(scope_positions[nscopes-1].is_else_chaining == 0)
+					if(stmt_kind == STMT_ELIF)
+						goto do_next_stmt;
+				
 				if(vm_stack[vm_stackpointer-1].smalldata){
 					cur_stmt = stmt_list + which_stmt;
 					//It has been decided. we are going to be executing this block.
@@ -2280,10 +2311,26 @@ void ast_execute_function(symdecl* s){
 					scope_positions[nscopes-1].pos = which_stmt;
 					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 1;
 					scopestack_push(cur_stmt->myscope);
+					//while, if, and elif never chain elses if they execute their body.
+					scope_positions[nscopes-1].is_else_chaining = 0;
 					goto begin_executing_scope;
+				} else {
+					if(stmt_kind == STMT_IF || stmt_kind == STMT_ELIF)
+						scope_positions[nscopes-1].is_else_chaining = 1;
 				}
 				ast_vm_stack_pop();
 				goto do_next_stmt;
+			}
+			if(scope_positions[nscopes-1].is_else_chaining > 0)
+			if(stmt_kind == STMT_ELSE){
+				stmt* cur_stmt;
+				cur_stmt = stmt_list + which_stmt;
+				//It has been decided. we are going to be executing this block.
+				scope_positions[nscopes-1].pos = which_stmt;
+				scopestack_push(cur_stmt->myscope);
+				//else stops an else chain unconditionally.
+				scope_positions[nscopes-1].is_else_chaining = 0;
+				goto begin_executing_scope;
 			}
 			if(stmt_kind == STMT_FOR){
 				stmt* cur_stmt;
@@ -2329,7 +2376,7 @@ void ast_execute_function(symdecl* s){
 				goto begin_executing_scope;
 			}
 
-
+		
 			do_next_stmt:
 			which_stmt++;
 			continue;
@@ -2337,6 +2384,12 @@ void ast_execute_function(symdecl* s){
 
 
 	do_return:
+		ast_vm_stack_pop_temporaries();
+		ast_vm_stack_pop_lvars();
+		return;
+
+	do_tail:
+		//TODO: figure out how to do tail.
 		ast_vm_stack_pop_temporaries();
 		ast_vm_stack_pop_lvars();
 		return;
