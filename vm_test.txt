@@ -34,7 +34,7 @@ end
 class containsArrayOfSubclasses
 	int a
 	int b
-	myClass[40] thingies
+	myClass[4000] thingies
 	int[400] integers
 end
 
@@ -218,7 +218,7 @@ fn codegen codegen_main():
 			__builtin_puts(buf);
 			temp = fff.&integers;
 			temp[37] = 12;
-			temp[37] = 13;
+			temp[37] = -13;
 			i = fff.integers[37];
 			__builtin_itoa(buf, i);
 			__builtin_puts("This is I after assigning to an aliased integer array in its members.:");
