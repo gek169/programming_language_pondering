@@ -829,6 +829,15 @@ static void propagate_types(expr_node* ee){
 			t2.basetype != BASE_U8){
 				throw_type_error("EXPR_STREQ requires two char pointers!");
 			}
+		if(symbol_table[active_function].is_codegen == 0)
+		{
+			if(!impl_streq_exists()){
+				puts("Validator error:");
+				puts("usage of streq and strneq require this function to be defined with this exact prototype:");
+				puts("fn pure impl_streq(u8* a, u8* b)->i64;");
+				validator_exit_err();
+			}
+		}
 		ee->t = type_init();
 		ee->t.basetype = BASE_I64;
 		ee->t.is_lvalue = 0;
@@ -843,6 +852,15 @@ static void propagate_types(expr_node* ee){
 			t2.basetype != BASE_U8){
 				throw_type_error("EXPR_STRNEQ requires two char pointers!");
 			}
+		if(symbol_table[active_function].is_codegen == 0)
+		{
+			if(!impl_streq_exists()){
+				puts("Validator error:");
+				puts("usage of streq and strneq require this function to be defined with this exact prototype:");
+				puts("fn pure impl_streq(u8* a, u8* b)->i64;");
+				validator_exit_err();
+			}
+		}
 		ee->t = type_init();
 		ee->t.basetype = BASE_I64;
 		ee->t.is_lvalue = 0;
