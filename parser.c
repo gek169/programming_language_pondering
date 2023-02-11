@@ -768,14 +768,14 @@ void parse_fn(int is_method){
 
 	//optionally eat any qualifiers...
 	if(peek()->data == TOK_KEYWORD)
-		if(ID_KEYW(peek()) == ID_KEYW_STRING("codegen")){
-			consume();
-			is_codegen = 1;
-		}
-	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("predecl")){
 			consume();
 			is_predecl = 1;
+		}
+	if(peek()->data == TOK_KEYWORD)
+		if(ID_KEYW(peek()) == ID_KEYW_STRING("codegen")){
+			consume();
+			is_codegen = 1;
 		}
 	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("pub")){
