@@ -2138,6 +2138,7 @@ void ast_execute_function(symdecl* s){
 		nscopes = 0;
 	}
 
+	begin_executing_function:scopestack_push(s->fbody);
 	{uint64_t i;
 		for(i = 0; i < nsymbols; i++){
 			if(s == symbol_table+i){
@@ -2162,6 +2163,7 @@ void ast_execute_function(symdecl* s){
 		exit(1);
 	}
 	/*Set up execution environment*/
+	
 	cur_expr_stack_usage = 0;
 	cur_func_frame_size = 0;
 	scopestack_push(s->fbody);
@@ -2247,6 +2249,55 @@ void ast_execute_function(symdecl* s){
 				//find our new position...
 				stmt_list = scopestack_gettop()->stmts;
 				which_stmt = cur_stmt->goto_where_in_scope;
+				goto continue_executing_scope;
+			}
+			if(stmt_kind == STMT_TAIL){
+				int64_t i;
+				stmt* cur_stmt = stmt_list + which_stmt;
+				for(i = 0; i < cur_stmt->goto_vardiff; i++){
+					//debug_print("goto popping variables...",0,0);
+					ast_vm_stack_pop();
+				}
+				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
+					//debug_print("goto popping stacks...",0,0);
+					scopestack_pop();
+				}
+				for(i = 0; i < (int64_t)nsymbols; i++)
+					if(streq(symbol_table[i].name, cur_stmt->referenced_label_name)){
+						s = symbol_table + i;
+						goto begin_executing_function;
+					}
+				puts("VM error");
+				puts("Tail failed.");
+				puts("Tail target was:");
+				puts(cur_stmt->referenced_label_name);
+				exit(1);
+			}
+			if(stmt_kind == STMT_CONTINUE || stmt_kind == STMT_BREAK){
+				int64_t i;
+				stmt* cur_stmt = stmt_list + which_stmt;
+				for(i = 0; i < cur_stmt->goto_vardiff; i++){
+					//debug_print("goto popping variables...",0,0);
+					ast_vm_stack_pop();
+				}
+				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
+					//debug_print("goto popping stacks...",0,0);
+					scopestack_pop();
+				}
+				//find our new position...
+				stmt_list = scopestack_gettop()->stmts;
+				for(i = 0; i <(int64_t) scopestack_gettop()->nstmts; i++)
+					if(cur_stmt->referenced_loop == stmt_list+i){
+						which_stmt = i;
+						if(stmt_kind == STMT_CONTINUE)
+							goto continue_executing_scope; //continues in the loop, is_in_loop is preserved.
+						if(stmt_kind == STMT_BREAK){
+							scope_positions[nscopes-1].is_in_loop = 0; //breaks out of the loop, is_in_loop is undone.
+							goto do_next_stmt; //we do the very next statement.
+						}
+					}
+				puts("VM error");
+				puts("STMT_CONTINUE");
 				goto continue_executing_scope;
 			}
 			if(stmt_kind == STMT_SWITCH){
@@ -2336,7 +2387,7 @@ void ast_execute_function(symdecl* s){
 			if(stmt_kind == STMT_FOR){
 				stmt* cur_stmt;
 				int64_t retval;
-				int64_t i;
+				//int64_t i;
 				cur_stmt = stmt_list + which_stmt;
 				if(scope_positions[nscopes-1].is_in_loop){
 					//iterate.

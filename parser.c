@@ -2013,6 +2013,7 @@ void parse_tail(){
 					require(symbol_table[i].t.structid == symbol_table[active_function].t.structid, "Tail function type mismatch (structid)");
 				require(symbol_table[i].t.pointerlevel == symbol_table[active_function].t.pointerlevel, "Tail function type mismatch (pointerlevel)");
 				require(symbol_table[i].is_codegen == symbol_table[active_function].is_codegen, "Tail function type mismatch (is_codegen)");
+				
 			}
 
 	require(found, "tail with an invalid function name.");
