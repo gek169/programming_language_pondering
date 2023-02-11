@@ -2,16 +2,16 @@
 
 codegen double* i_unused;
 
-fn codegen get7()->i8:
+fn codegen pure get7()->i8:
 	return 7;
 end
 
 
-fn codegen addnums(int a, int b)->int:
+fn codegen pure addnums(int a, int b)->int:
 	return a+b;
 end
 
-fn codegen subnums(int a, int b)->int:
+fn codegen pure subnums(int a, int b)->int:
 	return a-b;
 end
 
