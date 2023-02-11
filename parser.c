@@ -752,6 +752,7 @@ void parse_fn(int is_method){
 	uint64_t is_predecl = 0;
 	uint64_t is_codegen = 0;
 	uint64_t is_pure = 0;
+	uint64_t is_inline = 0;
 	uint64_t symid;
 	uint64_t nargs = 0;
 	uint64_t k;
@@ -785,6 +786,12 @@ void parse_fn(int is_method){
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("static")){
 			require(!is_pub, "Cannot have public and static, they are opposites!");
 			is_pub = 0;
+			consume();
+		}
+	if(peek()->data == TOK_KEYWORD)
+		if(ID_KEYW(peek()) == ID_KEYW_STRING("inline")){
+			require(!is_pub, "Cannot have public and inline.");
+			is_inline = 1;
 			consume();
 		}
 	if(peek()->data == TOK_KEYWORD)
@@ -928,6 +935,7 @@ void parse_fn(int is_method){
 	s.is_pub = is_pub;
 	s.is_pure = is_pure;
 	s.is_codegen = is_codegen;
+	s.is_inline = is_inline;
 	if(ident_is_already_used_globally(n)){
 		unsigned long i;
 		unsigned long j;
@@ -944,7 +952,8 @@ void parse_fn(int is_method){
 					);
 				require(symbol_table[i].is_codegen == is_codegen,"fn Predeclaration-definition mismatch (is_codegen)");
 				require(symbol_table[i].is_pub == is_pub,"fn Predeclaration-definition mismatch (is_pub)");
-				require(symbol_table[i].is_pure == is_pure,"fn Predeclaration-definition mismatch (is_pub)");
+				require(symbol_table[i].is_pure == is_pure,"fn Predeclaration-definition mismatch (is_pure)");
+				require(symbol_table[i].is_inline == is_inline,"fn Predeclaration-definition mismatch (is_inline)");
 				require(symbol_table[i].t.basetype == t.basetype, "fn Predeclaration-definition mismatch (basetype)");
 				require(symbol_table[i].t.pointerlevel == t.pointerlevel, "fn Predeclaration-definition mismatch (pointerlevel)");
 				require(symbol_table[i].t.arraylen == t.arraylen, "fn Predeclaration-definition mismatch (arraylen)");

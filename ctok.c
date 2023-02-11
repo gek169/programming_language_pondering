@@ -955,6 +955,7 @@ static void tokenizer(
 					streq(current_meta->text, "constexpri")|| 
 					streq(current_meta->text, "constexprf")|| 
 					streq(current_meta->text, "pure")|| /*enforce purity.*/
+					streq(current_meta->text, "inline")|| /*inline*/
 					streq(current_meta->text, "asm") /*extension*/
 					/*Builtins for metaprogramming.*/
 				){
