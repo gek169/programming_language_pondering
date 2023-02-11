@@ -2309,6 +2309,14 @@ void ast_execute_function(symdecl* s){
 				cur_stmt = stmt_list + which_stmt;
 				do_expr(stmt_list[which_stmt].expressions[0]);
 				val = vm_stack[vm_stackpointer-1].smalldata;
+				if(val > (int64_t)cur_stmt->switch_nlabels || val < 0){
+					puts("VM error");
+					puts("Switch statement is beyond the bounds of its label list.");
+					puts("Runtime code behavior is undefined (probably just crashes!), but you're protected inside the codegen VM.");
+					puts("The function that caused this was:");
+					puts(symbol_table[active_function].name);
+					exit(1);
+				}
 				ast_vm_stack_pop();
 				//val %= cur_stmt->switch_nlabels;
 				//perform a goto within the current scope.
