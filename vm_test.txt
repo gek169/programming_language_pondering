@@ -87,6 +87,7 @@ end
 codegen int myGlobalLoopCounter = 10;
 codegen double tail_test_pow = 0;
 
+//not exactly using 'tail'...
 fn codegen tail_test2()->u64:
 	if(myGlobalLoopCounter > 0)
 		myGlobalLoopCounter--;
