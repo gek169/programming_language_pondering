@@ -41,6 +41,17 @@ strll* impl_builtin_consume();
 uint64_t impl_builtin_emit(char* data, uint64_t sz);
 void impl_builtin_validate_function(char* p_in);
 void impl_builtin_memcpy(char* a, char* b, uint64_t sz);
+/* Saturday, February 11th: the blessed saturday, praise the Lord!
+	functions to implement...
+*/
+void impl_builtin_utoa(char* buf, uint64_t v);
+void impl_builtin_itoa(char* buf, int64_t v);
+void impl_builtin_ftoa(char* buf, double v);
+uint64_t impl_builtin_atou(char* buf);
+double impl_builtin_atof(char* buf);
+int64_t impl_builtin_atoi(char* buf);
+
+
 
 int is_builtin_name(char* s);
 uint64_t get_builtin_nargs(char* s);
@@ -50,7 +61,9 @@ enum{
 	BUILTIN_PROTO_U8_PTR2=2,
 	BUILTIN_PROTO_U64_PTR=3,
 	BUILTIN_PROTO_U64=4,
-	BUILTIN_PROTO_I32=5
+	BUILTIN_PROTO_I32=5,
+	BUILTIN_PROTO_DOUBLE=6,
+	BUILTIN_PROTO_I64=7,
 };
 
 uint64_t get_builtin_retval(char* s);

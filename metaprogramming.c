@@ -2,6 +2,14 @@
 
 #include "metaprogramming.h"
 
+#include "stringutil.h"
+#include "targspecifics.h"
+
+#include "libmin.h"
+#include "parser.h"
+#include "data.h"
+#include "metaprogramming.h"
+#include "astexec.h"
 /*
 	Implementations for the builtin functions.
 */
@@ -122,6 +130,27 @@ void impl_builtin_memcpy(char* a, char* b, uint64_t sz){
 	memcpy(a,b,sz);
 }
 
+void impl_builtin_utoa(char* buf, uint64_t v){
+	mutoa(buf,v);
+}
+void impl_builtin_itoa(char* buf, int64_t v){
+	mitoa(buf,v);
+}
+/*TODO: make proper implementation of ftoa independent of the C standard library.*/
+void impl_builtin_ftoa(char* buf, double v){
+	//sprintf(buf, "%f", v);
+	mftoa(buf, v, 64);
+}
+uint64_t impl_builtin_atou(char* buf){
+	return matou(buf);
+}
+double impl_builtin_atof(char* buf){
+	return matof(buf);
+}
+int64_t impl_builtin_atoi(char* buf){
+	return matoi(buf);
+}
+
 
 int is_builtin_name(char* s){
 	if(streq(s, "__builtin_emit")) return 1;
@@ -143,6 +172,16 @@ int is_builtin_name(char* s){
 	if(streq(s, "__builtin_struct_metadata")) return 1;
 	if(streq(s, "__builtin_validate_function")) return 1;
 	if(streq(s, "__builtin_memcpy")) return 1;
+	/*
+		The blessed saturday
+	*/
+	if(streq(s, "__builtin_utoa")) return 1;
+	if(streq(s, "__builtin_itoa")) return 1;
+	if(streq(s, "__builtin_ftoa")) return 1;
+	
+	if(streq(s, "__builtin_atof")) return 1;
+	if(streq(s, "__builtin_atou")) return 1;
+	if(streq(s, "__builtin_atoi")) return 1;
 	return 0;
 }
 
@@ -165,6 +204,14 @@ uint64_t get_builtin_nargs(char* s){
 	if(streq(s, "__builtin_struct_metadata")) return 1;
 	if(streq(s, "__builtin_validate_function")) return 1;
 	if(streq(s, "__builtin_memcpy")) return 3;
+	//these take a string and a value.
+	if(streq(s, "__builtin_utoa")) return 2;
+	if(streq(s, "__builtin_itoa")) return 2;
+	if(streq(s, "__builtin_ftoa")) return 2;
+	//these just take a string.
+	if(streq(s, "__builtin_atof")) return 1;
+	if(streq(s, "__builtin_atou")) return 1;
+	if(streq(s, "__builtin_atoi")) return 1;
 	return 0;
 }
 
@@ -188,6 +235,14 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_validate_function")) return BUILTIN_PROTO_VOID;
 	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_VOID;
+	
+	if(streq(s, "__builtin_utoa")) return BUILTIN_PROTO_VOID;
+	if(streq(s, "__builtin_itoa")) return BUILTIN_PROTO_VOID;
+	if(streq(s, "__builtin_ftoa")) return BUILTIN_PROTO_VOID;
+	
+	if(streq(s, "__builtin_atof")) return BUILTIN_PROTO_DOUBLE;
+	if(streq(s, "__builtin_atou")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_atoi")) return BUILTIN_PROTO_I64;
 	return 0;
 }
 
@@ -204,6 +259,15 @@ uint64_t get_builtin_arg1_type(char* s){
 	if(streq(s, "__builtin_type_getsz")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_struct_metadata")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_U8_PTR;
+
+	//all of them take a char* as the first argument.
+	if(streq(s, "__builtin_utoa")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_itoa")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_ftoa")) return BUILTIN_PROTO_U8_PTR;
+
+	if(streq(s, "__builtin_atof")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_atou")) return BUILTIN_PROTO_U8_PTR;
+	if(streq(s, "__builtin_atoi")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 uint64_t get_builtin_arg2_type(char* s){
@@ -211,6 +275,15 @@ uint64_t get_builtin_arg2_type(char* s){
 	if(streq(s, "__builtin_gets")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_realloc")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_memcpy")) return BUILTIN_PROTO_U8_PTR;
+
+	//these functions take "what to convert" as the second argument.
+	if(streq(s, "__builtin_utoa")) return BUILTIN_PROTO_U64;
+	if(streq(s, "__builtin_itoa")) return BUILTIN_PROTO_I64;
+	if(streq(s, "__builtin_ftoa")) return BUILTIN_PROTO_DOUBLE;
+	
+	//if(streq(s, "__builtin_atof")) return BUILTIN_PROTO_U8_PTR;
+	//if(streq(s, "__builtin_atou")) return BUILTIN_PROTO_U8_PTR;
+	//if(streq(s, "__builtin_atoi")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 uint64_t get_builtin_arg3_type(char* s){

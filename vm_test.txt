@@ -168,7 +168,26 @@ fn codegen codegen_main():
 	qqq.bigboy := f;
 	f.x = 3;
 	i = qqq.bigboy.x;
+	if(1)
+		char[500] buf
 
+		__builtin_itoa(buf, i);
+		//buf[499] = 0;
+		__builtin_puts("This is I after assigning from bigboy's x:");
+		__builtin_puts(buf);
+
+		__builtin_itoa(buf, 0x10000000000);
+		//buf[499] = 0;
+		__builtin_puts("This is a very large number:");
+		__builtin_puts(buf);
+
+		whomstvedaintly = 2.0 * 3.4;
+		__builtin_ftoa(buf, whomstvedaintly);
+		__builtin_puts("Here's whomstvedaintly:");
+		__builtin_puts(buf);
+		
+		double whomstvedaintly
+	end
 /*
 	i = 0;
 

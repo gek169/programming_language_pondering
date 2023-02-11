@@ -292,7 +292,6 @@ LIBMIN_FUNC_ATTRIBS LIBMIN_INT matoi(char*s){
 	if(*s == '+') retval = (LIBMIN_INT)matou(s+1);
 	else if(*s == '-') retval = ((LIBMIN_INT)matou(s+1)) * -1;
 	else return matou(s);
-
 	return retval;
 }
 #endif

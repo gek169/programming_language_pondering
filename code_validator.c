@@ -547,6 +547,20 @@ static void propagate_types(expr_node* ee){
 			ee->t = t;
 			return;
 		}
+		if(q == BUILTIN_PROTO_I64){
+			t.basetype = BASE_I64;
+			t.arraylen = 0;
+			t.pointerlevel = 0;
+			ee->t = t;
+			return;
+		}
+		if(q == BUILTIN_PROTO_DOUBLE){
+			t.basetype = BASE_F64;
+			t.arraylen = 0;
+			t.pointerlevel = 0;
+			ee->t = t;
+			return;
+		}
 		if(q == BUILTIN_PROTO_I32){
 			t.basetype = BASE_I32;
 			t.arraylen = 0;
@@ -857,7 +871,9 @@ static void propagate_types(expr_node* ee){
 			if(!impl_streq_exists()){
 				puts("Validator error:");
 				puts("usage of streq and strneq require this function to be defined with this exact prototype:");
-				puts("fn pure impl_streq(u8* a, u8* b)->i64;");
+				puts("fn pure impl_streq(u8* a, u8* b)->i64");
+				puts("Note this declaration is allowed to be public or static.");
+				puts("You may also change the names of the variables.");
 				validator_exit_err();
 			}
 		}
@@ -1161,6 +1177,14 @@ static void validate_function_argument_passing(expr_node* ee){
 			t_target.basetype = BASE_U64;
 			t_target.pointerlevel = 0;
 		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_I64){
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_DOUBLE){
+			t_target.basetype = BASE_F64;
+			t_target.pointerlevel = 0;
+		}
 		if(got_builtin_arg1_type == BUILTIN_PROTO_I32){
 			t_target.basetype = BASE_I32;
 			t_target.pointerlevel = 0;
@@ -1196,6 +1220,14 @@ static void validate_function_argument_passing(expr_node* ee){
 			t_target.basetype = BASE_U64;
 			t_target.pointerlevel = 0;
 		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_I64){
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_DOUBLE){
+			t_target.basetype = BASE_F64;
+			t_target.pointerlevel = 0;
+		}
 		if(got_builtin_arg2_type == BUILTIN_PROTO_I32){
 			t_target.basetype = BASE_I32;
 			t_target.pointerlevel = 0;
@@ -1229,6 +1261,14 @@ static void validate_function_argument_passing(expr_node* ee){
 		}		
 		if(got_builtin_arg3_type == BUILTIN_PROTO_U64){
 			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_I64){
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_DOUBLE){
+			t_target.basetype = BASE_F64;
 			t_target.pointerlevel = 0;
 		}
 		if(got_builtin_arg3_type == BUILTIN_PROTO_I32){
@@ -1662,6 +1702,14 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			t_target.basetype = BASE_U64;
 			t_target.pointerlevel = 0;
 		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_I64){
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg1_type == BUILTIN_PROTO_DOUBLE){
+			t_target.basetype = BASE_F64;
+			t_target.pointerlevel = 0;
+		}
 		if(got_builtin_arg1_type == BUILTIN_PROTO_I32){
 			t_target.basetype = BASE_I32;
 			t_target.pointerlevel = 0;
@@ -1693,6 +1741,14 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			t_target.basetype = BASE_U64;
 			t_target.pointerlevel = 0;
 		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_I64){
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg2_type == BUILTIN_PROTO_DOUBLE){
+			t_target.basetype = BASE_F64;
+			t_target.pointerlevel = 0;
+		}
 		if(got_builtin_arg2_type == BUILTIN_PROTO_I32){
 			t_target.basetype = BASE_I32;
 			t_target.pointerlevel = 0;
@@ -1722,6 +1778,14 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		}		
 		if(got_builtin_arg3_type == BUILTIN_PROTO_U64){
 			t_target.basetype = BASE_U64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_I64){
+			t_target.basetype = BASE_I64;
+			t_target.pointerlevel = 0;
+		}
+		if(got_builtin_arg3_type == BUILTIN_PROTO_DOUBLE){
+			t_target.basetype = BASE_F64;
 			t_target.pointerlevel = 0;
 		}
 		if(got_builtin_arg3_type == BUILTIN_PROTO_I32){

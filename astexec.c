@@ -2129,11 +2129,108 @@ void do_expr(expr_node* ee){
 			char* b;
 			uint64_t c;
 			memcpy(&a, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-			memcpy(&b, &vm_stack[vm_stackpointer-1].smalldata, POINTER_SIZE);
-			memcpy(&c, &vm_stack[vm_stackpointer-1].smalldata, 8);
+			memcpy(&b, &vm_stack[vm_stackpointer-2].smalldata, POINTER_SIZE);
+			memcpy(&c, &vm_stack[vm_stackpointer-3].smalldata, 8);
 			impl_builtin_memcpy(a,b,c);
 			goto end_of_builtin_call;
 		}
+		if(streq(ee->symname, "__builtin_utoa")){
+			char* buf;
+			uint64_t i;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			memcpy(
+				&i, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				8
+			);
+			impl_builtin_utoa(buf, i);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_itoa")){
+			char* buf;
+			int64_t i;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			memcpy(
+				&i, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				8
+			);
+			impl_builtin_itoa(buf, i);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_ftoa")){
+			char* buf;
+			double i;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			memcpy(
+				&i, 
+				&vm_stack[vm_stackpointer-2].smalldata, 
+				8
+			);
+			impl_builtin_ftoa(buf, i);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_atof")){
+			char* buf;
+			double f;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			f = impl_builtin_atof(buf);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&f, 
+				8
+			);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_atoi")){
+			char* buf;
+			int64_t f;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			f = impl_builtin_atoi(buf);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&f, 
+				8
+			);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_atou")){
+			char* buf;
+			uint64_t f;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			f = impl_builtin_atou(buf);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&f, 
+				8
+			);
+			goto end_of_builtin_call;
+		}
+		//TODO: implement more builtins.
 		puts("VM Error");
 		puts("Unhandled builtin call:");
 		puts(ee->symname);
