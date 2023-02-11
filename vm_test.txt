@@ -6,12 +6,15 @@ fn codegen pure get7()->i8:
 	return 7;
 end
 
+fn codegen not_pure_function():end
 
 fn codegen pure addnums(int a, int b)->int:
 	return a+b;
 end
 
 fn codegen pure subnums(int a, int b)->int:
+	//i_unused = cast(double*) 0;
+	not_pure_function();
 	return a-b;
 end
 

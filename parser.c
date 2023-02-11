@@ -789,7 +789,6 @@ void parse_fn(int is_method){
 		}
 	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("pure")){
-			require(!is_pub, "Cannot have public and static, they are opposites!");
 			is_pure = 1;
 			consume();
 		}
@@ -927,6 +926,7 @@ void parse_fn(int is_method){
 	t.is_function = 1;
 	s.is_incomplete = is_predecl;
 	s.is_pub = is_pub;
+	s.is_pure = is_pure;
 	s.is_codegen = is_codegen;
 	if(ident_is_already_used_globally(n)){
 		unsigned long i;

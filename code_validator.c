@@ -177,7 +177,7 @@ static void assign_lsym_gsym(expr_node* ee){
 						puts(ee->symname);
 					validator_exit_err();
 				}
-				if(symbol_table[active_function].is_pure){
+				if(symbol_table[active_function].is_pure > 0){
 					puts("VALIDATOR ERROR!");
 					puts("You may not use global variables in pure functions.");
 					puts("This is the variable you are not allowed to access:");
