@@ -156,7 +156,7 @@ This makes it performance-optimized.
 
 `myStruct:myMethod(a,b,c)`
 
-It works by creating a function with a specially mangled name that has `myStruct* this` as the firsta argument.
+It works by creating a function with a specially mangled name that has `myStruct* this` as the first argument.
 
 * You cannot pass or use structs (or arrays, for that matter) by value. This means you use pointers.
 
