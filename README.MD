@@ -93,7 +93,7 @@ f64: double
 
 ## What is Seabass designed for?
 
-General purpose programming, as its metaprogramming facilities should be strong enough to allow
+General purpose portable programming, as its metaprogramming facilities should be strong enough to allow
 totally arbitrary language constructs.
 
 The base language syntax, though, is designed for systems implementation.
@@ -107,6 +107,12 @@ This means, for instance:
 * Seabass does not have a standard template library, standard library, or any other set of
 standard runtime functions, as such is not portable between platforms.
 
+* Seabass does not have a default threading implementation. While it (will...) support `atomic` and `volatile` qualifiers,
+
+they will do nothing on a target which does not utilize multithreading.
+
+Multithreading must be achieved by using `asm` blocks. 
+
 * Seabass does not  have garbage collection or array bounds checking.
 
 ## What makes it different from, say, C?
@@ -114,12 +120,15 @@ standard runtime functions, as such is not portable between platforms.
 The major difference is that it's a metaprogramming language.
 
 Dedicated compiletime/parsetime code can be written which directly manipulates the token list
-
-passed to the parser (TODO, not yet implemented...) or the AST itself.
+passed to the parser (Not yet implemented...) or the AST itself (Implemented but unused and untested).
 
 This would allow you, for instance, to write your own programming language syntaxes, and use them anywhere in your code.
 
 You could write part of your program in typescript, and part of it in C, and they could be mixed together.
+
+After that, you can write your own code generator, which takes the AST and spits out whatever you want to export.
+
+This is all done without changing the code of the seabass 'compiler' (It's not really a whole compiler, is it?) itself.
 
 ## What makes Seabass different from C in terms of base language features?
 
@@ -128,20 +137,26 @@ Other than the obvious syntax changes? Well...
 * No function pointers. I want the language to be compatible with platforms where jumping using the value in a register
 is not supported. 
 
-The lack of function pointers might sound distressing if you use them to provide callbacks or 
+The lack of function pointers might sound distressing if you use them to provide callbacks or to have jump tables.
+
+Use the switch statement instead!
 
 * No variadic arguments. Yuck!
 
 * switch does not do bounds checking, and automatically assumes a [0-n) (where n is the number of cases) integer value. 
 it uses goto labels instead of `case` statements.
 
-* More well-defined behavior.
+This makes it performance-optimized.
+
+* More well-defined behavior. For instance, twos complement is assumed, and signed integer overflow is defined behavior.
 
 * No early returns for && and ||. I'm on the fence about whether to change this or not.
 
 * Methods. You can define functions that operate on structs and use a lua-style method invocation syntax.
 
 `myStruct:myMethod(a,b,c)`
+
+It works by creating a function with a specially mangled name that has `myStruct* this` as the firsta argument.
 
 * You cannot pass or use structs (or arrays, for that matter) by value. This means you use pointers.
 
@@ -157,7 +172,7 @@ it uses goto labels instead of `case` statements.
 
 ## Is the language standardized?
 
-Not yet. The language is planned to be standardized later.
+Not yet. The language is planned to be standardized later, when it is more mature.
 
 ## Why should I use SEABASS?
 
@@ -183,23 +198,48 @@ Nothing I do is worth anything unless it yields something valuable in eternity. 
 
 Submit an issue on the repository.
 
+## Current implementation limitations:
+
+* Double must be 8 bytes. No 10-byte floats.
+
+* The parser and validator assume that the target is 64 bit. This is planned to be changed in the future, to allow
+defining a target register size.
+
+* The compiletime VM (which is used for executing `codegen` code) and in general the entire compiler
+ requires a 64 bit machine. However, I will write the standard to allow different sizes.
+
+* No 128 bit integers or floats. You can write your own code to manipulate u64's to do what they would do, if you want.
+
+
+
+
+
 
 ## TODO before alpha release:
 
-[ ] - Implement `volatile` qualifier for global variables.
+[_] - Implement `volatile` qualifier for global variables.
 
-[ ] - Implement `atomic` qualifier for global variables.
+[_] - Implement `atomic` qualifier for global variables.
 
-[ ] - Implement limited compatibility with 32 bit targets. At least for non-codegen code.
+[_] - Implement limited compatibility with 32 bit targets. At least for non-codegen code.
 
 		(I'm fine with the actual compiler itself being 64-bit only.)
 
-[ ] - More `__builtin` functions for interacting with the environment and querying the implementation.
+[_] - More `__builtin` functions for interacting with the environment and querying the implementation.
 
-[ ] - Implement @ syntax at the global and local scope levels (@myParseHook) to allow codegen code to take over parsing.
+[_] - Implement @ syntax at the global and local scope levels (@myParseHook) to allow codegen code to take over parsing.
 
-[ ] - Write more tests.
+[_] - Write more tests.
 
-[ ] - Figure out how to do something akin to printf in the language. Probably involves metaprogramming.
+[_] - Figure out how to do something akin to printf in the language. Probably involves metaprogramming.
 
-[ ] - Figure out how this language is going to do conditional compilation.
+[_] - Figure out how this language is going to do conditional compilation.
+
+## Beta plan- implement C backend, port SEABASS to itself.
+
+TODO: write beta TODOs.
+
+## Release plan- write manuals, standard, and example suite.
+
+TODO: write release TODOs.
+
