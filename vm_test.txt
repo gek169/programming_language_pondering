@@ -84,6 +84,19 @@ fn codegen switch_test(int a):
 end
 
 
+codegen int myGlobalLoopCounter = 10;
+codegen double tail_test_pow = 0;
+
+fn codegen tail_test()->i64:
+	myGlobalLoopCounter--;
+	tail_test_pow = tail_test_pow + tail_test_pow;
+	if(myGlobalLoopCounter > 0)
+		tail tail_test
+	end
+	return tail_test_pow;
+end
+
+
 
 fn codegen codegen_main():
 	myClass classy;
@@ -104,6 +117,8 @@ fn codegen codegen_main():
 	__builtin_puts("________________________Now for the real test!");
 	f.x = 7;
 	i = classy.x;
+
+	
 	if(0)
 		__builtin_puts("Yes!");
 	elseif(0)
@@ -119,6 +134,13 @@ fn codegen codegen_main():
 	qqq.bigboy := f;
 	f.x = 3;
 	i = qqq.bigboy.x;
+
+
+	i = 0;
+
+	myGlobalLoopCounter = 4;
+	tail_test_pow = 2.0;
+	i = tail_test();
 
 	while(i > 0)
 		__builtin_puts("count me");

@@ -2002,7 +2002,12 @@ void parse_tail(){
 	/*Check to see if the return type of the function is compatible with us.*/
 	for(unsigned long i = 0; i < nsymbols; i++)
 		if(symbol_table[i].t.is_function)
-			if(streq(me->referenced_label_name, symbol_table[i].name)){
+			if(
+				streq(
+					me->referenced_label_name, 
+					symbol_table[i].name
+				)
+			){
 				found = 1;
 				/*
 					check the number of arguments, as well as the return type.

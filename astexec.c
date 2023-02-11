@@ -2212,7 +2212,8 @@ void ast_execute_function(symdecl* s){
 			stmt_kind = stmt_list[which_stmt].kind;
 			if(
 				stmt_kind == STMT_NOP || 
-				stmt_kind == STMT_LABEL 
+				stmt_kind == STMT_LABEL ||
+				stmt_kind == STMT_ASM
 			){
 				goto do_next_stmt;
 			}
