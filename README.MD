@@ -174,13 +174,14 @@ It works by creating a function with a specially mangled name that has `myStruct
 
 * No address-of operator. You cannot take the address of something.
 
-* No C-style dereferencing. `*myPointer` does not work. `myPointer[0]` is the SEABASS way to do it.
 
 Instead, you can take the address of struct members, with `myStruct.&myMember`
 
 This was done to make writing register allocators easier.
 
 if you want something to reside in memory so you can take its address, declare an array with one element.
+
+* No C-style dereferencing. `*myPointer` does not work. `myPointer[0]` is the SEABASS way to do it.
 
 ## Is the language standardized?
 
