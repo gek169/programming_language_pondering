@@ -1108,6 +1108,7 @@ stmt* parser_push_statement(){
 		me->filename = ("<none>");
 	me->linenum = peek()->linenum;
 	me->colnum = peek()->colnum;
+	me->kind = STMT_BAD; /*In case it's forgotten to set it.*/
 	return me;
 }
 
