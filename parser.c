@@ -732,12 +732,12 @@ void parse_structdecl(){
 	me = type_table + ntypedecls-1;
 	me[0] = typedecl_init();
 	me->name = strdup(peek()->text);
+	require(me->name != NULL, "strdup failed");
 	consume(); /*eat the identifier*/
 	/*TODO*/
 
 	while(1){
-		if(peek()->data == TOK_KEYWORD)
-		if(ID_KEYW(peek()) == ID_KEYW_STRING("end")){
+		if(peek_match_keyw("end")){
 			consume();
 			break;
 		}
@@ -746,14 +746,7 @@ void parse_structdecl(){
 	}
 	require(me[0].nmembers > 0, "Struct may not have zero members.");
 
-	if(0) //DEBUG
-	{
-		type temp = {0};
-		temp.basetype = BASE_STRUCT;
-		temp.structid = ntypedecls-1;
-		printf("\nSZ = %lld\n", (long long)type_getsz(temp));
-		require(type_getsz(temp) == 24,"<DEBUG> vec3_f64 not 24 bytes?");
-	}
+
 	return;
 }
 
@@ -768,6 +761,12 @@ void parse_struct_member(uint64_t sid){
 	require(peek()->data == TOK_IDENT, "Struct member must have an identifier name.");
 	t.membername = strdup(peek()->text);
 	require(t.membername != NULL, "strdup failed");
+	if(t.basetype == BASE_STRUCT)
+	if(t.pointerlevel == 0)
+	require(
+		t.structid != sid, 
+		"A struct may not have itself as a member..."
+	);
 	consume();
 	if(type_table[sid].nmembers){
 		for(i = 0; i < type_table[sid].nmembers; i++)

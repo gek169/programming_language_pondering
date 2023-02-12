@@ -25,6 +25,13 @@ class myClass
 	int z
 end
 
+/*
+class recursiveClass
+	recursiveClass[1] a
+	recursiveClass b
+end
+*/
+
 class containsSubClass
 	myClass alfred
 	myClass bigboy

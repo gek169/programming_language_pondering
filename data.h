@@ -155,7 +155,7 @@ typedef struct scope{
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
 	uint64_t walker_point; /*Where was the code validator?*/
-	uint8_t stopped_at_scope1; /*Did the validator stop at myscope or myscope2?*/
+	uint64_t stopped_at_scope1; /*Did the validator stop at myscope or myscope2?*/
 } scope;
 
 enum{
