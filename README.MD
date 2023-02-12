@@ -78,8 +78,8 @@ end
 
 The 'actual' type, followed by its aliases:
 ```
-u8: char, uchar
-i8: schar
+u8: char, uchar, byte, ubyte
+i8: schar, sbyte
 u16: ushort
 i16: sshort, short
 u32: uint, ulong
