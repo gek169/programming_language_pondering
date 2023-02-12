@@ -280,6 +280,7 @@ proc codegen codegen_main():
 		alias[0] = -3;
 		alias[1] = -7;
 		alias[2] = -4;
+		myClass bruhbruh;
 
 		__builtin_itoa(buf, mylist[1]);
 		__builtin_puts("array test, mylist[1]:");
@@ -299,6 +300,14 @@ proc codegen codegen_main():
 
 		__builtin_utoa(buf, cast(uqword)(mylist+3));
 		__builtin_puts("array addressing test, mylist+3 pointer:");
+		__builtin_puts(buf);
+
+		__builtin_utoa(buf, cast(uqword)(bruhbruh));
+		__builtin_puts("array addressing test, bruhbruh pointer:");
+		__builtin_puts(buf);
+
+		__builtin_utoa(buf, cast(uqword)(bruhbruh+2));
+		__builtin_puts("array addressing test, bruhbruh+2 pointer:");
 		__builtin_puts(buf);
 	end
 	
