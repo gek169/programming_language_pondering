@@ -146,6 +146,13 @@ static uint64_t get_offsetof(
 	return off;
 }
 
+uint64_t vm_get_offsetof(
+	typedecl* the_struct, 
+	char* membername
+){
+	return get_offsetof(the_struct, membername);
+}
+
 static uint64_t do_deref(void* ptr, unsigned sz){
 	if(sz > 8){
 		puts("VM Internal error");
@@ -692,10 +699,11 @@ void do_expr(expr_node* ee){
 		*/
 		{
 			uint64_t off_of;
-			off_of = get_offsetof(
+			/*off_of = get_offsetof(
 							type_table + ee->subnodes[0]->t.structid, 
 							ee->symname
-						);
+						);*/
+			off_of = ee->idata;
 			//debug_print("Accessing member, off_of was...", off_of,0);
 			pt = pt + off_of;
 		}
@@ -738,10 +746,11 @@ void do_expr(expr_node* ee){
 		*/
 		{
 			uint64_t off_of;
-			off_of = get_offsetof(
+			/*off_of = get_offsetof(
 							type_table + ee->subnodes[0]->t.structid, 
 							ee->symname
-						);
+						);*/
+			off_of = ee->idata;
 			//debug_print("Accessing member, off_of was...", off_of,0);
 			pt = pt + off_of;
 		}

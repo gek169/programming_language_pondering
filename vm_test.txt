@@ -42,6 +42,7 @@ end
 class containsArrayOfSubclasses
 	int a
 	int b
+	int c
 	myClass[4000] thingies
 	int[400] integers
 end

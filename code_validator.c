@@ -6,6 +6,12 @@
 #include "data.h"
 #include "metaprogramming.h"
 
+/*from the VM.*/
+uint64_t vm_get_offsetof(
+	typedecl* the_struct, 
+	char* membername
+);
+
 char** discovered_labels = NULL;
 uint64_t n_discovered_labels = 0;
 static stmt* curr_stmt = NULL;
@@ -722,6 +728,8 @@ static void propagate_types(expr_node* ee){
 			){
 			//	found = 1;
 				ee->t = type_table[t.structid].members[j];
+				//TODO: optimize this.
+				ee->idata = vm_get_offsetof(type_table + t.structid, ee->symname);
 				ee->t.is_lvalue = 1;
 				//handle: struct member is array.
 				if(ee->t.arraylen){
@@ -786,6 +794,8 @@ static void propagate_types(expr_node* ee){
 			//	found = 1;
 				ee->t = type_table[t.structid].members[j];
 				ee->t.is_lvalue = 0;
+				//TODO: optimize this.
+				ee->idata = vm_get_offsetof(type_table + t.structid, ee->symname);
 				//handle: struct member is array.
 				if(ee->t.arraylen > 0){
 					ee->t.arraylen = 0;
