@@ -2358,7 +2358,7 @@ void ast_execute_function(symdecl* s){
 	continue_executing_scope:
 		while(1){
 			stmt_list = scopestack_gettop()->stmts;
-			if(which_stmt >= scopestack_gettop()->nstmts){
+			if( (scopestack_gettop()->nstmts == 0) || (which_stmt >= scopestack_gettop()->nstmts) ){
 				uint64_t i;
 				scope_positions[nscopes-1].is_else_chaining = 0;
 				if(scopestack_gettop() == s->fbody) {
@@ -2373,7 +2373,7 @@ void ast_execute_function(symdecl* s){
 				}
 				//else, we have to clear our variables...
 				ast_vm_stack_pop_temporaries();
-				for(i = 0; i < scopestack_gettop()->nsyms;i++) 
+				for(i = 0; i < scopestack_gettop()->nsyms;i++)
 					ast_vm_stack_pop();
 				//we have to remove ourselves.
 				scopestack_pop();
@@ -2547,12 +2547,14 @@ void ast_execute_function(symdecl* s){
 					scope_positions[nscopes-1].pos = which_stmt;
 					scope_positions[nscopes-1].is_else_chaining = 0;
 					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 1;
+					else			scope_positions[nscopes-1].is_in_loop = 0;
 					scopestack_push(cur_stmt->myscope);
 					//while, if, and elif never chain elses if they execute their body.
 					goto begin_executing_scope;
 				} else {
 					if(stmt_kind == STMT_IF || stmt_kind == STMT_ELIF)
 						scope_positions[nscopes-1].is_else_chaining = 1;
+					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 0;
 				}
 				ast_vm_stack_pop();
 				goto do_next_stmt;

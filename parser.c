@@ -1104,6 +1104,8 @@ stmt* parser_push_statement(){
 	*me =  stmt_init();
 	me->whereami = scopestack[nscopes-1]; /*The scope to look in!*/
 	me->filename = peek()->filename;
+	if(me->filename == NULL)
+		me->filename = ("<none>");
 	me->linenum = peek()->linenum;
 	me->colnum = peek()->colnum;
 	return me;
@@ -2184,6 +2186,12 @@ void parse_stmts(){
 	while(!peek_match_keyw("end")) parse_stmt();
 	require(peek_match_keyw("end"), "Statement list ends with 'end'");
 	consume();
+	/*special case- empty body.*/
+	if(scopestack_gettop()->nstmts == 0){
+		stmt* s;
+		s= parser_push_statement();
+		s->kind = STMT_NOP;
+	}
 }
 
 int  parse_stmts_allow_else_chain(){
@@ -2194,6 +2202,13 @@ int  parse_stmts_allow_else_chain(){
 		&&
 		!peek_match_keyw("elif")
 	) parse_stmt();
+
+	/*special case- empty body.*/
+	if(scopestack_gettop()->nstmts == 0){
+		stmt* s;
+		s= parser_push_statement();
+		s->kind = STMT_NOP;
+	}
 
 	if(peek_match_keyw("end")) return 0;
 	if(peek_match_keyw("else")) return 1;

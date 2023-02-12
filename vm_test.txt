@@ -281,6 +281,9 @@ fn codegen codegen_main():
 		__builtin_puts("count me");
 		i--;
 	end
+
+	
+	if(1) end
 	__builtin_puts("Goodbye!");
 	return;
 end
