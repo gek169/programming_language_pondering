@@ -468,12 +468,13 @@ static void tokenizer(
 				}
 			}
 
+			/*
 			if(strprefix("#", work->text)){
 				mode = 6;
 				i++;
 				goto done_selecting_mode;
 			}
-				
+			*/
 			if(my_isdigit(work->text[0])){
 				if(
 					strprefix("0x",work->text) || 

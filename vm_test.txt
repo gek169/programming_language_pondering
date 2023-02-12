@@ -117,7 +117,11 @@ fn codegen tail_test()->i64:
 end
 
 
-fn inline pure impl_streq(char* a, char* b)->i64;
+//Demonstration of target configuration.
+# __CBAS_TARGET_WORDSZ 32
+# __CBAS_TARGET_MAX_FLOAT 32
+
+fn inline pure impl_streq(char* a, char* b)->i32;
 fn streq_tester():
 	char* a 
 	char* b 
@@ -130,8 +134,8 @@ fn streq_tester():
 end
 
 
-fn inline pure impl_streq(char* a, char* b)->i64:
-	qword i
+fn inline pure impl_streq(char* a, char* b)->i32:
+	int i
 	i = 0;
 	for(i = 0, 1, i++)
 		if(a[i]!=b[i]) return 0; end
@@ -142,7 +146,7 @@ fn inline pure impl_streq(char* a, char* b)->i64:
 end
 
 
-fn codegen codegen_main():
+fn codegen odegen_main():
 	myClass classy;
 	myClass* f;
 	classy.x = 3;

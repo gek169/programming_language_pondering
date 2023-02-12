@@ -361,26 +361,7 @@ static inline int peek_is_fname(){
 	}
 	return 0;
 }
-static inline int impl_streq_exists(){
-	for(unsigned long i = 0; i < nsymbols; i++){
-		if(streq("impl_streq", symbol_table[i].name)){
-			if(symbol_table[i].t.is_function == 0) return 0;
-			if(symbol_table[i].is_codegen > 0) return 0;
-			if(symbol_table[i].is_pure == 0) return 0;
-			if(symbol_table[i].t.basetype != BASE_I64) return 0;
-			if(symbol_table[i].t.pointerlevel != 0) return 0;
-			if(symbol_table[i].nargs != 2) return 0;
-			if(symbol_table[i].fargs[0]->basetype != BASE_U8) return 0;
-			if(symbol_table[i].fargs[0]->pointerlevel != 1) 	return 0;
-			if(symbol_table[i].fargs[1]->basetype != BASE_U8) return 1;
-			if(symbol_table[i].fargs[1]->pointerlevel != 1) 	return 1;
-			return 1;
-		}
-	}
 
-	return 0;
-	
-}
 static inline int str_is_fname(char* s){
 	for(unsigned long i = 0; i < nsymbols; i++){
 		if(streq(s, symbol_table[i].name)){

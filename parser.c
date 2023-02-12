@@ -122,6 +122,7 @@ void compile_unit(strll* _unit){
 					peek_always_not_null = 1;
 					require(peek()->data == TOK_INT_CONST, "Expected integer constant- target word size.");
 					a = matou(peek()->text);
+					consume();
 					if(a == 64){
 						set_target_word(BASE_U64);
 					}else if(a == 32){
@@ -134,12 +135,14 @@ void compile_unit(strll* _unit){
 						parse_error("Invalid target word size. Valid values are 64, 32, 16, and 8. 128 bit is not supported.");
 					}
 					peek_always_not_null = 0;
+					continue;
 				} else if(streq(peek()->text, "__CBAS_TARGET_MAX_FLOAT")){
 					uint64_t a;
 					consume();
 					peek_always_not_null = 1;
 					require(peek()->data == TOK_INT_CONST, "Expected integer constant- target max float size.");
 					a = matou(peek()->text);
+					consume();
 					if(a == 64){
 						set_max_float_type(BASE_F64);
 					} else if(a == 32){
@@ -148,12 +151,17 @@ void compile_unit(strll* _unit){
 						parse_error("Invalid target max float size. 64 and 32 bit are allowed- no 10 byte floats!");
 					}
 					peek_always_not_null = 0;
+					continue;
 				} else if(streq(peek()->text, "__CBAS_TARGET_DISABLE_FLOAT")){
 					consume();
 					set_max_float_type(0);
+					continue;
+				} else {
+					parse_error("Unrecognized configuration option.");
 				}
+			} else{
+				parse_error("Unrecognized configuration option.");
 			}
-			parse_error("Unrecognized configuration option.");
 		}
 		if(peek()->data == TOK_STRING){
 			peek_always_not_null = 1;

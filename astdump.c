@@ -122,6 +122,17 @@ static void astdump_printexpr(expr_node* e, uint64_t indentlevel){
 		fputs(".",stdout);
 		fputs(e->symname,stdout);
 	}
+	if(c == EXPR_MEMBERPTR) {
+		fputs(".&",stdout);
+		fputs(e->symname,stdout);
+	}
+	if(c == EXPR_STREQ){
+		fputs("streq",stdout);
+	}
+	if(c == EXPR_STRNEQ){
+		fputs("strneq",stdout);
+	}
+
 	if(c == EXPR_METHOD) {
 		fputs("method:",stdout);
 		if(e->symname)
