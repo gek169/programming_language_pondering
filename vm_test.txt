@@ -25,6 +25,7 @@ class myClass
 	int z
 end
 
+//test for error on recursive definition of a struct/class.
 /*
 class recursiveClass
 	recursiveClass[1] a
