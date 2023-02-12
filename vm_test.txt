@@ -154,7 +154,7 @@ fn inline pure impl_streq(char* a, char* b)->i32:
 end
 
 
-fn codegen codegen_main():
+proc codegen codegen_main():
 	myClass classy;
 	myClass* f;
 	classy.x = 3;
@@ -271,6 +271,30 @@ fn codegen codegen_main():
 		__builtin_puts("This is a after an assignment chain:");
 		__builtin_puts(buf);
 	end
+
+	if(1)
+		char[500] buf;
+		int[5] mylist;
+		int* alias;
+		alias = mylist + 1;
+		alias[0] = -3;
+		alias[1] = -7;
+		alias[2] = -4;
+
+		__builtin_itoa(buf, mylist[1]);
+		__builtin_puts("array test, mylist[1]:");
+		__builtin_puts(buf);
+
+		__builtin_itoa(buf, mylist[2]);
+		__builtin_puts("array test, mylist[2]:");
+		__builtin_puts(buf);
+		
+		__builtin_itoa(buf, mylist[3]);
+		__builtin_puts("array test, mylist[3]:");
+		__builtin_puts(buf);
+		
+	end
+	
 
 	i = subnums(3,0);
 

@@ -1085,12 +1085,40 @@ void do_expr(expr_node* ee){
 		double f64data2;
 		int optype;
 		optype = ee->kind;
+		/*case 0: pointer +- int*/
+		if(ee->subnodes[0]->t.pointerlevel > 0){
+			uint64_t a;
+			uint64_t b;
+			type t;
+			a = vm_stack[vm_stackpointer-2].smalldata;
+			b = vm_stack[vm_stackpointer-1].smalldata;
+			t = ee->subnodes[0]->t; //the pointer is the first one.
+			t.pointerlevel--;
+			b *= type_getsz(t);
+			if(optype == EXPR_ADD) a = a + b;
+			if(optype == EXPR_SUB) a = a - b;
+			vm_stack[vm_stackpointer-2].smalldata = a;
+			goto end_expr_add;
+		}
+		/*case 0.5: int + pointer*/
+		if(ee->subnodes[1]->t.pointerlevel > 0){
+			uint64_t a;
+			uint64_t b;
+			type t;
+			a = vm_stack[vm_stackpointer-2].smalldata;
+			b = vm_stack[vm_stackpointer-1].smalldata;
+			t = ee->subnodes[1]->t; //the pointer is the second one.
+			t.pointerlevel--;
+			a *= type_getsz(t);
+			if(optype == EXPR_ADD) a = a + b;
+			vm_stack[vm_stackpointer-2].smalldata = a;
+			goto end_expr_add;
+		}
+		
 		/*case 1: both are i64 or u64, or pointer arithmetic.*/
 		if(
-			ee->subnodes[0]->t.pointerlevel > 0 ||
-			ee->subnodes[1]->t.pointerlevel > 0 ||
-			ee->subnodes[1]->t.basetype == BASE_U64 ||
-			ee->subnodes[1]->t.basetype == BASE_I64
+			ee->subnodes[0]->t.basetype == BASE_U64 ||
+			ee->subnodes[0]->t.basetype == BASE_I64
 		){
 			/*POINTER_SIZE*/
 			if(optype == EXPR_ADD)
