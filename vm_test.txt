@@ -69,8 +69,8 @@ fn codegen manipClass(myClass* p):
 end
 
 fn codegen switch_test(int a):
-
-	switch(a) is1, is2, is3;
+	goto do_switch
+	
 	:is1
 		__builtin_puts("I see a 0!");
 	return;
@@ -98,6 +98,10 @@ fn codegen switch_test(int a):
 			__builtin_puts("Got out!");
 		end
 	return;
+
+	:do_switch
+	switch(a) is1, is2, is3, do_switch;
+
 
 	return;
 
