@@ -93,7 +93,6 @@ typedef struct type{
 	char* membername; /*used for struct members and function arguments*/
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
-	uint64_t VM_function_stackframe_placement; /*For function args, used by the AST executor*/
 }type;
 
 
@@ -219,7 +218,7 @@ enum{
 	//They will be removed when I am done with the VM's expression executor.
 	EXPR_BAD=0,
 	EXPR_BUILTIN_CALL, //DONE
-	EXPR_FCALL, //TODO: invoke ast_call_function
+	EXPR_FCALL, //DONE
 	//EXPR_PAREN,
 	EXPR_SIZEOF, //DONE
 	EXPR_INTLIT, //DONE
@@ -233,7 +232,7 @@ enum{
 	EXPR_POST_DECR, //DONE
 	EXPR_INDEX, //DONE
 	EXPR_MEMBER, //DONE
-	EXPR_METHOD, //TODO: invoke ast_call_function
+	EXPR_METHOD, //DONE
 	/*unary prefix operators*/
 	EXPR_CAST, //DONE
 	EXPR_NEG, //DONE
@@ -267,7 +266,7 @@ enum{
 	EXPR_CONSTEXPR_INT, //DONE
 	EXPR_STREQ, //DONE
 	EXPR_STRNEQ, //DONE
-	EXPR_MEMBERPTR, //TODO
+	EXPR_MEMBERPTR, //DONE
 	NEXPR_TYPES
 };
 
@@ -283,8 +282,8 @@ typedef struct expr_node{
 	uint64_t is_function;
 	uint64_t is_local_variable;
 	char* referenced_label_name;
-	char* symname;  /*if method: this is mangled. */
-	char* method_name; /*if method: this is unmangled. */
+	char* symname;  /*if method: this is unmangled. */
+	char* method_name; /*if method: this is mangled. */
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
 }expr_node;
