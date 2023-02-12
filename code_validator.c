@@ -9,6 +9,27 @@
 char** discovered_labels = NULL;
 uint64_t n_discovered_labels = 0;
 static stmt* curr_stmt = NULL;
+/*target word and sword. Used for bitwise operations and if/switch/elif/while.*/
+static uint64_t TARGET_WORD_BASE = BASE_U64;
+static uint64_t TARGET_WORD_SIGNED_BASE = BASE_I64;
+static uint64_t TARGET_MAX_FLOAT_TYPE = BASE_F64;
+static uint64_t TARGET_DISABLE_FLOAT = 0;
+
+
+void set_target_word(uint64_t val){
+	TARGET_WORD_BASE = val;
+	TARGET_WORD_SIGNED_BASE = val + 1;
+}
+
+void set_max_float_type(uint64_t val){
+	if(val != BASE_F64 && val != BASE_F32){
+		TARGET_MAX_FLOAT_TYPE = 0;
+		TARGET_DISABLE_FLOAT = 1;
+	} else {
+		TARGET_MAX_FLOAT_TYPE = val;
+		TARGET_DISABLE_FLOAT = 0;
+	}
+}
 
 static void validator_exit_err(){
 	char buf[80];
@@ -329,6 +350,20 @@ static void propagate_types(expr_node* ee){
 	unsigned long j;
 	type t = {0};
 	type t2 = {0};
+	uint64_t WORD_BASE;
+	uint64_t SIGNED_WORD_BASE;
+	uint64_t FLOAT_BASE;
+	if(symbol_table[active_function].is_codegen){
+		WORD_BASE = BASE_U64;
+		SIGNED_WORD_BASE = BASE_I64;
+		FLOAT_BASE = BASE_F64;
+	} else {
+		WORD_BASE = TARGET_WORD_BASE;
+		SIGNED_WORD_BASE = TARGET_WORD_SIGNED_BASE;
+		FLOAT_BASE = TARGET_MAX_FLOAT_TYPE;
+	}
+	(void)WORD_BASE;
+	
 	for(i = 0; i < MAX_FARGS; i++){
 		if(ee->subnodes[i])
 			propagate_types(ee->subnodes[i]);
@@ -434,14 +469,23 @@ static void propagate_types(expr_node* ee){
 
 	
 	if(ee->kind == EXPR_INTLIT){
-		t.basetype = BASE_U64;
+		//t.basetype = BASE_U64;
+		t.basetype = WORD_BASE;
 		t.is_lvalue = 0;
 		t.pointerlevel = 0;
 		ee->t = t;
 		return;
 	}
 	if(ee->kind == EXPR_FLOATLIT){
-		t.basetype = BASE_F64;
+		if(symbol_table[active_function].is_codegen == 0)
+		if(TARGET_DISABLE_FLOAT)
+		{
+			puts("Validator error:");
+			puts("Target has disabled floating point.");
+			validator_exit_err();
+		}
+		//t.basetype = BASE_F64;
+		t.basetype = FLOAT_BASE;
 		t.is_lvalue = 0;
 		t.pointerlevel = 0;
 		ee->t = t;
@@ -456,15 +500,6 @@ static void propagate_types(expr_node* ee){
 		}
 		if(t.pointerlevel == 0)
 			if(t.basetype == BASE_STRUCT){
-				/*if(t.is_lvalue == 0)
-				{
-					throw_type_error_with_expression_enums(
-						"Can't have Rvalue struct! a=me",
-						ee->kind,
-						EXPR_BAD
-					);
-				}
-				*/
 				t.pointerlevel = 1;
 				t.is_lvalue = 0;
 			}
@@ -499,7 +534,8 @@ static void propagate_types(expr_node* ee){
 		return;
 	}
 	if(ee->kind == EXPR_SIZEOF){
-		t.basetype = BASE_U64;
+		//t.basetype = BASE_U64;
+		t.basetype = WORD_BASE;
 		t.is_lvalue = 0;
 		t.pointerlevel = 0;
 		ee->t = t;
@@ -577,13 +613,15 @@ static void propagate_types(expr_node* ee){
 		validator_exit_err();
 	}
 	if(ee->kind == EXPR_CONSTEXPR_FLOAT){
-		ee->t.basetype = BASE_F64;
+		//ee->t.basetype = BASE_F64;
+		ee->t.basetype = FLOAT_BASE;
 		t.is_lvalue = 0;
 		t.pointerlevel = 0;
 		return;
 	}
 	if(ee->kind == EXPR_CONSTEXPR_INT){
-		ee->t.basetype = BASE_I64;
+		//ee->t.basetype = BASE_I64;
+		ee->t.basetype = SIGNED_WORD_BASE;
 		t.is_lvalue = 0;
 		t.pointerlevel = 0;
 		return;
@@ -910,7 +948,8 @@ static void propagate_types(expr_node* ee){
 			}
 		}
 		ee->t = type_init();
-		ee->t.basetype = BASE_I64;
+		//ee->t.basetype = BASE_I64;
+		ee->t.basetype = SIGNED_WORD_BASE;
 		ee->t.is_lvalue = 0;
 		return;
 	}
@@ -935,7 +974,8 @@ static void propagate_types(expr_node* ee){
 			}
 		}
 		ee->t = type_init();
-		ee->t.basetype = BASE_I64;
+		//ee->t.basetype = BASE_I64;
+		ee->t.basetype = SIGNED_WORD_BASE;
 		ee->t.is_lvalue = 0;
 		return;
 	}
@@ -959,7 +999,8 @@ static void propagate_types(expr_node* ee){
 		}
 
 		ee->t = type_init();
-		ee->t.basetype = BASE_I64;
+		//ee->t.basetype = BASE_I64;
+		ee->t.basetype = SIGNED_WORD_BASE;
 		ee->t.is_lvalue = 0;
 		return;
 	}
@@ -1043,7 +1084,8 @@ static void propagate_types(expr_node* ee){
 		ee->kind == EXPR_RSH
 	){
 		t = ee->subnodes[0]->t;
-		t.basetype = BASE_I64;
+		//t.basetype = BASE_I64;
+		t.basetype = SIGNED_WORD_BASE;
 		ee->t = t;
 		ee->t.is_lvalue = 0;
 		return;
@@ -1441,10 +1483,26 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	unsigned long i;
 	uint64_t nargs;
 	type t_target = {0};
+	uint64_t WORD_BASE;
+	uint64_t SIGNED_WORD_BASE;
+	uint64_t FLOAT_BASE;
+	if(symbol_table[active_function].is_codegen){
+		WORD_BASE = BASE_U64;
+		SIGNED_WORD_BASE = BASE_I64;
+		FLOAT_BASE = BASE_F64;
+	} else {
+		WORD_BASE = TARGET_WORD_BASE;
+		SIGNED_WORD_BASE = TARGET_WORD_SIGNED_BASE;
+		FLOAT_BASE = TARGET_MAX_FLOAT_TYPE;
+	}
+	(void)WORD_BASE;
+
+
 	for(i = 0; i < MAX_FARGS; i++){
 		if(ee->subnodes[i])
 			propagate_implied_type_conversions(ee->subnodes[i]);
 	}
+
 
 	/*The ones we don't do anything for.*/
 	if(
@@ -1484,7 +1542,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	}
 	
 	if(ee->kind == EXPR_INDEX){
-		t_target.basetype = BASE_I64;
+		//t_target.basetype = BASE_I64;
+		t_target.basetype = SIGNED_WORD_BASE;
 		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes+1, 
@@ -1511,7 +1570,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		ee->kind == EXPR_COMPL ||
 		ee->kind == EXPR_NOT
 	){
-		t_target.basetype = BASE_I64;
+		//t_target.basetype = BASE_I64;
+		t_target.basetype = SIGNED_WORD_BASE;
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target
@@ -1528,7 +1588,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		ee->kind == EXPR_LSH ||
 		ee->kind == EXPR_RSH
 	){
-		t_target.basetype = BASE_I64;
+		//t_target.basetype = BASE_I64;
+		t_target.basetype = SIGNED_WORD_BASE;
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target
@@ -1605,7 +1666,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			t_target
 		);
 		return;
-	}	if(ee->kind == EXPR_STRNEQ){
+	}
+	if(ee->kind == EXPR_STRNEQ){
 		t_target = type_init();
 		t_target.basetype = BASE_U8;
 		t_target.pointerlevel = 1;
@@ -1624,7 +1686,9 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->kind == EXPR_ADD)
 		if(ee->subnodes[0]->t.pointerlevel > 0)
 		{
-			t_target.basetype = BASE_I64;
+			//t_target.basetype = BASE_I64;
+			t_target = type_init();
+			t_target.basetype = SIGNED_WORD_BASE;
 			t_target.pointerlevel = 0;
 			insert_implied_type_conversion(
 				ee->subnodes + 1,
@@ -1642,7 +1706,9 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->kind == EXPR_ADD)
 		if(ee->subnodes[1]->t.pointerlevel > 0)
 		{
-			t_target.basetype = BASE_I64;
+			//t_target.basetype = BASE_I64;
+			t_target = type_init();
+			t_target.basetype = SIGNED_WORD_BASE;
 			t_target.pointerlevel = 0;
 			insert_implied_type_conversion(
 				ee->subnodes + 0,
@@ -1660,7 +1726,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->kind == EXPR_SUB)
 	if(ee->subnodes[0]->t.pointerlevel > 0)
 	{
-		t_target.basetype = BASE_I64;
+		//t_target.basetype = BASE_I64;
+		t_target.basetype = SIGNED_WORD_BASE;
 		t_target.pointerlevel = 0;
 		insert_implied_type_conversion(
 			ee->subnodes + 1,
@@ -1933,7 +2000,19 @@ static void walk_assign_lsym_gsym(){
 	stmt* stmtlist;
 	current_scope->walker_point = 0;
 	i = 0;
-
+	uint64_t WORD_BASE;
+	uint64_t SIGNED_WORD_BASE;
+	uint64_t FLOAT_BASE;
+	if(symbol_table[active_function].is_codegen){
+		WORD_BASE = BASE_U64;
+		SIGNED_WORD_BASE = BASE_I64;
+		FLOAT_BASE = BASE_F64;
+	} else {
+		WORD_BASE = TARGET_WORD_BASE;
+		SIGNED_WORD_BASE = TARGET_WORD_SIGNED_BASE;
+		FLOAT_BASE = TARGET_MAX_FLOAT_TYPE;
+	}
+	(void)WORD_BASE;
 	//
 	while(1){
 		stmtlist = current_scope->stmts;
@@ -2034,7 +2113,8 @@ static void walk_assign_lsym_gsym(){
 			)
 			throw_type_error("Switch statement has non-integer expression.");
 			qq = type_init();
-			qq.basetype = BASE_I64;
+			//qq.basetype = BASE_I64;
+			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}		
 		if(stmtlist[i].kind == STMT_FOR){
@@ -2048,7 +2128,8 @@ static void walk_assign_lsym_gsym(){
 			)
 			throw_type_error("For statement has non-integer conditional expression..");
 			qq = type_init();
-			qq.basetype = BASE_I64;
+			//qq.basetype = BASE_I64;
+			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions+1, qq);
 			loopstack_push(stmtlist + i);
 		}	
@@ -2063,7 +2144,8 @@ static void walk_assign_lsym_gsym(){
 			)
 			throw_type_error("While statement has non-integer conditional expression..");
 			qq = type_init();
-			qq.basetype = BASE_I64;
+			//qq.basetype = BASE_I64;
+			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 			loopstack_push(stmtlist + i);
 		}	
@@ -2078,7 +2160,8 @@ static void walk_assign_lsym_gsym(){
 			)
 			throw_type_error("If statement has non-integer conditional expression..");
 			qq = type_init();
-			qq.basetype = BASE_I64;
+			//qq.basetype = BASE_I64;
+			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}
 		if(stmtlist[i].kind == STMT_ELIF){
@@ -2096,7 +2179,8 @@ static void walk_assign_lsym_gsym(){
 			)
 				throw_type_error("elif statement has non-integer conditional expression..");
 			qq = type_init();
-			qq.basetype = BASE_I64;
+//			qq.basetype = BASE_I64;
+			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}
 		if(stmtlist[i].kind == STMT_RETURN){

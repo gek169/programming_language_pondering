@@ -80,7 +80,8 @@ void parse_error(char* msg){
 void require(int cond, char* msg){if(!cond)parse_error(msg);}
 void require_peek_notnull(char* msg){if(peek() == NULL)parse_error(msg);}
 void astdump();
-
+void set_target_word(uint64_t val);
+void set_max_float_type(uint64_t val);
 void compile_unit(strll* _unit){
 	/*TODO write compiler*/
 	unit = _unit;
@@ -96,11 +97,64 @@ void compile_unit(strll* _unit){
 			consume();
 			continue;
 		}
+		if(peek()->data == TOK_OPERATOR)
+			if(streq(peek()->text, "@")){
+				consume();
+				//TODO- parser hook.
+				parse_error("Global parser hook syntax is NYI.");
+			}
 		if(peek()->data == TOK_KEYWORD)
 			if(peek_match_keyw("end"))
 			{
 				parse_error("Stray 'end' in global scope.\nProbably a scope mismatch.");
 			}
+		if(peek()->data == TOK_MACRO_OP)
+		if(streq(peek()->text, "#")){
+			consume();
+			if(peek() == NULL){
+				parse_error("stray # at end of compilation unit.");
+			}
+			/**/
+			if(peek()->data == TOK_IDENT){
+				if(streq(peek()->text, "__CBAS_TARGET_WORDSZ")){
+					uint64_t a;
+					consume();
+					peek_always_not_null = 1;
+					require(peek()->data == TOK_INT_CONST, "Expected integer constant- target word size.");
+					a = matou(peek()->text);
+					if(a == 64){
+						set_target_word(BASE_U64);
+					}else if(a == 32){
+						set_target_word(BASE_U32);
+					}else if(a == 16){
+						set_target_word(BASE_U16);
+					}else if(a == 8){
+						set_target_word(BASE_U8);
+					} else{
+						parse_error("Invalid target word size. Valid values are 64, 32, 16, and 8. 128 bit is not supported.");
+					}
+					peek_always_not_null = 0;
+				} else if(streq(peek()->text, "__CBAS_TARGET_MAX_FLOAT")){
+					uint64_t a;
+					consume();
+					peek_always_not_null = 1;
+					require(peek()->data == TOK_INT_CONST, "Expected integer constant- target max float size.");
+					a = matou(peek()->text);
+					if(a == 64){
+						set_max_float_type(BASE_F64);
+					} else if(a == 32){
+						set_max_float_type(BASE_F32);
+					} else{
+						parse_error("Invalid target max float size. 64 and 32 bit are allowed- no 10 byte floats!");
+					}
+					peek_always_not_null = 0;
+				} else if(streq(peek()->text, "__CBAS_TARGET_DISABLE_FLOAT")){
+					consume();
+					set_max_float_type(0);
+				}
+			}
+			parse_error("Unrecognized configuration option.");
+		}
 		if(peek()->data == TOK_STRING){
 			peek_always_not_null = 1;
 			printf("\nWARNING: unusable string literal: %lu\n",parse_stringliteral());
@@ -108,13 +162,13 @@ void compile_unit(strll* _unit){
 			continue;
 		}
 		if(peek()->data == TOK_KEYWORD){
-			if(ID_KEYW(peek()) == ID_KEYW_STRING("data")){
+			if(peek_match_keyw("data")){
 				peek_always_not_null = 1;
 				parse_datastmt();
 				peek_always_not_null = 0;
 				continue;
 			}
-			if(ID_KEYW(peek()) == ID_KEYW_STRING("struct")){
+			if(peek_match_keyw("struct")){
 				peek_always_not_null = 1;
 				parse_structdecl();
 				peek_always_not_null = 0;
@@ -719,7 +773,6 @@ void parse_struct_member(uint64_t sid){
 uint64_t parse_stringliteral(){
 	type t = {0};
 	char* n;
-
 	n = gen_reserved_sym_name();
 	
 	require(peek()->data == TOK_STRING, "String literal parsing requires a string literal.");
@@ -2220,7 +2273,7 @@ void parse_switch(){
 
 void parse_stmt(){
 	//TODO
-	while(peek()->data == TOK_SEMIC) consume();
+	if(peek()->data == TOK_SEMIC) {consume();return;}
 	if(peek_match_keyw("end"))
 	{
 		parse_error("Internal error: 'end' reached parse_stmt.");
@@ -2229,7 +2282,7 @@ void parse_stmt(){
 		parse_error("stray else in program.");
 	}
 	if(peek_match_keyw("elif")){
-		parse_error("stray elif in program.");
+		parse_error("stray elseif/elif in program.");
 	}
 	if(peek_match_keyw("if")) {
 		parse_if();
