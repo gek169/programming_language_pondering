@@ -299,7 +299,7 @@ proc codegen codegen_main():
 
 		__builtin_utoa(buf, cast(uqword)(mylist+3));
 		__builtin_puts("array addressing test, mylist+3 pointer:");
-		__builtin_puts(buf):
+		__builtin_puts(buf);
 	end
 	
 
