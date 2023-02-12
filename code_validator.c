@@ -570,6 +570,11 @@ static void propagate_types(expr_node* ee){
 	if(ee->kind == EXPR_BUILTIN_CALL){
 		uint64_t q = get_builtin_retval(ee->symname);
 		t.is_lvalue = 0;
+		if(symbol_table[active_function].is_pure > 0){
+			puts("Validator error:");
+			puts("Attempted to use a builtin call in a pure function.");
+			validator_exit_err();
+		}
 		if(q == BUILTIN_PROTO_VOID){
 			t.basetype = BASE_VOID;
 			t.arraylen = 0;
@@ -755,56 +760,56 @@ static void propagate_types(expr_node* ee){
 	}
 
 	if(ee->kind == EXPR_MEMBERPTR){
-			//int found = 0;
-			t = ee->subnodes[0]->t;
-			if(t.basetype != BASE_STRUCT)
-				throw_type_error_with_expression_enums(
-					"Can't access member of non-struct! a=me",
-					ee->kind,
-					ee->subnodes[0]->kind
-				);
-			if(t.structid >= ntypedecls)
-				throw_type_error("Internal error, invalid struct ID for EXPR_MEMBERPTR");
-			if(ee->symname == NULL)
-				throw_type_error("Internal error, EXPR_MEMBERPTR had null symname...");
-			for(j = 0; j < type_table[t.structid].nmembers; j++){
-				if(
-					streq(
-						type_table[t.structid].members[j].membername,
-						ee->symname
-					)
-				){
-				//	found = 1;
-					ee->t = type_table[t.structid].members[j];
-					ee->t.is_lvalue = 0;
-					//handle: struct member is array.
-					if(ee->t.arraylen > 0){
-						ee->t.arraylen = 0;
-					}
-					ee->t.pointerlevel++;
-					//handle:struct member is function
-					if(ee->t.is_function){
-						puts("Error: Struct member is function. How did that happen?");
-						throw_type_error("Struct member is function.");
-					}
-					ee->t.membername = NULL; /*We don't want it!*/
-					return;
+		//int found = 0;
+		t = ee->subnodes[0]->t;
+		if(t.basetype != BASE_STRUCT)
+			throw_type_error_with_expression_enums(
+				"Can't access member of non-struct! a=me",
+				ee->kind,
+				ee->subnodes[0]->kind
+			);
+		if(t.structid >= ntypedecls)
+			throw_type_error("Internal error, invalid struct ID for EXPR_MEMBERPTR");
+		if(ee->symname == NULL)
+			throw_type_error("Internal error, EXPR_MEMBERPTR had null symname...");
+		for(j = 0; j < type_table[t.structid].nmembers; j++){
+			if(
+				streq(
+					type_table[t.structid].members[j].membername,
+					ee->symname
+				)
+			){
+			//	found = 1;
+				ee->t = type_table[t.structid].members[j];
+				ee->t.is_lvalue = 0;
+				//handle: struct member is array.
+				if(ee->t.arraylen > 0){
+					ee->t.arraylen = 0;
 				}
+				ee->t.pointerlevel++;
+				//handle:struct member is function
+				if(ee->t.is_function){
+					puts("Error: Struct member is function. How did that happen?");
+					throw_type_error("Struct member is function.");
+				}
+				ee->t.membername = NULL; /*We don't want it!*/
+				return;
 			}
-			{
-				puts("Struct:");
-				puts(type_table[t.structid].name);
-				puts("Does not have member, therefore cannot retrieve pointer:");
-				puts(ee->symname);
-				throw_type_error_with_expression_enums(
-					"Struct lacking member. a=me",
-					ee->kind,
-					EXPR_BAD
-				);
-				validator_exit_err();
-			}
-			return;
 		}
+		{
+			puts("Struct:");
+			puts(type_table[t.structid].name);
+			puts("Does not have member, therefore cannot retrieve pointer:");
+			puts(ee->symname);
+			throw_type_error_with_expression_enums(
+				"Struct lacking member. a=me",
+				ee->kind,
+				EXPR_BAD
+			);
+			validator_exit_err();
+		}
+		return;
+	}
 	if(ee->kind == EXPR_METHOD){
 		char* c;
 		t = ee->subnodes[0]->t;
@@ -862,6 +867,24 @@ static void propagate_types(expr_node* ee){
 						puts(symbol_table[active_function].name);
 						throw_type_error("Purity check failure.");
 					}
+				if(!!symbol_table[active_function].is_codegen != !!symbol_table[j].is_codegen){
+					puts("Validator Error");
+					puts("You tried to invoke this method:");
+					puts(ee->method_name);
+					puts("On a struct of this type:");
+					puts(type_table[t.structid].name);
+					if(!!symbol_table[j].is_codegen)
+						puts("But that method was declared codegen,");
+					else
+						puts("But that method was not declared codegen,");
+					puts("And the active function:");
+					puts(symbol_table[active_function].name);
+					if(!!symbol_table[active_function].is_codegen)
+						puts("is declared codegen.");
+					else
+						puts("is not declared codegen.");
+					throw_type_error("Method codegen check failure.");
+				}
 				//count how many subnodes we have.
 				for(i = 0; ee->subnodes[i] != NULL; i++);
 				if(i != symbol_table[j].nargs){

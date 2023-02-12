@@ -3,7 +3,7 @@
 codegen double* i_unused;
 
 fn codegen pure get7()->i8:
-	__builtin_puts("get7 called!");
+	//__builtin_puts("get7 called!");
 	return 7;
 end
 
@@ -146,7 +146,7 @@ fn inline pure impl_streq(char* a, char* b)->i32:
 end
 
 
-fn codegen odegen_main():
+fn codegen codegen_main():
 	myClass classy;
 	myClass* f;
 	classy.x = 3;

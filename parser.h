@@ -65,6 +65,11 @@ static inline int ID_IS_OP4(strll* i){
 
 static inline uint64_t ID_KEYW_STRING(const char* s){
 	if(streq("fn",s)) return 40000;
+	if(streq("function",s)) return 40000;
+	if(streq("func",s)) return 40000;
+	if(streq("procedure",s)) return 40000;
+	if(streq("proc",s)) return 40000;
+	
 	if(streq("cast",s)) return 1;
 	
 	if(streq("u8",s)) return 2;

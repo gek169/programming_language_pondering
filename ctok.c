@@ -895,6 +895,10 @@ static void tokenizer(
 				/*Recognize keywords*/
 				if(
 					streq(current_meta->text, "fn")|| /*Extension*/
+					streq(current_meta->text, "function")|| /*Extension*/
+					streq(current_meta->text, "func")|| /*Extension*/
+					streq(current_meta->text, "procedure")|| /*Extension*/
+					streq(current_meta->text, "proc")|| /*Extension*/
 					streq(current_meta->text, "cast")|| /*Extension*/
 					streq(current_meta->text, "u8")|| /*Extension*/
 					streq(current_meta->text, "i8")|| /*Extension*/
