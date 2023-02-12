@@ -309,6 +309,10 @@ proc codegen codegen_main():
 		__builtin_utoa(buf, cast(uqword)(bruhbruh+2));
 		__builtin_puts("array addressing test, bruhbruh+2 pointer:");
 		__builtin_puts(buf);
+
+		__builtin_utoa(buf, cast(uqword)(bruhbruh-2));
+		__builtin_puts("array addressing test, bruhbruh-2 pointer:");
+		__builtin_puts(buf);
 	end
 	
 
