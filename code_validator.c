@@ -61,8 +61,12 @@ static void validator_exit_err(){
 			puts("Line:");
 			puts(buf);
 			mutoa(buf, curr_stmt->colnum);
-			puts("Column");
+			puts("Column:");
 			puts(buf);
+			puts("~~~~\nNote that the line number and column number");
+			puts("are where the validator invoked validator_exit_err.");
+			puts("\n\n(the actual error may be slightly before,\nor on the previous line)");
+			puts("I recommend looking near the location provided,\nnot just that exact spot!");
 		}
 		exit(1);
 	}

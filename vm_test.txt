@@ -244,12 +244,23 @@ fn codegen codegen_main():
 		__builtin_puts(buf);
 	end
 
-	myGlobalLoopCounter = 10;
+	myGlobalLoopCounter = 11;
 	i = tail_test2();
 	if(1)
 		char[500] buf;
 		__builtin_itoa(buf, i);
 		__builtin_puts("This is I after tail_test2:");
+		__builtin_puts(buf);
+	end
+
+	if(1)
+		int a
+		int b
+		uint c
+		a = b = c = -47;
+		char[500] buf;
+		__builtin_itoa(buf, a);
+		__builtin_puts("This is a after an assignment chain:");
 		__builtin_puts(buf);
 	end
 
