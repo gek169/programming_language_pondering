@@ -244,7 +244,7 @@ the register size is.
 
 [_] - Implement `atomic` qualifier for global variables.
 
-[_] - Implement limited compatibility with 32 bit targets. At least for non-codegen code.
+[X] - Implement limited compatibility with 32 bit targets. At least for non-codegen code.
 
 		(I'm fine with the actual compiler itself being 64-bit only.)
 
