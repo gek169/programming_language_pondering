@@ -1566,7 +1566,7 @@ static void insert_implied_type_conversion(expr_node** e_ptr, type t){
 	if(t.pointerlevel != e_ptr[0][0].t.pointerlevel){
 		throw_type_error("Cannot insert implied cast where pointerlevel is not equal!");
 	}
-	if(t.pointerlevel){
+	if(t.pointerlevel > 0){
 		if(t.basetype != e_ptr[0][0].t.basetype){
 			throw_type_error("Cannot insert implied cast between invalid pointers!");
 		}
