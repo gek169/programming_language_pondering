@@ -1715,6 +1715,9 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		return;
 	}
 
+	/*
+		TODO: do type promotion instead of total conversion to SIGNED_WORD_BASE
+	*/
 	if(
 		ee->kind == EXPR_BITOR ||
 		ee->kind == EXPR_BITAND ||
