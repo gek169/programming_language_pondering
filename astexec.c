@@ -2484,7 +2484,7 @@ void ast_execute_function(symdecl* s){
 				puts("Tail failed.");
 				puts("Tail target was:");
 				puts(cur_stmt->referenced_label_name);
-				exit(1);
+				goto do_error;
 			}
 			if(stmt_kind == STMT_CONTINUE || stmt_kind == STMT_BREAK){
 				int64_t i;
@@ -2511,7 +2511,7 @@ void ast_execute_function(symdecl* s){
 					}
 				puts("VM error");
 				puts("STMT_CONTINUE");
-				goto continue_executing_scope;
+				goto do_error;
 			}
 			if(stmt_kind == STMT_SWITCH){
 				int64_t val;int64_t i;char* name;
@@ -2527,7 +2527,7 @@ void ast_execute_function(symdecl* s){
 					puts("Runtime code behavior is undefined (probably just crashes!), but you're protected inside the codegen VM.");
 					puts("The function that caused this was:");
 					puts(symbol_table[active_function].name);
-					exit(1);
+					goto do_error;
 				}
 				ast_vm_stack_pop();
 				//val %= cur_stmt->switch_nlabels;
