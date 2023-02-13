@@ -258,6 +258,10 @@ the register size is.
 
 [_] - Figure out how this language is going to do conditional compilation.
 
+[X] - function pointers (By recommendation)
+
+[_] - Bitwise type promotion instead of force SIGNED_WORD_BASE.
+
 ## Beta plan- implement C backend, port SEABASS to itself.
 
 TODO: write beta TODOs.

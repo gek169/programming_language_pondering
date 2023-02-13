@@ -1682,6 +1682,16 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	}
 	if(ee->kind == EXPR_NEG){
 		t_target = ee->t;
+		if(t_target.pointerlevel > 0)
+			throw_type_error("Cannot negate pointer.");
+		if(t_target.basetype == BASE_U8 ||
+			t_target.basetype == BASE_U16 ||
+			t_target.basetype == BASE_U32 ||
+			t_target.basetype == BASE_U64
+		) t_target.basetype++;
+
+		if(t_target.basetype < BASE_U8 && t_target.basetype > BASE_F64)
+			throw_type_error("Cannot negate non-numeric type.");
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target
@@ -1693,7 +1703,9 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		ee->kind == EXPR_COMPL ||
 		ee->kind == EXPR_NOT
 	){
+		t_target = type_init();
 		//t_target.basetype = BASE_I64;
+
 		t_target.basetype = SIGNED_WORD_BASE;
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
