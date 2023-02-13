@@ -353,13 +353,13 @@ proc codegen codegen_main():
 		funcpointertest = callfnptr[add12tonum](b)(13);
 		//funcpointertest = callfnptr[add12tonum](13.0)(13);
 		__builtin_utoa(buf, funcpointertest);
-		__builtin_puts("callfnptr test, should be 7 + 13, or 20:");
+		__builtin_puts("callfnptr test (add7tonum), should be 7 + 13, or 20:");
 		__builtin_puts(buf);
 
 		b = getfnptr(subnums);
 		funcpointertest = callfnptr[addnums](b)(256,100);
 		__builtin_utoa(buf, funcpointertest);
-		__builtin_puts("callfnptr test, should be 256 - 100, or 156:");
+		__builtin_puts("callfnptr test (subnums), should be 256 - 100, or 156:");
 		__builtin_puts(buf);
 	end
 	
