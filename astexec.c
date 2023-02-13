@@ -561,7 +561,8 @@ void do_expr(expr_node* ee){
 	//debug_print("Entered an Expression!",0,0);
 	if(	ee->kind == EXPR_FCALL ||
 		ee->kind == EXPR_METHOD ||
-		ee->kind == EXPR_BUILTIN_CALL
+		ee->kind == EXPR_BUILTIN_CALL ||
+		ee->kind == EXPR_CALLFNPTR
 	){
 		uint64_t loc = ast_vm_stack_push_temporary(NULL, ee->t);
 		vm_stack[loc].t = ee->t;
@@ -570,18 +571,14 @@ void do_expr(expr_node* ee){
 		{
 			if(ee->subnodes[i])
 			{
-				do_expr(ee->subnodes[i]);
+				do_expr(ee->subnodes[i]); 
 				n_subexpressions++;
 			}
 			if(i == 0) break;
 		}
-	}
-	/*Otherwise, in-order.*/
-	if(
-		ee->kind != EXPR_FCALL &&
-		ee->kind != EXPR_METHOD &&
-		ee->kind != EXPR_BUILTIN_CALL
-	){
+		//IMPORTANT NOTE: for expr_callfnptr, the function pointer itself is subnodes[0],
+		//so it ends up on top!
+	}else{ /*Otherwise, in-order.*/
 		saved_vstack_pointer = vm_stackpointer; //saved before calling sub expressions.
 		for(i = 0; i < MAX_FARGS; i++){
 			if(ee->subnodes[i]){
@@ -600,6 +597,13 @@ void do_expr(expr_node* ee){
 		exit(1);
 	}
 
+	if(ee->kind == EXPR_GETFNPTR){
+		uint64_t general;
+		//push a temporary.
+		general = ast_vm_stack_push_temporary(NULL, ee->t);
+		vm_stack[general].smalldata = (uint64_t) (symbol_table + ee->symid);
+		return;
+	}
 	if(ee->kind == EXPR_SIZEOF ||
 		ee->kind == EXPR_INTLIT ||
 		ee->kind == EXPR_CONSTEXPR_INT
@@ -622,7 +626,6 @@ void do_expr(expr_node* ee){
 	}
 
 	if(ee->kind == EXPR_FCALL || ee->kind == EXPR_METHOD){
-		//TODO implement function call.
 		saved_cur_func_frame_size = cur_func_frame_size;
 		saved_cur_expr_stack_usage = cur_expr_stack_usage;
 		saved_active_function= active_function;
@@ -637,6 +640,39 @@ void do_expr(expr_node* ee){
 		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
 		//Don't! pop the last thing off because THAT'S WHERE THE RETURN VALUE IS!
 		//ast_vm_stack_pop();
+		return;
+	}
+	if(ee->kind == EXPR_CALLFNPTR){
+		uint64_t retrieved_pointer;
+		int64_t i;
+		int found = 0;
+		retrieved_pointer = vm_stack[vm_stackpointer-1].smalldata; //function pointer was on top.
+		ast_vm_stack_pop();
+		saved_cur_func_frame_size = cur_func_frame_size;
+		saved_cur_expr_stack_usage = cur_expr_stack_usage;
+		saved_active_function= active_function;
+		saved_vstack_pointer = vm_stackpointer;
+
+
+		for(i = 0; i < (int64_t)nsymbols; i++)
+			if(retrieved_pointer == (uint64_t)(symbol_table + i)){
+				ast_execute_function(symbol_table + i);
+				found = 1;
+				break;
+			}
+		if(!found){
+			puts("VM error:");
+			puts("EXPR_CALLFNPTR on non-function pointer.");
+			puts("The active function was:");
+			puts(symbol_table[active_function].name);
+			exit(1);
+		}
+		cur_func_frame_size = saved_cur_func_frame_size;
+		cur_expr_stack_usage = saved_cur_expr_stack_usage;
+		active_function = saved_active_function;
+		vm_stackpointer = saved_vstack_pointer;
+		//ast_vm_stack_pop();
+		if(ee->fnptr_nargs) ast_vm_stack_pop();
 		return;
 	}
 	if(ee->kind == EXPR_LSYM || ee->kind == EXPR_GSYM){

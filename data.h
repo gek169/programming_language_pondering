@@ -269,6 +269,8 @@ enum{
 	EXPR_STREQ, //DONE
 	EXPR_STRNEQ, //DONE
 	EXPR_MEMBERPTR, //DONE
+	EXPR_GETFNPTR, //TODO
+	EXPR_CALLFNPTR, //TODO
 	NEXPR_TYPES
 };
 
@@ -282,6 +284,7 @@ typedef struct expr_node{
 	uint64_t symid;
 	uint64_t is_global_variable;
 	uint64_t is_function;
+	uint64_t fnptr_nargs;
 	uint64_t is_local_variable;
 	char* referenced_label_name;
 	char* symname;  /*if method: this is unmangled. */

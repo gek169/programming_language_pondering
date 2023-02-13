@@ -317,6 +317,8 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_ASSIGN) puts("EXPR_ASSIGN");
 	if(c == EXPR_MOVE) puts("EXPR_MOVE");
 	if(c == EXPR_FCALL) puts("EXPR_FCALL");
+	if(c == EXPR_GETFNPTR) puts("EXPR_GETFNPTR");
+	if(c == EXPR_CALLFNPTR) puts("EXPR_CALLFNPTR");
 	if(c == EXPR_BUILTIN_CALL) puts("EXPR_BUILTIN_CALL");
 	if(c == EXPR_CONSTEXPR_FLOAT) puts("EXPR_CONSTEXPR_FLOAT");
 	if(c == EXPR_CONSTEXPR_INT) puts("EXPR_CONSTEXPR_INT");
@@ -366,6 +368,8 @@ static void throw_type_error_with_expression_enums(char* msg, unsigned a, unsign
 	if(c == EXPR_ASSIGN) puts("EXPR_ASSIGN");
 	if(c == EXPR_MOVE) puts("EXPR_MOVE");
 	if(c == EXPR_FCALL) puts("EXPR_FCALL");
+	if(c == EXPR_GETFNPTR) puts("EXPR_GETFNPTR");
+	if(c == EXPR_CALLFNPTR) puts("EXPR_CALLFNPTR");
 	if(c == EXPR_BUILTIN_CALL) puts("EXPR_BUILTIN_CALL");
 	if(c == EXPR_CONSTEXPR_FLOAT) puts("EXPR_CONSTEXPR_FLOAT");
 	if(c == EXPR_CONSTEXPR_INT) puts("EXPR_CONSTEXPR_INT");
@@ -438,6 +442,7 @@ static void propagate_types(expr_node* ee){
 
 	if(ee->kind != EXPR_FCALL)/*Disallow void from this point onward.*/
 	if(ee->kind != EXPR_BUILTIN_CALL)/*Disallow void from this point onward.*/
+	if(ee->kind != EXPR_CALLFNPTR)/*Disallow void from this point onward.*/
 	{
 		if(ee->subnodes[0])
 			if(ee->subnodes[0]->t.basetype == BASE_VOID)
@@ -465,6 +470,7 @@ static void propagate_types(expr_node* ee){
 	if(ee->kind != EXPR_SUB)
 	if(ee->kind != EXPR_FCALL)
 	if(ee->kind != EXPR_BUILTIN_CALL)
+	if(ee->kind != EXPR_CALLFNPTR)
 	if(ee->kind != EXPR_PRE_INCR)
 	if(ee->kind != EXPR_PRE_DECR)
 	if(ee->kind != EXPR_POST_INCR)
@@ -943,6 +949,29 @@ static void propagate_types(expr_node* ee){
 		ee->t.is_function = 0;
 		ee->t.funcid = 0;
 		ee->t.is_lvalue = 0; /*You can't assign to the output of a function*/
+		return;
+	}
+	if(ee->kind == EXPR_CALLFNPTR){
+		if(ee->symid >= nsymbols){
+			throw_type_error("INTERNAL ERROR: EXPR_CALLFNPTR erroneously has bad symbol ID. This should have been resolved in parser.c");
+		}
+		if(symbol_table[active_function].is_pure > 0){
+			puts("<VALIDATOR ERROR>");
+			puts("You tried to invoke a function pointer in a pure function. That is not allowed!");
+			validator_exit_err();
+		}
+		ee->t = symbol_table[ee->symid].t;
+		ee->t.is_function = 0;
+		ee->t.funcid = 0;
+		ee->t.is_lvalue = 0; /*You can't assign to the output of a function*/
+		return;
+	}
+	/*always yields a char* */
+	if(ee->kind == EXPR_GETFNPTR){
+		ee->t = type_init();
+		ee->t.basetype = BASE_U8;
+		ee->t.pointerlevel = 1;
+		ee->t.is_lvalue = 0;
 		return;
 	}
 	if(ee->kind == EXPR_CAST){
@@ -1437,8 +1466,8 @@ static void validate_function_argument_passing(expr_node* ee){
 		);
 	}
 
-	if(ee->kind == EXPR_FCALL || ee->kind == EXPR_METHOD){
-		char buf_err[3000];
+	if(ee->kind == EXPR_FCALL || ee->kind == EXPR_METHOD || ee->kind == EXPR_CALLFNPTR){
+		char buf_err[1024];
 		strcpy(buf_err, "Function Argument Number ");
 
 		
@@ -1448,6 +1477,8 @@ static void validate_function_argument_passing(expr_node* ee){
 				strcpy(buf_err, "fn arg ");
 			if(ee->kind == EXPR_METHOD)
 				strcpy(buf_err, "method arg ");
+			if(ee->kind == EXPR_CALLFNPTR)
+				strcpy(buf_err, "func pointer arg ");
 			mutoa(buf_err + strlen(buf_err), i+1);
 			strcat(buf_err, " has the wrong type.\n");
 			if(ee->kind == EXPR_METHOD)
@@ -1455,11 +1486,19 @@ static void validate_function_argument_passing(expr_node* ee){
 					buf_err,
 					"Note that argument number includes 'this' as the invisible first argument."
 				);
-			throw_if_types_incompatible(
-				symbol_table[ee->symid].fargs[i][0], 
-				ee->subnodes[i]->t,
-				buf_err
-			);
+			if(ee->kind != EXPR_CALLFNPTR){
+				throw_if_types_incompatible(
+					symbol_table[ee->symid].fargs[i][0], 
+					ee->subnodes[i]->t,
+					buf_err
+				);
+			} else{
+				throw_if_types_incompatible(
+					symbol_table[ee->symid].fargs[i][0], 
+					ee->subnodes[1]->t,
+					buf_err
+				);
+			}
 		}
 		return;
 	}
@@ -1482,7 +1521,9 @@ static void validate_codegen_safety(expr_node* ee){
 	if(
 		ee->kind == EXPR_GSYM||
 		ee->kind == EXPR_FCALL || 
-		ee->kind == EXPR_METHOD
+		ee->kind == EXPR_METHOD ||
+		ee->kind == EXPR_CALLFNPTR ||
+		ee->kind == EXPR_GETFNPTR
 	)
 		if(
 			symbol_table[active_function].is_codegen !=
@@ -1520,12 +1561,39 @@ static void insert_implied_type_conversion(expr_node** e_ptr, type t){
 	cast.subnodes[0] = *e_ptr;
 
 
-	/*Identical basetype, pointerlevel, and is_lvalue?*/
+
+
+	if(t.pointerlevel != e_ptr[0][0].t.pointerlevel){
+		throw_type_error("Cannot insert implied cast where pointerlevel is not equal!");
+	}
+	if(t.pointerlevel){
+		if(t.basetype != e_ptr[0][0].t.basetype){
+			throw_type_error("Cannot insert implied cast between invalid pointers!");
+		}
+		if(t.basetype == BASE_STRUCT)
+		if(e_ptr[0][0].t.structid != t.structid)
+			throw_type_error("Cannot insert implied cast between invalid pointers (to structs)!");
+	}
+	
+	if(t.basetype == BASE_STRUCT)
+	if(e_ptr[0][0].t.basetype != BASE_STRUCT)
+		throw_type_error("Cannot insert implied cast from non struct to struct!");
+
+	if(e_ptr[0][0].t.basetype == BASE_STRUCT)
+	if(t.basetype != BASE_STRUCT)
+		throw_type_error("Cannot insert implied cast from struct to non-struct!");
+
+	if(t.basetype == BASE_STRUCT)
+	if(e_ptr[0][0].t.structid != t.structid)
+		throw_type_error("Cannot insert implied cast between invalid structs!");
+		
+
+
+		/*Identical basetype, pointerlevel, and is_lvalue?*/
 	if(t.is_lvalue == e_ptr[0][0].t.is_lvalue)
 		if(t.basetype == e_ptr[0][0].t.basetype)
 			if(t.pointerlevel == e_ptr[0][0].t.pointerlevel)
 				return;
-
 	/*
 		A type conversion is necessary.
 		Even if it means that we're just converting a pointer to an integer.
@@ -1855,6 +1923,34 @@ static void propagate_implied_type_conversions(expr_node* ee){
 				qqq
 			);
 		}
+		return;
+	}
+	if(ee->kind == EXPR_GETFNPTR){
+		return;
+	}
+	if(ee->kind == EXPR_CALLFNPTR){
+		{
+			type qqq;
+			qqq = type_init();
+			qqq.is_lvalue = 0;
+			qqq.basetype = BASE_U8;
+			qqq.pointerlevel = 1;
+			insert_implied_type_conversion(
+				ee->subnodes+0, 
+				qqq
+			);
+		}
+		if(symbol_table[ee->symid].nargs)
+			for(i = 0; i < 1; i++){
+				type qqq;
+				qqq = symbol_table[ee->symid].fargs[i][0];
+				qqq.is_lvalue = 0;
+				qqq.membername = NULL;
+				insert_implied_type_conversion(
+					ee->subnodes+1, 
+					qqq
+				);
+			}
 		return;
 	}
 	if(ee->kind == EXPR_BUILTIN_CALL){

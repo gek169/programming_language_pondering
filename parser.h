@@ -155,6 +155,9 @@ static inline uint64_t ID_KEYW_STRING(const char* s){
 	/*atomic and volatile keywords.*/
 	if(streq("atomic",s)) return 39;
 	if(streq("volatile",s)) return 40;
+
+	if(streq("getfnptr",s)) return 41;
+	if(streq("callfnptr",s)) return 42;
 	puts("Internal Error: Unknown keyw_string, add it:");
 	puts(s);
 	exit(1);

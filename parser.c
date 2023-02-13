@@ -1200,11 +1200,10 @@ void expr_parse_fcall(expr_node** targ){
 				symbol_table[i].t.is_function != 0, 
 				"expr_parse_fcall: not a function"
 			);
-			if(symbol_table[active_function].is_codegen == 0)
-				require(
-					symbol_table[i].is_codegen == 0,
-					"expr_parse_fcall: A non-codegen (non compiletime) function may not invoke a codegen function."
-				);
+			require(
+				symbol_table[i].is_codegen == symbol_table[active_function].is_codegen ,
+				"expr_parse_fcall: is_codegen mismatch."
+			);
 			found_function = 1;
 			f.symid = i;
 			break;
@@ -1349,6 +1348,106 @@ void expr_parse_constexprf(expr_node** targ){
 	EXPR_PARSE_BOILERPLATE
 }
 
+//getfnptr(fname)
+void expr_parse_getfnptr(expr_node** targ){
+	expr_node f = {0};
+	f.kind = EXPR_GETFNPTR;
+	int found_function = 0;
+	uint64_t i;
+	require(peek_match_keyw("getfnptr"), "expr_parse_getfnptr requires the keyword getfnptr");
+	consume();
+	require(peek()->data == TOK_OPAREN, "expr_parse_getfnptrf requires opening parentheses");
+	consume();
+	require(peek_is_fname(), "getfnptr requires a function pointer!");
+		f.symname = strdup(peek()->text);
+
+		for( i = 0; i < nsymbols; i++){
+			if(streq(f.symname, symbol_table[i].name)){
+				require(
+					symbol_table[i].t.is_function != 0, 
+					"expr_parse_getfnptr: not a function"
+				);
+				require(
+					symbol_table[i].is_codegen == symbol_table[active_function].is_codegen ,
+					"expr_parse_getfnptr: is_codegen mismatch."
+				);
+				require(
+					symbol_table[i].is_inline == 0,
+					"expr_parse_getfnptr: cannot get pointer to inline function."
+				);
+				found_function = 1;
+				f.symid = i;
+				break;
+			}
+		}
+		require(found_function, "Did not find function to get pointer to!");
+	consume();
+	require(peek()->data == TOK_CPAREN, "expr_parse_getfnptr requires closing parentheses");
+	consume();
+	EXPR_PARSE_BOILERPLATE
+}
+//callfnptr[protofn](expr)(optional:expr)
+void expr_parse_callfnptr(expr_node** targ){
+	expr_node f = {0};
+	uint64_t i;
+	uint64_t nargs = 0;
+	int found_function = 0;
+	f.kind = EXPR_CALLFNPTR;
+	require(peek_match_keyw("callfnptr"), "expr_parse_callfnptr requires the keyword callfnptr");
+	consume();
+	require(peek()->data == TOK_OBRACK, "expr_parse_callfnptr requires opening bracket.");
+	consume();
+	require(peek_is_fname(), "function name required: function matching prototype of function pointer.");
+
+	f.is_function = 1;
+	f.symname = strdup(peek()->text);
+
+	for( i = 0; i < nsymbols; i++){
+		if(streq(f.symname, symbol_table[i].name)){
+			require(
+				symbol_table[i].t.is_function != 0, 
+				"expr_parse_callfnptr: prototype is not a function"
+			);
+			require(
+				symbol_table[i].is_codegen == symbol_table[active_function].is_codegen,
+				"expr_parse_callfnptr: prototype function has mismatch on is_codegen."
+			);
+			nargs = symbol_table[i].nargs;
+			require(nargs < 2, "expr_parse_callfnptr: prototype function has more than 1 argument. Not allowed!");
+			found_function = 1;
+			f.symid = i;
+			f.fnptr_nargs = nargs;
+			break;
+		}
+	}
+	require(found_function != 0, "expr_parse_callfnptr could not find referenced prototype function");
+	consume(); /*eat the prototype name*/
+
+	
+	require(peek()->data == TOK_CBRACK, "expr_parse_callfnptr requires closing bracket.");
+	consume();
+	require(peek()->data == TOK_OPAREN, "expr_parse_callfnptr requires opening parentheses");
+	consume();
+	//function pointer.
+	parse_expr(f.subnodes);
+	require(peek()->data == TOK_CPAREN, "expr_parse_callfnptr requires closing parentheses");
+	consume();
+
+	if(nargs){
+		require(peek()->data == TOK_OPAREN, "expr_parse_callfnptr requires opening parentheses");
+		consume();
+		parse_expr(f.subnodes+1);
+		require(peek()->data == TOK_CPAREN, "expr_parse_callfnptr requires closing parentheses");
+		consume();
+	} else {
+		require(peek()->data == TOK_OPAREN, "expr_parse_callfnptr requires opening parentheses");
+		consume();
+		require(peek()->data == TOK_CPAREN, "expr_parse_callfnptr requires closing parentheses");
+		consume();
+	}
+	EXPR_PARSE_BOILERPLATE
+}
+
 /*the terminal thing- a literal, identifier, function call, or sizeof*/
 void expr_parse_terminal(expr_node** targ){
 	if(peek_match_keyw("sizeof"))
@@ -1362,6 +1461,14 @@ void expr_parse_terminal(expr_node** targ){
 	}
 	if(peek_match_keyw("constexprf")){
 		expr_parse_constexprf(targ);
+		return;
+	}
+	if(peek_match_keyw("getfnptr")){
+		expr_parse_getfnptr(targ);
+		return;
+	}
+	if(peek_match_keyw("callfnptr")){
+		expr_parse_callfnptr(targ);
 		return;
 	}
 	if(peek()->data == TOK_FLOAT_CONST){

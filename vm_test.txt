@@ -13,6 +13,14 @@ fn codegen pure addnums(int a, int b)->int:
 	return a+b;
 end
 
+fn codegen add7tonum(int a)->int:
+	return a + 7;
+end
+
+fn codegen add12tonum(int a)->int:
+	return a + 12;
+end
+
 fn codegen pure subnums(int a, int b)->int:
 	//i_unused = cast(double*) 0;
 	//not_pure_function();
@@ -333,7 +341,21 @@ proc codegen codegen_main():
 
 	i = subnums(3,0);
 
+	if(1)
+		char[500] buf
+		char* b
+		int funcpointertest
+		b = getfnptr(add7tonum);
+		__builtin_utoa(buf, cast(u64)b);
+		__builtin_puts("getfnptr test, getfnptr(add7tonum):");
+		__builtin_puts(buf);
 
+		funcpointertest = callfnptr[add12tonum](b)(13);
+		//funcpointertest = callfnptr[add12tonum](13.0)(13);
+		__builtin_utoa(buf, funcpointertest);
+		__builtin_puts("callfnptr test, should be 7 + 13, or 20:");
+		__builtin_puts(buf);
+	end
 	
 	while((i > 0) /*|| 1*/
 	)
