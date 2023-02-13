@@ -147,6 +147,9 @@ fn streq_tester():
 end
 
 
+data codegen predecl i32 myintegers;
+data codegen int myintegers 0,1,2,3+4;
+
 fn inline pure impl_streq(char* a, char* b)->i32:
 	int i
 	i = 0;
@@ -317,6 +320,10 @@ proc codegen codegen_main():
 
 		__builtin_utoa(buf, cast(uqword)(bruhbruh-2));
 		__builtin_puts("array addressing test, bruhbruh-2 pointer:");
+		__builtin_puts(buf);
+
+		__builtin_utoa(buf, myintegers[3]);
+		__builtin_puts("data test, myintegers[3]:");
 		__builtin_puts(buf);
 	end
 	

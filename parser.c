@@ -285,6 +285,8 @@ void parse_gvardecl(){
 	uint64_t is_new_symbol = 0;
 	uint64_t is_predecl = 0;
 	uint64_t is_codegen = 0;
+	uint64_t is_atomic = 0;
+	uint64_t is_volatile = 0;
 	int had_equals = 0;
 	type t = {0};
 	int64_t cval;
@@ -304,15 +306,26 @@ void parse_gvardecl(){
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("pub")){
 			is_pub = 1;
 			consume();
-			if(!peek()) parse_error("Global variable declaration parsing halted: NULL");
 		}
 	if(peek()->data == TOK_KEYWORD)
 		if(ID_KEYW(peek()) == ID_KEYW_STRING("static")){
 			require(!is_pub, "Cannot have public and static, they are opposites!");
 			is_pub = 0;
 			consume();
-			if(!peek()) parse_error("Global variable declaration parsing halted: NULL");
 		}
+	if(peek()->data == TOK_KEYWORD)
+		if(ID_KEYW(peek()) == ID_KEYW_STRING("atomic")){
+			require(is_codegen == 0, "Cannot have both codegen and atomic qualifiers on a global variable declaration.");
+			is_atomic = 1;
+			consume();
+		}
+	if(peek()->data == TOK_KEYWORD)
+		if(ID_KEYW(peek()) == ID_KEYW_STRING("volatile")){
+			require(is_atomic == 0, "Cannot have both atomic and volatile qualifiers on a declaration.");
+			is_volatile = 1;
+			consume();
+		}
+	
 	require(peek_is_typename(),"Global variable declaration parsing requires a typename");
 	t = parse_type();
 	require(type_can_be_variable(t), "Invalid type for global variable.");
@@ -337,7 +350,10 @@ void parse_gvardecl(){
 				/*check for compatible declaration.*/
 				if(!is_predecl)
 					require(!!symbol_table[i].is_incomplete, "Attempted to redefine complete Global Variable.");
+				
 				require(symbol_table[i].is_codegen == is_codegen,"Global Variable Predeclaration-definition mismatch (is_codegen)");
+				require(symbol_table[i].is_volatile == is_volatile,"Global Variable Predeclaration-definition mismatch (is_volatile)");
+				require(symbol_table[i].is_atomic == is_atomic,"Global Variable Predeclaration-definition mismatch (is_atomic)");
 				require(symbol_table[i].is_pub == is_pub,"Global Variable Predeclaration-definition mismatch (is_pub)");
 				require(symbol_table[i].t.basetype == t.basetype, "Global Variable Predeclaration-definition mismatch (basetype)");
 				require(symbol_table[i].t.pointerlevel == t.pointerlevel, "Global Variable Predeclaration-definition mismatch (pointerlevel)");
@@ -369,6 +385,8 @@ void parse_gvardecl(){
 		symbol_table[symid].name = strdup(peek()->text);
 		symbol_table[symid].is_pub = is_pub;
 		symbol_table[symid].is_codegen = is_codegen;
+		symbol_table[symid].is_volatile = is_volatile;
+		symbol_table[symid].is_atomic = is_atomic;
 	}
 	/*If we are predeclaring something which was already defined, we don't want to suddenly make it incomplete again.*/
 	/*A new symbol always inherits our is_predecl*/
@@ -539,6 +557,8 @@ void parse_datastmt(){
 						symbol_table[i].is_incomplete != 0, 
 						"Attempted to redefine complete Data Statement."
 					);
+				require(symbol_table[i].is_volatile == 0,"Data Statement Predeclaration-definition mismatch (is_volatile)");
+				require(symbol_table[i].is_atomic == 0,"Data Statement Predeclaration-definition mismatch (is_atomic)");
 				require(symbol_table[i].is_codegen == is_codegen,"Data Statement Predeclaration-definition mismatch (is_codegen)");
 				require(symbol_table[i].is_pub == is_pub,"Data Statement Predeclaration-definition mismatch (is_pub)");
 				require(symbol_table[i].t.basetype == t.basetype, "Data Statement Predeclaration-definition mismatch (basetype)");

@@ -152,6 +152,9 @@ static inline uint64_t ID_KEYW_STRING(const char* s){
 
 	if(streq("pure",s)) return 37;
 	if(streq("inline",s)) return 38;
+	/*atomic and volatile keywords.*/
+	if(streq("atomic",s)) return 39;
+	if(streq("volatile",s)) return 40;
 	puts("Internal Error: Unknown keyw_string, add it:");
 	puts(s);
 	exit(1);
