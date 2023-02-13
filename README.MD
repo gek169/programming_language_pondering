@@ -240,9 +240,9 @@ the register size is.
 
 ## TODO before alpha release:
 
-[_] - Implement `volatile` qualifier for global variables.
+[X] - Implement `volatile` qualifier for global variables.
 
-[_] - Implement `atomic` qualifier for global variables.
+[X] - Implement `atomic` qualifier for global variables.
 
 [X] - Implement limited compatibility with 32 bit targets. At least for non-codegen code.
 
