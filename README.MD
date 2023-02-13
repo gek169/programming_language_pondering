@@ -43,7 +43,6 @@ end
 ```
 
 This obviously doesn't demonstrate even ten percent of the language, but, it should give you an idea of what it
-
 feels like.
 
 
