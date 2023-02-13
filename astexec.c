@@ -1022,6 +1022,20 @@ void do_expr(expr_node* ee){
 		if(ee->t.pointerlevel > 0)
 			if(ee->subnodes[0]->t.pointerlevel > 0)
 				goto end_expr_cast;
+		/*u64/i64 to pointer?*/
+		if(ee->t.pointerlevel > 0)
+			if(ee->subnodes[0]->t.basetype == BASE_U64 ||
+				ee->subnodes[0]->t.basetype == BASE_I64
+			){
+				goto end_expr_cast;
+			}
+		/*Pointer to u/i64??*/
+		if(	
+			ee->t.basetype == BASE_U64 ||
+			ee->t.basetype == BASE_I64
+		)
+			if(ee->subnodes[0]->t.pointerlevel > 0)
+				goto end_expr_cast;
 		/*TO POINTER.*/
 		if(ee->t.pointerlevel){
 			data = do_primitive_type_conversion(
