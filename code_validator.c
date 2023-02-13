@@ -1682,6 +1682,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	}
 	if(ee->kind == EXPR_NEG){
 		t_target = ee->t;
+		t_target.is_lvalue = 0;
 		if(t_target.pointerlevel > 0)
 			throw_type_error("Cannot negate pointer.");
 		if(t_target.basetype == BASE_U8 ||
