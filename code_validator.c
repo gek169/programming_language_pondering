@@ -1044,7 +1044,8 @@ static void propagate_types(expr_node* ee){
 		if(t.pointerlevel != 1 ||
 			t2.pointerlevel != 1 ||
 			t.basetype != BASE_U8 ||
-			t2.basetype != BASE_U8){
+			t2.basetype != BASE_U8
+		){
 				throw_type_error("EXPR_STREQ requires two char pointers!");
 			}
 		if(symbol_table[active_function].is_codegen == 0)
