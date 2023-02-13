@@ -331,8 +331,9 @@ proc codegen codegen_main():
 		i--;
 	end
 
-	
+	while(1) break end	
 	if(1) end
-	__builtin_puts("Goodbye!");
+	__builtin_puts("\tGoodbye!\nHave a Good day!\n");
+
 	return;
 end
