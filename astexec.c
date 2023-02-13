@@ -671,8 +671,7 @@ void do_expr(expr_node* ee){
 		cur_expr_stack_usage = saved_cur_expr_stack_usage;
 		active_function = saved_active_function;
 		vm_stackpointer = saved_vstack_pointer;
-		//ast_vm_stack_pop();
-		if(ee->fnptr_nargs) ast_vm_stack_pop();
+		for(i = 0; i < (int64_t)ee->fnptr_nargs; i++) {ast_vm_stack_pop();}
 		return;
 	}
 	if(ee->kind == EXPR_LSYM || ee->kind == EXPR_GSYM){

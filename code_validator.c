@@ -1495,7 +1495,7 @@ static void validate_function_argument_passing(expr_node* ee){
 			} else{
 				throw_if_types_incompatible(
 					symbol_table[ee->symid].fargs[i][0], 
-					ee->subnodes[1]->t,
+					ee->subnodes[i+1]->t,
 					buf_err
 				);
 			}
@@ -1559,8 +1559,7 @@ static void insert_implied_type_conversion(expr_node** e_ptr, type t){
 	cast.type_to_get_size_of = t;
 	cast.t = t;
 	cast.subnodes[0] = *e_ptr;
-
-
+	cast.is_implied = 1;
 
 
 	if(t.pointerlevel != e_ptr[0][0].t.pointerlevel){
@@ -1918,6 +1917,11 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			qqq = symbol_table[ee->symid].fargs[i][0];
 			qqq.is_lvalue = 0;
 			qqq.membername = NULL;
+			throw_if_types_incompatible(
+				ee->subnodes[i]->t,
+				qqq,
+				"fnptr argument is wrong."
+			);
 			insert_implied_type_conversion(
 				ee->subnodes+i, 
 				qqq
@@ -1941,13 +1945,18 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			);
 		}
 		if(symbol_table[ee->symid].nargs)
-			for(i = 0; i < 1; i++){
+			for(i = 0; i < symbol_table[ee->symid].nargs; i++){
 				type qqq;
 				qqq = symbol_table[ee->symid].fargs[i][0];
 				qqq.is_lvalue = 0;
 				qqq.membername = NULL;
+				throw_if_types_incompatible(
+					ee->subnodes[1+i]->t,
+					qqq,
+					"fnptr argument is wrong."
+				);
 				insert_implied_type_conversion(
-					ee->subnodes+1, 
+					ee->subnodes+1+i, 
 					qqq
 				);
 			}

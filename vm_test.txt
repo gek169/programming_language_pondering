@@ -355,6 +355,12 @@ proc codegen codegen_main():
 		__builtin_utoa(buf, funcpointertest);
 		__builtin_puts("callfnptr test, should be 7 + 13, or 20:");
 		__builtin_puts(buf);
+
+		b = getfnptr(subnums);
+		funcpointertest = callfnptr[addnums](b)(256,128);
+		__builtin_utoa(buf, funcpointertest);
+		__builtin_puts("callfnptr test, should be 256 - 128, or 128:");
+		__builtin_puts(buf);
 	end
 	
 	while((i > 0) /*|| 1*/

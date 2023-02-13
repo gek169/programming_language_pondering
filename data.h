@@ -286,6 +286,7 @@ typedef struct expr_node{
 	uint64_t is_function;
 	uint64_t fnptr_nargs;
 	uint64_t is_local_variable;
+	uint64_t is_implied;
 	char* referenced_label_name;
 	char* symname;  /*if method: this is unmangled. */
 	char* method_name; /*if method: this is mangled. */

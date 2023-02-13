@@ -1360,7 +1360,6 @@ void expr_parse_getfnptr(expr_node** targ){
 	consume();
 	require(peek_is_fname(), "getfnptr requires a function pointer!");
 		f.symname = strdup(peek()->text);
-
 		for( i = 0; i < nsymbols; i++){
 			if(streq(f.symname, symbol_table[i].name)){
 				require(
@@ -1389,7 +1388,7 @@ void expr_parse_getfnptr(expr_node** targ){
 //callfnptr[protofn](expr)(optional:expr)
 void expr_parse_callfnptr(expr_node** targ){
 	expr_node f = {0};
-	uint64_t i;
+	int64_t i;
 	uint64_t nargs = 0;
 	int found_function = 0;
 	f.kind = EXPR_CALLFNPTR;
@@ -1402,7 +1401,7 @@ void expr_parse_callfnptr(expr_node** targ){
 	f.is_function = 1;
 	f.symname = strdup(peek()->text);
 
-	for( i = 0; i < nsymbols; i++){
+	for( i = 0; i < (int64_t)nsymbols; i++){
 		if(streq(f.symname, symbol_table[i].name)){
 			require(
 				symbol_table[i].t.is_function != 0, 
@@ -1413,7 +1412,7 @@ void expr_parse_callfnptr(expr_node** targ){
 				"expr_parse_callfnptr: prototype function has mismatch on is_codegen."
 			);
 			nargs = symbol_table[i].nargs;
-			require(nargs < 2, "expr_parse_callfnptr: prototype function has more than 1 argument. Not allowed!");
+			require(nargs < (MAX_FARGS-1), "expr_parse_callfnptr: prototype function has too many arguments (MAX_FARGS-1). Not allowed!");
 			found_function = 1;
 			f.symid = i;
 			f.fnptr_nargs = nargs;
@@ -1436,7 +1435,13 @@ void expr_parse_callfnptr(expr_node** targ){
 	if(nargs){
 		require(peek()->data == TOK_OPAREN, "expr_parse_callfnptr requires opening parentheses");
 		consume();
-		parse_expr(f.subnodes+1);
+		for(i = 0; i < (int64_t)nargs; i++){
+			parse_expr(f.subnodes+1+i);
+			if(i < ((int64_t)nargs-1) ){
+				require(peek()->data == TOK_COMMA, "expr_parse_callfnptr: expected comma (need more arguments).");
+				consume();
+			}
+		}
 		require(peek()->data == TOK_CPAREN, "expr_parse_callfnptr requires closing parentheses");
 		consume();
 	} else {
@@ -1666,6 +1671,7 @@ void expr_parse_prefix(expr_node** targ){
 	if(peek_match_keyw("cast")){
 		f = c_allocX(sizeof(expr_node));
 		f->kind = EXPR_CAST;
+		f->is_implied = 0;
 		consume(); //eat 'cast'
 		require(peek()->data == TOK_OPAREN, "cast requires opening parentheses.");
 		consume(); //
