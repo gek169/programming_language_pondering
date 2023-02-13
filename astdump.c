@@ -97,6 +97,19 @@ static void astdump_printexpr(expr_node* e, uint64_t indentlevel){
 	c = e->kind;
 	fputs("\n",stdout);
 	do_indent(indentlevel);
+	if(c == EXPR_GETFNPTR) {
+		fputs("getfnptr(", stdout);
+		if(e->symname)
+			fputs(e->symname,stdout);
+		fputs(") ", stdout);
+	}
+	if(c == EXPR_CALLFNPTR){
+		fputs("callfnptr proto=",stdout);
+		if(e->symname)
+			fputs(e->symname,stdout);
+		else
+			fputs("!!<NONE>!!",stdout);
+	}
 	if(c == EXPR_SIZEOF) fputs("sizeof",stdout);
 	if(c == EXPR_INTLIT) fputs("intlit",stdout);
 	if(c == EXPR_FLOATLIT) fputs("floatlit",stdout);
