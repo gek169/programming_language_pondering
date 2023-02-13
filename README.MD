@@ -244,7 +244,7 @@ the register size is.
 
 [X] - Implement `atomic` qualifier for global variables.
 
-[X] - Implement limited compatibility with 32 bit targets. At least for non-codegen code.
+[X] - Implement limited compatibility with non-64-bit targets.
 
 		(I'm fine with the actual compiler itself being 64-bit only.)
 
@@ -260,7 +260,7 @@ the register size is.
 
 [X] - function pointers (By recommendation)
 
-[_] - Bitwise type promotion instead of force SIGNED_WORD_BASE.
+[_]?- Bitwise type promotion instead of force SIGNED_WORD_BASE.
 
 ## Beta plan- implement C backend, port SEABASS to itself.
 
