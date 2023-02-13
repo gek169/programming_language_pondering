@@ -706,7 +706,8 @@ static void propagate_types(expr_node* ee){
 			ee->subnodes[1]->t.basetype == BASE_F32 ||
 			ee->subnodes[1]->t.basetype == BASE_F64 ||
 			ee->subnodes[1]->t.basetype == BASE_VOID ||
-			ee->subnodes[1]->t.basetype == BASE_STRUCT
+			ee->subnodes[1]->t.basetype == BASE_STRUCT ||
+			ee->subnodes[1]->t.basetype > BASE_STRUCT
 		){
 			throw_type_error("Indexing requires an integer.");
 		}
@@ -806,7 +807,7 @@ static void propagate_types(expr_node* ee){
 				if(ee->t.arraylen > 0){
 					ee->t.arraylen = 0;
 				}
-				ee->t.pointerlevel++;
+				ee->t.pointerlevel++; //for arrays, this is what we would do if we were decaying an array, anyway!
 				//handle:struct member is function
 				if(ee->t.is_function){
 					puts("Error: Struct member is function. How did that happen?");
@@ -945,6 +946,18 @@ static void propagate_types(expr_node* ee){
 				puts(symbol_table[active_function].name);
 				throw_type_error("Purity check failure.");
 			}
+		for(i = 0; ee->subnodes[i] != NULL; i++);
+		if(i != symbol_table[ee->symid].nargs){
+			puts("This function:");
+			puts(ee->symname);
+			puts("Was called with the wrong number of arguments.");
+			throw_type_error_with_expression_enums(
+				"function invoked with wrong number of arguments! a=me",
+				ee->kind,
+				EXPR_BAD
+			);
+		}
+		
 		ee->t = symbol_table[ee->symid].t;
 		ee->t.is_function = 0;
 		ee->t.funcid = 0;
@@ -959,6 +972,17 @@ static void propagate_types(expr_node* ee){
 			puts("<VALIDATOR ERROR>");
 			puts("You tried to invoke a function pointer in a pure function. That is not allowed!");
 			validator_exit_err();
+		}
+		for(i = 0; ee->subnodes[i] != NULL; i++);
+		if(i != symbol_table[ee->symid].nargs+1){
+			puts("Function pointer, with the given prototype:");
+			puts(ee->symname);
+			puts("Was called with the wrong number of arguments.");
+			throw_type_error_with_expression_enums(
+				"function pointer invoked with wrong number of arguments! a=me",
+				ee->kind,
+				EXPR_BAD
+			);
 		}
 		ee->t = symbol_table[ee->symid].t;
 		ee->t.is_function = 0;
@@ -1525,19 +1549,19 @@ static void validate_codegen_safety(expr_node* ee){
 		ee->kind == EXPR_CALLFNPTR ||
 		ee->kind == EXPR_GETFNPTR
 	)
-		if(
-			symbol_table[active_function].is_codegen !=
-			symbol_table[ee->symid].is_codegen
-		){
-			puts("Codegen safety check failed!");
-			puts("This function:");
-			puts(symbol_table[active_function].name);
-			puts("May not at any time use this symbol:");
-			puts(symbol_table[ee->symid].name);
-			puts("Because one of them is declared 'codegen'");
-			puts("and the other is not!");
-			validator_exit_err();
-		}
+	if(
+		symbol_table[active_function].is_codegen !=
+		symbol_table[ee->symid].is_codegen
+	){
+		puts("Codegen safety check failed!");
+		puts("This function:");
+		puts(symbol_table[active_function].name);
+		puts("May not at any time use this symbol:");
+		puts(symbol_table[ee->symid].name);
+		puts("Because one of them is declared 'codegen'");
+		puts("and the other is not!");
+		validator_exit_err();
+	}
 	if(symbol_table[active_function].is_codegen == 0)
 		if(ee->kind == EXPR_BUILTIN_CALL){
 			puts("Codegen safety check failed!");
@@ -1609,6 +1633,7 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	uint64_t WORD_BASE;
 	uint64_t SIGNED_WORD_BASE;
 	uint64_t FLOAT_BASE;
+	(void)FLOAT_BASE;
 	if(symbol_table[active_function].is_codegen){
 		WORD_BASE = BASE_U64;
 		SIGNED_WORD_BASE = BASE_I64;
