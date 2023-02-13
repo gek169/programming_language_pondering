@@ -1,0 +1,29 @@
+
+
+fn codegen fib(int n)->int:
+	if(n < 2)
+		return 1;
+	end
+	int a
+	int b
+	int c
+	b = a = 1;
+	c = 2;
+	n = n-2;
+	while(n)
+		c = a + b;
+		a = b;
+		b = c;
+		n--;
+	end
+	return c;
+end
+
+function codegen codegen_main():
+	char[500] buf
+
+	__builtin_itoa(buf, fib(7));
+	__builtin_puts("The fibonacci number is:");
+	__builtin_puts(buf);
+	return;	
+end
