@@ -22,14 +22,15 @@ In general, syntax is a mixture of lua, javascript, and C.
 Here's the famous `fib` demo:
 
 ```
-fn codegen fib(int n)->int:
+fn fib(int n)->int:
 	if(n < 2)
 		return 1;
 	end
 	int a
 	int b
 	int c
-	b = a = 1;
+	a = 1;
+	b = 1;
 	c = 2;
 	n = n-2;
 	while(n)
