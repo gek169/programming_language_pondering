@@ -987,6 +987,7 @@ static void tokenizer(
 				if(streq(current_meta->text, "streq"))current_meta->data = TOK_OPERATOR;
 				if(streq(current_meta->text, "strneq"))current_meta->data = TOK_OPERATOR;
 				if(streq(current_meta->text, "eq"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "neq"))current_meta->data = TOK_OPERATOR;
 				if(streq(current_meta->text, "equal"))current_meta->data = TOK_OPERATOR;
 				if(streq(current_meta->text, "equals"))current_meta->data = TOK_OPERATOR;
 				if(streq(current_meta->text, "nequal"))current_meta->data = TOK_OPERATOR;
