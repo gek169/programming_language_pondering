@@ -126,6 +126,7 @@ typedef struct{
 	uint64_t is_volatile; /*again, only for global variables.*/
 	uint64_t is_impure_globals_or_asm; /*contains impure behavior.*/
 	uint64_t is_impure_uses_incomplete_symbols; /*uses incomplete symbols.*/
+	uint64_t is_data; /*only set for data.*/
 	/*Code generator data.*/
 	uint8_t* cgen_udata;
 	uint64_t VM_function_stackframe_placement; /*For local variables and function args, used by the AST executor*/
@@ -269,8 +270,9 @@ enum{
 	EXPR_STREQ, //DONE
 	EXPR_STRNEQ, //DONE
 	EXPR_MEMBERPTR, //DONE
-	EXPR_GETFNPTR, //TODO
-	EXPR_CALLFNPTR, //TODO
+	EXPR_GETFNPTR, //DONE
+	EXPR_CALLFNPTR, //DONE
+	EXPR_GETGLOBALPTR, //TODO
 	NEXPR_TYPES
 };
 

@@ -345,11 +345,13 @@ proc codegen codegen_main():
 		char[500] buf
 		char* b
 		int funcpointertest
+
+		
 		b = getfnptr(add7tonum);
 		__builtin_utoa(buf, cast(u64)b);
 		__builtin_puts("getfnptr test, getfnptr(add7tonum):");
 		__builtin_puts(buf);
-
+		
 		funcpointertest = callfnptr[add12tonum](b)(13);
 		//funcpointertest = callfnptr[add12tonum](13.0)(13);
 		__builtin_utoa(buf, funcpointertest);
@@ -360,6 +362,12 @@ proc codegen codegen_main():
 		funcpointertest = callfnptr[addnums](b)(256,100);
 		__builtin_utoa(buf, funcpointertest);
 		__builtin_puts("callfnptr test (subnums), should be 256 - 100, or 156:");
+		__builtin_puts(buf);
+
+
+		getglobalptr(myGlobalLoopCounter)[0] = -47;
+		__builtin_itoa(buf, myGlobalLoopCounter);
+		__builtin_puts("getglobalptr test, should be -47:");
 		__builtin_puts(buf);
 	end
 	

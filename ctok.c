@@ -965,6 +965,7 @@ static void tokenizer(
 					streq(current_meta->text, "volatile")|| /*qualifier*/
 					streq(current_meta->text, "getfnptr")|| /*gets a function pointer.*/
 					streq(current_meta->text, "callfnptr")|| /*calls a function pointer.*/
+					streq(current_meta->text, "getglobalptr")|| /*gets pointer to global*/
 					streq(current_meta->text, "asm") /*extension*/
 					/*Builtins for metaprogramming.*/
 				){

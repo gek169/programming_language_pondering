@@ -158,6 +158,7 @@ static inline uint64_t ID_KEYW_STRING(const char* s){
 
 	if(streq("getfnptr",s)) return 41;
 	if(streq("callfnptr",s)) return 42;
+	if(streq("getglobalptr",s)) return 43;
 	puts("Internal Error: Unknown keyw_string, add it:");
 	puts(s);
 	exit(1);

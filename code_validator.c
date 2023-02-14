@@ -541,6 +541,18 @@ static void propagate_types(expr_node* ee){
 		ee->t = t;
 		return;
 	}
+	if(ee->kind == EXPR_GETGLOBALPTR){
+		t = symbol_table[ee->symid].t;
+		t.is_lvalue = 0;
+		if(t.arraylen){ //arrays need arrayness removed.
+			t.arraylen = 0;
+		}
+		if(symbol_table[ee->symid].is_data == 0){ //pointer level is not increased for data variables. they are already pointers!
+			t.pointerlevel++;
+		}
+		ee->t = t;
+		return;
+	}
 	if(ee->kind == EXPR_LSYM){
 		/*TODO*/
 		t = ee->t;
@@ -998,6 +1010,7 @@ static void propagate_types(expr_node* ee){
 		ee->t.is_lvalue = 0;
 		return;
 	}
+
 	if(ee->kind == EXPR_CAST){
 		t = ee->type_to_get_size_of;
 		t2 = ee->subnodes[0]->t;
@@ -1548,7 +1561,8 @@ static void validate_codegen_safety(expr_node* ee){
 		ee->kind == EXPR_FCALL || 
 		ee->kind == EXPR_METHOD ||
 		ee->kind == EXPR_CALLFNPTR ||
-		ee->kind == EXPR_GETFNPTR
+		ee->kind == EXPR_GETFNPTR ||
+		ee->kind == EXPR_GETGLOBALPTR
 	)
 	if(
 		symbol_table[active_function].is_codegen !=
@@ -1566,7 +1580,7 @@ static void validate_codegen_safety(expr_node* ee){
 	if(symbol_table[active_function].is_codegen == 0)
 		if(ee->kind == EXPR_BUILTIN_CALL){
 			puts("Codegen safety check failed!");
-			puts("This function:");
+			puts("This non-codegen function:");
 			puts(symbol_table[active_function].name);
 			puts("May not invoke builtin functions. Including this one:");
 			puts(ee->symname);
@@ -1972,6 +1986,9 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		return;
 	}
 	if(ee->kind == EXPR_GETFNPTR){
+		return;
+	}
+	if(ee->kind == EXPR_GETGLOBALPTR){
 		return;
 	}
 	if(ee->kind == EXPR_CALLFNPTR){

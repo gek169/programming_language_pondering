@@ -661,12 +661,12 @@ void do_expr(expr_node* ee){
 		for(i = 0; i < (int64_t)ee->fnptr_nargs; i++) {ast_vm_stack_pop();}
 		return;
 	}
-	if(ee->kind == EXPR_LSYM || ee->kind == EXPR_GSYM){
+	if(ee->kind == EXPR_LSYM || ee->kind == EXPR_GSYM || ee->kind == EXPR_GETGLOBALPTR){
 		void* p;		
 		uint64_t general;
 		if(ee->kind == EXPR_LSYM)
 			p = retrieve_variable_memory_pointer(ee->symname, 0);
-		if(ee->kind == EXPR_GSYM)
+		if(ee->kind == EXPR_GSYM || ee->kind == EXPR_GETGLOBALPTR)
 			p = retrieve_variable_memory_pointer(ee->symname, 1);
 /*
 		debug_print("Retrieved symbol variable memory pointer.",0,0);

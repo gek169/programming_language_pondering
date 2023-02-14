@@ -387,6 +387,7 @@ void parse_gvardecl(){
 		symbol_table[symid].is_codegen = is_codegen;
 		symbol_table[symid].is_volatile = is_volatile;
 		symbol_table[symid].is_atomic = is_atomic;
+		symbol_table[symid].is_data = 0;
 	}
 	/*If we are predeclaring something which was already defined, we don't want to suddenly make it incomplete again.*/
 	/*A new symbol always inherits our is_predecl*/
@@ -591,6 +592,7 @@ void parse_datastmt(){
 		symbol_table[symid].name = strdup(peek()->text);
 		symbol_table[symid].is_pub = is_pub;
 		symbol_table[symid].is_codegen = is_codegen;
+		symbol_table[symid].is_data = 1;
 	}
 
 
@@ -1385,6 +1387,40 @@ void expr_parse_getfnptr(expr_node** targ){
 	consume();
 	EXPR_PARSE_BOILERPLATE
 }
+
+void expr_parse_getglobalptr(expr_node** targ){
+	expr_node f = {0};
+	f.kind = EXPR_GETGLOBALPTR;
+	int found_sym = 0;
+	uint64_t i;
+	require(peek_match_keyw("getglobalptr"), "expr_parse_getglobal requires the keyword getglobalptr");
+	consume();
+	require(peek()->data == TOK_OPAREN, "expr_parse_getglobalptr requires opening parentheses");
+	consume();
+	require(!peek_is_fname(), "expr_parse_getglobalptr requires a global variable name, not a function!");
+	
+	f.symname = strdup(peek()->text);
+	for( i = 0; i < nsymbols; i++){
+		if(streq(f.symname, symbol_table[i].name)){
+			require(
+				symbol_table[i].t.is_function == 0, 
+				"expr_parse_getglobalptr: is a function"
+			);
+			require(
+				symbol_table[i].is_codegen == symbol_table[active_function].is_codegen ,
+				"expr_parse_getglobalptr: is_codegen mismatch."
+			);
+			found_sym = 1;
+			f.symid = i;
+			break;
+		}
+	}
+	require(found_sym, "Did not find global symbol!");
+	consume();
+	require(peek()->data == TOK_CPAREN, "expr_parse_getglobalptr requires closing parentheses");
+	consume();
+	EXPR_PARSE_BOILERPLATE
+}
 //callfnptr[protofn](expr)(optional:expr)
 void expr_parse_callfnptr(expr_node** targ){
 	expr_node f = {0};
@@ -1474,6 +1510,10 @@ void expr_parse_terminal(expr_node** targ){
 	}
 	if(peek_match_keyw("callfnptr")){
 		expr_parse_callfnptr(targ);
+		return;
+	}
+	if(peek_match_keyw("getglobalptr")){
+		expr_parse_getglobalptr(targ);
 		return;
 	}
 	if(peek()->data == TOK_FLOAT_CONST){
