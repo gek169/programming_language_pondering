@@ -813,7 +813,7 @@ void do_expr(expr_node* ee){
 		//debug_print("@Assignment! Pointer is:",(uint64_t)p1,0);
 
 		//If it's a pointer, we copy 8 bytes.
-		if(ee->t.pointerlevel > 0){
+		if(ee->subnodes[0]->t.pointerlevel > 0){
 			memcpy(
 				&val, 
 				&vm_stack[vm_stackpointer-1].smalldata, 
@@ -824,9 +824,9 @@ void do_expr(expr_node* ee){
 			goto end_expr_assign;
 		}
 		if(
-			ee->t.basetype == BASE_I64 || 
-			ee->t.basetype == BASE_F64 ||
-			ee->t.basetype == BASE_U64
+			ee->subnodes[0]->t.basetype == BASE_I64 || 
+			ee->subnodes[0]->t.basetype == BASE_F64 ||
+			ee->subnodes[0]->t.basetype == BASE_U64
 		)
 		{
 			memcpy(
@@ -838,9 +838,9 @@ void do_expr(expr_node* ee){
 			goto end_expr_assign;
 		}
 		if(
-			ee->t.basetype == BASE_I32 || 
-			ee->t.basetype == BASE_F32 ||
-			ee->t.basetype == BASE_U32
+			ee->subnodes[0]->t.basetype == BASE_I32 || 
+			ee->subnodes[0]->t.basetype == BASE_F32 ||
+			ee->subnodes[0]->t.basetype == BASE_U32
 		)
 		{
 			memcpy(
@@ -852,8 +852,8 @@ void do_expr(expr_node* ee){
 			goto end_expr_assign;
 		}
 		if(
-			ee->t.basetype == BASE_I16 ||
-			ee->t.basetype == BASE_U16
+			ee->subnodes[0]->t.basetype == BASE_I16 ||
+			ee->subnodes[0]->t.basetype == BASE_U16
 		)
 		{
 			memcpy(
@@ -865,8 +865,8 @@ void do_expr(expr_node* ee){
 			goto end_expr_assign;
 		}
 		if(
-			ee->t.basetype == BASE_I8 ||
-			ee->t.basetype == BASE_U8
+			ee->subnodes[0]->t.basetype == BASE_I8 ||
+			ee->subnodes[0]->t.basetype == BASE_U8
 		)
 		{
 			memcpy(
@@ -883,8 +883,9 @@ void do_expr(expr_node* ee){
 
 		end_expr_assign:;
 		ast_vm_stack_pop(); //no longer need the second operand.
-		vm_stack[vm_stackpointer-1].smalldata = val;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//assignment now yields a void...
+		vm_stack[vm_stackpointer-1].smalldata = 0;
+		vm_stack[vm_stackpointer-1].t = type_init();
 		return;
 	}
 

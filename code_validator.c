@@ -1149,6 +1149,15 @@ static void propagate_types(expr_node* ee){
 					ee->subnodes[1]->kind
 				);
 		}
+		if(ee->subnodes[0]->t.basetype == BASE_STRUCT){
+			if(ee->subnodes[0]->t.structid !=
+				ee->subnodes[1]->t.structid)
+				throw_type_error_with_expression_enums(
+					"Assignment between incompatible types (structid) Operands:",
+					ee->subnodes[0]->kind,
+					ee->subnodes[1]->kind
+				);
+		}
 		if(ee->subnodes[0]->t.is_lvalue == 0){
 			throw_type_error_with_expression_enums("Cannot assign to non lvalue. Operands:",
 				ee->subnodes[0]->kind,
@@ -1156,8 +1165,6 @@ static void propagate_types(expr_node* ee){
 			);
 		}
 		ee->t = type_init();
-		ee->t = ee->subnodes[0]->t; /*it assigns, and then gets that value.*/
-		ee->t.is_lvalue = 0; /*You can't assign to the output of an assignment statement.*/
 		return;
 	}
 	if(ee->kind == EXPR_MOVE){

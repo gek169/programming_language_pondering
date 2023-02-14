@@ -284,7 +284,9 @@ proc codegen codegen_main():
 		int a
 		int b
 		uint c
-		a = b = c = -47;
+		a = -47;
+		b = -47;
+		c = -47;
 		char[500] buf;
 		__builtin_itoa(buf, a);
 		__builtin_puts("This is a after an assignment chain:");
