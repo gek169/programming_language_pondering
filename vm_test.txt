@@ -379,6 +379,17 @@ proc codegen codegen_main():
 
 	while(1) break end	
 	if(1) end
+
+	if(1)
+		__builtin_puts("Now, for a test of a large loop.");
+		i64 quixote;
+		for(quixote = 0, quixote < 50000000, quixote++)
+			continue
+		end
+		__builtin_puts("It's over!");
+	end
+
+
 	__builtin_puts("\tGoodbye!\nHave a Good day!\n");
 
 	return;
