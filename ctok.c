@@ -537,6 +537,18 @@ static void tokenizer(
 				continue;
 			}
 
+			/*java equals operator*/
+			if(
+				work->text[i] == '=' &&
+				work->text[i+1] == '=' &&
+				work->text[i+2] == '='
+			){
+				work->data = (void*)9;
+				work = consume_bytes(work, 3);
+				i = -1;
+				continue;
+			}
+
 			/*-- operator*/
 			if(
 				work->text[i] == '-' &&
@@ -974,6 +986,13 @@ static void tokenizer(
 
 				if(streq(current_meta->text, "streq"))current_meta->data = TOK_OPERATOR;
 				if(streq(current_meta->text, "strneq"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "eq"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "equal"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "equals"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "nequal"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "nequals"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "notequal"))current_meta->data = TOK_OPERATOR;
+				if(streq(current_meta->text, "notequals"))current_meta->data = TOK_OPERATOR;
 				/*Delete escaped newlines and spaces.*/
 				if(
 					current_meta->data == (void*)19 || /*MAGIC escaped newline*/

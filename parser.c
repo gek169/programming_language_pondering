@@ -1907,7 +1907,13 @@ void expr_parse_compare(expr_node** targ){
 	expr_parse_bit(&a);
 	while(1){
 		if(peek()->data == TOK_OPERATOR){
-			if(streq(peek()->text, "==")){
+			if(
+				streq(peek()->text, "==") ||
+				streq(peek()->text, "===") ||
+				streq(peek()->text, "eq") ||
+				streq(peek()->text, "equal") ||
+				streq(peek()->text, "equals")
+			){
 				consume();
 				c = c_allocX(sizeof(expr_node));
 				c->kind = EXPR_EQ;
@@ -1946,7 +1952,14 @@ void expr_parse_compare(expr_node** targ){
 				b = NULL;
 				continue;
 			}
-			if(streq(peek()->text, "!=")){
+			if(
+				streq(peek()->text, "!=") ||
+				streq(peek()->text, "neq") ||
+				streq(peek()->text, "nequal") ||
+				streq(peek()->text, "nequals") ||
+				streq(peek()->text, "notequal") ||
+				streq(peek()->text, "notequals")
+			){
 				consume();
 				c = c_allocX(sizeof(expr_node));
 				c->kind = EXPR_NEQ;

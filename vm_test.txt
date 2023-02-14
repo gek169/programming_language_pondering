@@ -57,8 +57,8 @@ end
 
 
 method codegen myClass:doStuff()->u64:
-	if(this.x == 3)
-		__builtin_puts("I can indeed see that.");
+	if(this.x equals 3)
+		__builtin_puts("I can indeed see that (myClass:doStuff)");
 	end
 	this.x = 3;
 	return 0;
