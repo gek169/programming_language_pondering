@@ -9,7 +9,7 @@ fn codegen fib(int n)->int:
 	int c
 	a = 1;
 	b = 1;
-	c = 2;
+	c = 1;
 	n = n-2;
 	while(n)
 		c = a + b;
@@ -22,8 +22,9 @@ end
 
 function codegen codegen_main():
 	char[500] buf
-
-	__builtin_itoa(buf, fib(7));
+	int mynum
+	mynum = __builtin_atoi(__builtin_getargv()[2]);
+	__builtin_itoa(buf, fib(mynum));
 	__builtin_puts("The fibonacci number is:");
 	__builtin_puts(buf);
 	return;	

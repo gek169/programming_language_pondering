@@ -31,7 +31,7 @@ fn fib(int n)->int:
 	int c
 	a = 1;
 	b = 1;
-	c = 2;
+	c = 1;
 	n = n-2;
 	while(n)
 		c = a + b;
