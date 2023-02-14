@@ -645,28 +645,15 @@ void do_expr(expr_node* ee){
 	if(ee->kind == EXPR_CALLFNPTR){
 		uint64_t retrieved_pointer;
 		int64_t i;
-		int found = 0;
+		//int found = 0;
 		retrieved_pointer = vm_stack[vm_stackpointer-1].smalldata; //function pointer was on top.
 		ast_vm_stack_pop();
 		saved_cur_func_frame_size = cur_func_frame_size;
 		saved_cur_expr_stack_usage = cur_expr_stack_usage;
 		saved_active_function= active_function;
 		saved_vstack_pointer = vm_stackpointer;
-
-
-		for(i = 0; i < (int64_t)nsymbols; i++)
-			if(retrieved_pointer == (uint64_t)(symbol_table + i)){
-				ast_execute_function(symbol_table + i);
-				found = 1;
-				break;
-			}
-		if(!found){
-			puts("VM error:");
-			puts("EXPR_CALLFNPTR on non-function pointer.");
-			puts("The active function was:");
-			puts(symbol_table[active_function].name);
-			exit(1);
-		}
+		
+		ast_execute_function((symdecl*)retrieved_pointer);
 		cur_func_frame_size = saved_cur_func_frame_size;
 		cur_expr_stack_usage = saved_cur_expr_stack_usage;
 		active_function = saved_active_function;

@@ -6,15 +6,15 @@
 #include "data.h"
 
 typedef struct{
-	typedecl* type_table;
-	symdecl* symbol_table;
-	scope** scopestack;
-	stmt** loopstack;
-	uint64_t active_function;
-	uint64_t ntypedecls;
-	uint64_t nsymbols;
-	uint64_t nscopes;
-	uint64_t nloops; /*Needed for identifying the parent loop.*/
+	typedecl** type_table;
+	symdecl** symbol_table;
+	scope*** scopestack;
+	stmt*** loopstack;
+	uint64_t* active_function;
+	uint64_t* ntypedecls;
+	uint64_t* nsymbols;
+	uint64_t* nscopes;
+	uint64_t* nloops; /*Needed for identifying the parent loop.*/
 }seabass_builtin_ast;
 
 /*

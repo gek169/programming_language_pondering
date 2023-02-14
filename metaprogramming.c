@@ -72,15 +72,17 @@ void impl_builtin_exit(int32_t errcode){
 seabass_builtin_ast* impl_builtin_get_ast(){
 	seabass_builtin_ast* retval = malloc(sizeof(seabass_builtin_ast));
 	if(retval == NULL){puts("<BUILTIN ERROR> malloc failed.");exit(1);}
-	retval->type_table = type_table;
-	retval->ntypedecls = ntypedecls;
-	retval->symbol_table = symbol_table;
-	retval->nsymbols = nsymbols;
-	retval->scopestack = scopestack;
-	retval->nscopes = nscopes;
-	retval->active_function = active_function;
-	retval->nloops = nloops;
-	retval->loopstack = loopstack;
+
+	retval->type_table = &type_table;
+	retval->symbol_table = &symbol_table;
+	retval->scopestack = &scopestack;
+	retval->loopstack = &loopstack;
+	retval->active_function = &active_function;
+
+	retval->nsymbols = &nsymbols;
+	retval->nscopes = &nscopes;
+	retval->ntypedecls = &ntypedecls;
+	retval->nloops = &nloops;
 	return retval;
 }
 strll* impl_builtin_peek(){
