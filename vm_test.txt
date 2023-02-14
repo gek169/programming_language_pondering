@@ -380,7 +380,7 @@ proc codegen codegen_main():
 	while(1) break end	
 	if(1) end
 
-	if(1)
+	if(0)
 		__builtin_puts("Now, for a test of a large loop.");
 		i64 quixote;
 		for(quixote = 0, quixote < 50000000, quixote++)
