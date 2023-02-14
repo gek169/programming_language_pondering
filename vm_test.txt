@@ -70,7 +70,7 @@ fn codegen assignArrayMember(int* a):
 end
 
 fn codegen manipClass(myClass* p):
-	if(p.x == 3)
+	if(p.x === 3)
 		__builtin_puts("I can also indeed see that.");
 	end
 	p.x = 3;
