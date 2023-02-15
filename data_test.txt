@@ -195,7 +195,7 @@ int q;
 
 fn codegen codegen_main():
 	int* x;
-	(__builtin_puts("Hello!" + 1));
+	(__builtin_puts("Hello!" + (1|1)));
 	__builtin_exit(1);
 	//q = x[0];
 end
@@ -253,33 +253,24 @@ method myClass:yetanotherfn(myClass a)->i32:
 end
 
 
-fn fib(i64 n)->i64:
-	i64 a;
-	i64 b;
-	i64 c;
-	int* test;
-	myClass bruh;
-
-	test = cast(int*)3;
-	if(a != 7.0e3) return 1; end
-
-	
-	if(n <= 2)
+fn fib(int n)->int:
+	if(n < 2)
 		return 1;
 	end
-	a = b = 1;
-	while(n > 2)
+	int a
+	int b
+	int c
+	a = 1;
+	b = 1;
+	c = 1;
+	n = n-2;
+	while(n)
 		c = a + b;
 		a = b;
 		b = c;
 		n--;
-	end 
-
-	return c;
-	//garbage for testing types..
-	if(7 || 3)
-		return 3;
 	end
+	return c;
 end
 
 
@@ -315,5 +306,6 @@ method YWING:move(vec4 change):
 	return;
 	//testing....
 	this.rgba[3] = this.rgba[this.rgba[0]]+1;
-	cast(i64)(change.x=change.x) < change.y;
+	change.x=change.x;
+	cast(i64)(change.x) < change.y;
 end
