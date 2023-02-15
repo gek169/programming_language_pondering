@@ -1,5 +1,5 @@
 CC= gcc
-CFLAGS= -O3 -std=gnu99
+CFLAGS= -O2 -std=gnu99
 
 ctok:
 	$(CC) $(CFLAGS) ctok.c parser.c data.c constexpr.c metaprogramming.c code_validator.c astexec.c astdump.c -o compiler -lm -g
