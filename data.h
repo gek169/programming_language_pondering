@@ -128,8 +128,8 @@ typedef struct{
 	uint64_t is_impure_uses_incomplete_symbols; /*uses incomplete symbols.*/
 	uint64_t is_data; /*only set for data.*/
 	/*Code generator data.*/
-	uint8_t* cgen_udata;
 	uint64_t VM_function_stackframe_placement; /*For local variables and function args, used by the AST executor*/
+	uint8_t* cgen_udata;
 } symdecl;
 
 
@@ -156,9 +156,9 @@ typedef struct scope{
 	uint64_t is_fbody;
 	uint64_t is_loopbody;
 	/*Code generator data.*/
-	uint8_t* cgen_udata;
 	uint64_t walker_point; /*Where was the code validator?*/
 	uint64_t stopped_at_scope1; /*Did the validator stop at myscope or myscope2?*/
+	uint8_t* cgen_udata;
 } scope;
 
 enum{
@@ -202,8 +202,6 @@ typedef struct stmt{
 	char** switch_label_list;
 	uint64_t* switch_label_indices; /**/
 	uint64_t switch_nlabels; /*how many labels does the switch have in it?*/
-	/*Code generator data.*/
-	uint8_t* cgen_udata;
 	/*Used for error printing...*/
 	uint64_t linenum;
 	uint64_t colnum;
@@ -211,6 +209,8 @@ typedef struct stmt{
 	int64_t goto_scopediff; /*how many scopes deep does this go?*/
 	int64_t goto_vardiff; /*How many local variables have to be popped to achieve the context switch?*/
 	int64_t goto_where_in_scope; /*What exact statement are we going to?*/
+	/*Code generator data.*/
+	uint8_t* cgen_udata;
 } stmt;
 
 enum{
