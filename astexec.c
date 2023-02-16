@@ -2143,7 +2143,8 @@ void do_expr(expr_node* ee){
 				4
 			);
 			impl_builtin_exit(v);
-			
+			puts("VM error: impl_builtin_exit returned?");
+			exit(1);
 			//memcpy(&vm_stack[saved_vstack_pointer-1].smalldata, &v, POINTER_SIZE);
 			goto end_of_builtin_call;
 		}
@@ -2351,6 +2352,33 @@ void do_expr(expr_node* ee){
 			);
 			goto end_of_builtin_call;
 		}
+		if(streq(ee->symname, "__builtin_peek_is_fname")){
+			int32_t f;
+			f = impl_builtin_peek_is_fname();
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&f, 
+				4
+			);
+			goto end_of_builtin_call;
+		}
+		if(streq(ee->symname, "__builtin_str_is_fname")){
+			char* buf;
+			int32_t f;
+			memcpy(
+				&buf, 
+				&vm_stack[vm_stackpointer-1].smalldata, 
+				POINTER_SIZE
+			);
+			f = impl_builtin_str_is_fname(buf);
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&f, 
+				4
+			);
+			goto end_of_builtin_call;
+		}
+
 		//TODO: implement more builtins.
 		puts("VM Error");
 		puts("Unhandled builtin call:");

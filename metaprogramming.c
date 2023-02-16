@@ -154,6 +154,32 @@ int64_t impl_builtin_atoi(char* buf){
 }
 
 
+
+/*
+	AST manip and analysis...
+*/
+int32_t impl_builtin_peek_is_fname(){
+	return peek_is_fname();
+}
+int32_t impl_builtin_str_is_fname(char* s){
+	return str_is_fname(s);
+} 
+
+void impl_builtin_scopestack_push(char* scopeptr){
+	scopestack_push((scope*)scopeptr);
+}
+void impl_builtin_scopestack_pop(){
+	scopestack_pop();
+}
+
+void impl_builtin_loopstack_push(char* stmtptr){
+	loopstack_push((stmt*)stmtptr);
+}
+void impl_builtin_loopstack_pop(){
+	loopstack_pop();
+}
+
+
 int is_builtin_name(char* s){
 	if(streq(s, "__builtin_emit")) return 1;
 	if(streq(s, "__builtin_open_ofile")) return 1;
@@ -184,6 +210,9 @@ int is_builtin_name(char* s){
 	if(streq(s, "__builtin_atof")) return 1;
 	if(streq(s, "__builtin_atou")) return 1;
 	if(streq(s, "__builtin_atoi")) return 1;
+	
+	if(streq(s, "__builtin_peek_is_fname")) return 1;
+	if(streq(s, "__builtin_str_is_fname")) return 1;
 	return 0;
 }
 
@@ -214,6 +243,10 @@ uint64_t get_builtin_nargs(char* s){
 	if(streq(s, "__builtin_atof")) return 1;
 	if(streq(s, "__builtin_atou")) return 1;
 	if(streq(s, "__builtin_atoi")) return 1;
+
+	if(streq(s, "__builtin_peek_is_fname")) return 0;
+	if(streq(s, "__builtin_str_is_fname")) return 1;
+	
 	return 0;
 }
 
@@ -245,6 +278,10 @@ uint64_t get_builtin_retval(char* s){
 	if(streq(s, "__builtin_atof")) return BUILTIN_PROTO_DOUBLE;
 	if(streq(s, "__builtin_atou")) return BUILTIN_PROTO_U64;
 	if(streq(s, "__builtin_atoi")) return BUILTIN_PROTO_I64;
+
+	if(streq(s, "__builtin_peek_is_fname")) return BUILTIN_PROTO_I32;
+	if(streq(s, "__builtin_str_is_fname")) return BUILTIN_PROTO_I32;
+	
 	return 0;
 }
 
@@ -270,6 +307,8 @@ uint64_t get_builtin_arg1_type(char* s){
 	if(streq(s, "__builtin_atof")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_atou")) return BUILTIN_PROTO_U8_PTR;
 	if(streq(s, "__builtin_atoi")) return BUILTIN_PROTO_U8_PTR;
+
+	if(streq(s, "__builtin_str_is_fname")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 uint64_t get_builtin_arg2_type(char* s){

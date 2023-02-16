@@ -22,34 +22,47 @@ typedef struct{
 */
 
 
-int impl_builtin_getargc();
-char** impl_builtin_getargv();
-void* impl_builtin_malloc(uint64_t sz);
-void* impl_builtin_realloc(char* p, uint64_t sz);
-uint64_t impl_builtin_type_getsz(char* p_in);
-uint64_t impl_builtin_struct_metadata(uint64_t which);
-char* impl_builtin_strdup(char* s);
-void impl_builtin_free(char* p);
-void impl_builtin_exit(int32_t errcode);
-seabass_builtin_ast* impl_builtin_get_ast();
-strll* impl_builtin_peek();
-void impl_builtin_puts(char* s);
-void impl_builtin_gets(char* s, uint64_t sz);
-int impl_builtin_open_ofile(char* fname);
-void impl_builtin_close_ofile();
-strll* impl_builtin_consume();
-uint64_t impl_builtin_emit(char* data, uint64_t sz);
-void impl_builtin_validate_function(char* p_in);
-void impl_builtin_memcpy(char* a, char* b, uint64_t sz);
+int impl_builtin_getargc(); //DONE
+char** impl_builtin_getargv(); //DONE
+void* impl_builtin_malloc(uint64_t sz); //DONE
+void* impl_builtin_realloc(char* p, uint64_t sz); //DONE
+uint64_t impl_builtin_type_getsz(char* p_in); //DONE
+uint64_t impl_builtin_struct_metadata(uint64_t which); //DONE
+char* impl_builtin_strdup(char* s); //DONE
+void impl_builtin_free(char* p); //DONE
+void impl_builtin_exit(int32_t errcode); //DONE
+seabass_builtin_ast* impl_builtin_get_ast(); //DONE
+strll* impl_builtin_peek(); //DONE
+void impl_builtin_puts(char* s); //DONE
+void impl_builtin_gets(char* s, uint64_t sz); //DONE
+int impl_builtin_open_ofile(char* fname); //DONE
+void impl_builtin_close_ofile(); //DONE
+strll* impl_builtin_consume(); //DONE
+uint64_t impl_builtin_emit(char* data, uint64_t sz); //DONE
+void impl_builtin_validate_function(char* p_in); //DONE
+void impl_builtin_memcpy(char* a, char* b, uint64_t sz); //DONE
 /* Saturday, February 11th: the blessed saturday, praise the Lord!
 	functions to implement...
 */
-void impl_builtin_utoa(char* buf, uint64_t v);
-void impl_builtin_itoa(char* buf, int64_t v);
-void impl_builtin_ftoa(char* buf, double v);
-uint64_t impl_builtin_atou(char* buf);
-double impl_builtin_atof(char* buf);
-int64_t impl_builtin_atoi(char* buf);
+void impl_builtin_utoa(char* buf, uint64_t v); //DONE
+void impl_builtin_itoa(char* buf, int64_t v); //DONE
+void impl_builtin_ftoa(char* buf, double v); //DONE
+uint64_t impl_builtin_atou(char* buf); //DONE
+double impl_builtin_atof(char* buf); //DONE
+int64_t impl_builtin_atoi(char* buf); //DONE
+
+/* AST manipulation functions.
+	
+*/
+int32_t impl_builtin_peek_is_fname(); //TODO
+int32_t impl_builtin_str_is_fname(char *s); //TODO
+
+void impl_builtin_scopestack_push(char* scopeptr);
+void impl_builtin_scopestack_pop();
+
+void impl_builtin_loopstack_push(char* stmtptr);
+void impl_builtin_loopstack_pop();
+
 
 
 

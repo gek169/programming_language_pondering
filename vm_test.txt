@@ -172,6 +172,19 @@ function inline pure impl_streq(char* a, char* b)->i32:
 	end
 end
 
+class codegen_ast_dontreuse
+	char*** type_table
+	char*** symbol_table
+	char*** scopestack
+	char*** loopstack
+	u64* active_function
+	u64* ntypedecls
+	u64* nsymbols
+	u64* nscopes
+	u64* nloops
+end
+
+
 
 proc codegen codegen_main():
 	myClass classy;
@@ -382,7 +395,7 @@ proc codegen codegen_main():
 	while(1) break end	
 	if(1) end
 
-	if(0|(7*9))
+	if(0|((7*9)&0))
 		__builtin_puts("Now, for a test of a large loop.");
 		i64 quixote;
 		for(quixote = 0, quixote < 50000000, quixote++)
@@ -391,8 +404,23 @@ proc codegen codegen_main():
 		__builtin_puts("It's over!");
 	end
 
+	if(1)
+		char[500] buf
+		codegen_ast_dontreuse* q;
+		
+		q = cast(codegen_ast_dontreuse*)__builtin_get_ast();
+		__builtin_itoa(buf, q.nsymbols[0]);
+		__builtin_puts("This is how many symbols were defined in the unit:");
+		__builtin_puts(buf);
+		__builtin_free(cast(char*)q);
+	end
+
 
 	__builtin_puts("\tGoodbye!\nHave a Good day!\n");
 
 	return;
 end
+
+predecl int beyond67;
+int beyond67;
+//int beyond68;
