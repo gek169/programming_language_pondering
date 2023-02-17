@@ -63,15 +63,20 @@ void parse_error(char* msg){
 	puts(msg);
 	if(next){
 		if(next->filename){
-			puts("File:");
-			puts(next->filename);
+			fputs("File:Line:Col\n",stdout);
+			fputs(next->filename,stdout);
+			fputs(":",stdout);
+		} else{
+			exit(1);
 		}
-		puts("Line Number:");
 		mutoa(buf,next->linenum);
-		puts(buf);
-		puts("Column Number:");
+		fputs(buf,stdout);
+		fputs(":",stdout);
+
 		mutoa(buf,next->colnum);
-		puts(buf);
+		fputs(buf,stdout);
+		fputs("\n",stdout);
+
 		puts("~~~~\nNote that the line number and column number");
 		puts("are where the parser invoked parse_error.");
 		puts("\n\n(the actual error may be slightly before,\nor on the previous line)");

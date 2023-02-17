@@ -61,20 +61,22 @@ static void validator_exit_err(){
 	if(curr_stmt){
 		mutoa(buf, curr_stmt->linenum);
 		if(curr_stmt->filename){
-			puts("Here is the beginning (approximately...) of the statement which caused an error:");
-			puts("File:");
-			puts(curr_stmt->filename);
-			puts("Line:");
-			puts(buf);
-			mutoa(buf, curr_stmt->colnum);
-			puts("Column:");
-			puts(buf);
+			fputs("File:Line:Col\n",stdout);
+			fputs(curr_stmt->filename,stdout);
+			fputs(":",stdout);
+			mutoa(buf,curr_stmt->linenum);
+			fputs(buf,stdout);
+			fputs(":",stdout);
+
+			mutoa(buf,curr_stmt->colnum);
+			fputs(buf,stdout);
+			fputs("\n",stdout);
+			
 			puts("~~~~\nNote that the line number and column number");
 			puts("are where the validator invoked validator_exit_err.");
 			puts("\n\n(the actual error may be slightly before,\nor on the previous line)");
 			puts("I recommend looking near the location provided,\nnot just that exact spot!");
 		}
-		exit(1);
 	}
 	exit(1);
 }

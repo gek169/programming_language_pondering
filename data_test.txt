@@ -49,7 +49,7 @@ fn func_with_too_many_args(
 
 
 	return a20 - '3' + 1;
-
+	//return cast(char*)0;
 end
 
 fn strlen(char* s)->u64;
