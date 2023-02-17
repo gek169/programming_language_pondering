@@ -104,9 +104,35 @@ void compile_unit(strll* _unit){
 		}
 		if(peek()->data == TOK_OPERATOR)
 			if(streq(peek()->text, "@")){
+				char* t;
+				uint64_t i;
+				uint64_t id;
+				int found = 0;
 				consume();
-				//TODO- parser hook.
-				parse_error("Global parser hook syntax is NYI.");
+				require(peek() != NULL, "Parserhook requires identifier.");
+				require(peek()->data == TOK_IDENT, "Parserhook requires identifier");
+				require(peek()->text != NULL, "Internal error, identifier does not have text?");
+				t = strdup(peek()->text);
+				require(t != NULL, "strdup failed.");
+				t = strcataf2("parsehook_",t);
+				require(t != NULL, "strcataf2 failed (malloc failed).");
+				for(i = 0; i < nsymbols; i++){
+					if(streq(symbol_table[i].name, t)){
+						id = i;
+						found = 1;
+					}
+				}
+				require(found != 0, "Could not find parsehook_ function corresponding with ");
+				free(t);
+				consume();
+				require(symbol_table[id].t.is_function != 0, "parsehook must be a function.");
+				require(symbol_table[id].is_codegen != 0, "parsehook must be is_codegen.");
+				require(symbol_table[id].is_incomplete == 0, "parsehook definition must be completed.");
+				require(symbol_table[id].fbody != NULL, "parsehook function body must not be null.");
+				require(symbol_table[id].t.basetype == BASE_VOID, "parsehook must return nothing!");
+				require(symbol_table[id].t.pointerlevel == 0 , "parsehook must return nothing, not even a pointer to nothing!");
+				require(symbol_table[id].nargs == 0, "parsehook must take zero arguments. That's how I call it.");
+				ast_execute_function(symbol_table+id);
 			}
 		if(peek()->data == TOK_KEYWORD)
 			if(peek_match_keyw("end"))
