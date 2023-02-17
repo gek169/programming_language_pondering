@@ -2419,6 +2419,24 @@ static void walk_assign_lsym_gsym(){
 			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}
+		if(stmtlist[i].kind == STMT_IF || 
+			stmtlist[i].kind == STMT_ELIF){
+			int64_t else_chain_follower = i + 1;
+			for(;else_chain_follower < (int64_t)current_scope->nstmts; else_chain_follower++){
+				/*terminating condition 1: is not part of the else chain.*/
+				if(
+					stmtlist[else_chain_follower].kind != STMT_ELIF &&
+					stmtlist[else_chain_follower].kind != STMT_ELSE
+				) break;
+				/*terminating condition 2: is else. else is always the last one in an else chain.*/
+				if(stmtlist[else_chain_follower].kind == STMT_ELSE){
+					else_chain_follower++;  /*the next statement, if it exists, is the one we should be executing.*/
+					break;
+				}
+			}
+			/*Note that this may actually be past the end*/
+			stmtlist[i].goto_where_in_scope = else_chain_follower;
+		}
 		if(stmtlist[i].kind == STMT_RETURN){
 			if((expr_node*)stmtlist[i].expressions[0]){
 				type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
@@ -2527,6 +2545,12 @@ void validate_function(symdecl* funk){
 		this also checks to see if goto targets exist.
 	*/
 	walk_assign_lsym_gsym();
+	/*
+		TODO: 
+		For each if() or elif(), assign the "goto_where_in_scope" member of the stmt struct,
+		to the statement immediately following the else chain.
+	*/
+	
 	if(nscopes > 0){
 		puts("INTERNAL VALIDATOR ERROR: Bad scopestack after walk_assign_lsym_gsym");
 		validator_exit_err();
