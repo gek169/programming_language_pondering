@@ -192,8 +192,6 @@ static void assign_lsym_gsym(expr_node* ee){
 	/*Now, do our assignment.*/
 	if(ee->kind == EXPR_SYM)
 		for(i = (nscopes - 1); i >= 0; i--){
-			//printf("i = %zd\n", i);
-			//fflush(stdout);
 			for(j = scopestack[i]->nsyms - 1; j >= 0 ; j--){
 				if(streq(ee->symname, scopestack[i]->syms[j].name)){
 					ee->kind = EXPR_LSYM;
