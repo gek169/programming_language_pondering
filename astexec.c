@@ -405,25 +405,24 @@ static double do_dmod(double a, double b){return a % b;}
 
 /*Get a pointer to the memory!*/
 static void* retrieve_variable_memory_pointer(
-	char* name, 
+	uint64_t symid, 
 	int is_global
 ){
 	int64_t i;
-	int64_t j;
 	if(is_global){
-		for(i = 0; i < (int64_t)nsymbols; i++)
-		if(streq(symbol_table[i].name,name)){
+		i = symid;
+		{
 			if(symbol_table[i].is_incomplete){
 				puts("VM Error");
 				puts("This global:");
-				puts(name);
+				puts(symbol_table[i].name);
 				puts("Was incomplete at access time.");
 				exit(1);
 			}
 			if(symbol_table[i].t.is_function){
 				puts("VM Error");
 				puts("This global:");
-				puts(name);
+				puts(symbol_table[i].name);
 				puts("Was accessed as a variable, but it's a function!");
 				exit(1);
 			}
@@ -443,82 +442,33 @@ static void* retrieve_variable_memory_pointer(
 			return symbol_table[i].cdata;
 		}
 		puts("VM ERROR");
-		puts("Could not find global:");
-		puts(name);
+		puts("Could not find global");
 		exit(1);
 	}
 
 	if(vm_stackpointer == 0){
 		puts("VM ERROR");
 		puts("Cannot get a local when the vm stack is empty.");
-		puts(name);
 		exit(1);
 	}
 	/*Search for local variables in the vstack...*/
 
-	for(i = vm_stackpointer-1-cur_expr_stack_usage; 
-		i > (
-			(int64_t)vm_stackpointer //points to first empty slot
-				-(int64_t)1 //point to the first non-empty slot instead.
-				-(int64_t)cur_expr_stack_usage //how many expression temporaries are there?
-				-(int64_t)cur_func_frame_size //how many variables are there in the frame?
-		); 
-		i--
-	){
-		if(vm_stack[i].identification == VM_FFRAME_BEGIN) break;
-		
-		if(vm_stack[i].identification == VM_VARIABLE)
-			if(vm_stack[i].vname)
-				if(streq(name, vm_stack[i].vname)){
-				
-					if(vm_stack[i].t.arraylen > 0)
-						return vm_stack[i].ldata;
-						
-					if(vm_stack[i].t.pointerlevel == 0)
-						if(vm_stack[i].t.basetype == BASE_STRUCT){
-							return vm_stack[i].ldata;
-						}
-					return &(vm_stack[i].smalldata);
-				}
-		if(i == 0) break;
-	}
-	/*Search function arguments...*/
-	i = 0;
-	for(
-		j = (int64_t)vm_stackpointer 		/*points at first empty slot*/
-			-(int64_t)1 					/*point at the first non-empty slot.*/
-			-(int64_t)cur_expr_stack_usage /*skip the expression.*/
-			-(int64_t)cur_func_frame_size  /*skip the frame- including local variables.*/
-		;
-		i < (int64_t)symbol_table[active_function].nargs;//i is tracking which argument we're checking.
-	)
+	i = vm_stackpointer-1- cur_expr_stack_usage-symid; /**/
 	{
-		//debug_print("Searching Arguments Iteration:",i+1,0);
-		if(
-			streq(
-			symbol_table[active_function]
-				.fargs[i]
-				->membername,
-			name
-			)
-		){
-			/*We have it!*/
-			/*it's an array, get the ldata*/
-			if(vm_stack[j].t.arraylen > 0)
-				return vm_stack[j].ldata;
-			/*it's a struct, get the ldata*/
-			if(vm_stack[j].t.pointerlevel == 0)
-				if(vm_stack[j].t.basetype == BASE_STRUCT)
-					return vm_stack[j].ldata;
-			/*it's a primitive or pointer, get the smalldata.*/
-			return &(vm_stack[j].smalldata);
+		{
+			if(vm_stack[i].t.arraylen > 0)
+				return vm_stack[i].ldata;
+				
+			if(vm_stack[i].t.pointerlevel == 0)
+				if(vm_stack[i].t.basetype == BASE_STRUCT){
+					return vm_stack[i].ldata;
+				}
+			return &(vm_stack[i].smalldata);
 		}
-		i++; /*Keep searching the list of args...*/
-		j--;
 	}
+
 	puts("VM ERROR");
-	puts("Could not find local:");
-	puts(name);
+	puts("Could not find local");
 	exit(1);
 }
 
@@ -665,9 +615,9 @@ void do_expr(expr_node* ee){
 		void* p;		
 		uint64_t general;
 		if(ee->kind == EXPR_LSYM)
-			p = retrieve_variable_memory_pointer(ee->symname, 0);
+			p = retrieve_variable_memory_pointer(ee->symid, 0);
 		if(ee->kind == EXPR_GSYM || ee->kind == EXPR_GETGLOBALPTR)
-			p = retrieve_variable_memory_pointer(ee->symname, 1);
+			p = retrieve_variable_memory_pointer(ee->symid, 1);
 /*
 		debug_print("Retrieved symbol variable memory pointer.",0,0);
 		debug_print("Its name is:",0,0);
@@ -2456,7 +2406,7 @@ void ast_execute_function(symdecl* s){
 			scope_positions[nscopes-1].pos = 0;
 			scope_positions[nscopes-1].is_in_loop = 0;
 			scope_positions[nscopes-1].is_else_chaining = 0;
-			which_stmt = 0;
+			which_stmt = 0;	
 		}
 	continue_executing_scope:
 		while(1){

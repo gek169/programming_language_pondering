@@ -182,25 +182,32 @@ static void check_label_declarations(scope* lvl){
 
 
 static void assign_lsym_gsym(expr_node* ee){
-	unsigned long i;
-	unsigned long j;
+	int64_t i;
+	int64_t j;
 	for(i = 0; i < MAX_FARGS; i++){
 		if(ee->subnodes[i])
 			assign_lsym_gsym(ee->subnodes[i]);
 	}
+	int64_t depth = 0;
 	/*Now, do our assignment.*/
 	if(ee->kind == EXPR_SYM)
-		for(i = 0; i < nscopes; i++)
-			for(j = 0; j < scopestack[i]->nsyms; j++)
+		for(i = (nscopes - 1); i >= 0; i--){
+			//printf("i = %zd\n", i);
+			//fflush(stdout);
+			for(j = scopestack[i]->nsyms - 1; j >= 0 ; j--){
 				if(streq(ee->symname, scopestack[i]->syms[j].name)){
 					ee->kind = EXPR_LSYM;
 					ee->t = scopestack[i]->syms[j].t;
+					ee->symid = depth;
 					return;
 				}
+				depth++;
+			}
+		}
 
 	/*Mut search active_function's fargs...*/
 	if(ee->kind == EXPR_SYM)
-		for(i = 0; i < symbol_table[active_function].nargs; i++)
+		for(i = 0; i < (int64_t)symbol_table[active_function].nargs; i++){
 			if(
 				streq(
 					ee->symname, 
@@ -209,12 +216,16 @@ static void assign_lsym_gsym(expr_node* ee){
 			){
 				ee->kind = EXPR_LSYM;
 				ee->t = *symbol_table[active_function].fargs[i];
+				ee->symid = depth;
 				//ee->t.membername;
 				return;
+			} else {
+				depth++; //function arguments are on the stack in reverse order. so we search linearly.
 			}
+		}
 	
 	if(ee->kind == EXPR_SYM)
-		for(i = 0; i < nsymbols; i++)
+		for(i = 0; i < (int64_t)nsymbols; i++)
 			if(streq(ee->symname, symbol_table[i].name)){
 				/*Do some validation. It can't be a function...*/
 				if(symbol_table[i].t.is_function)
