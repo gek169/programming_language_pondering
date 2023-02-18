@@ -25,6 +25,7 @@ fn codegen pure subnums(int a, int b)->int:
 	//i_unused = cast(double*) 0;
 	//not_pure_function();
 	return a-b;
+	//this is never executed but i'm testing the parsing.
 	tail addnums
 end
 
