@@ -1363,6 +1363,12 @@ static void throw_if_types_incompatible(
 			validator_exit_err();
 		}
 	}
+	if(a.basetype == BASE_STRUCT)
+		if(a.structid != b.structid){
+			puts(msg);
+			puts("incompatible structs");
+			validator_exit_err();
+		}
 }
 
 
