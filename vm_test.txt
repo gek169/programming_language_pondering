@@ -411,6 +411,8 @@ proc codegen codegen_main():
 		__builtin_puts("Now, for a test of a large loop.");
 		i64 quixote;
 		for(quixote = 0, quixote < 50000000, quixote++)
+			i64 quixote_2;
+			quixote_2 = quixote + (1|3);
 			continue
 		end
 		__builtin_puts("It's over!");
