@@ -78,6 +78,7 @@ end
 (If you don't find sqword funny, then you probably don't live in a pineapple under the sea...)
 
 The 'actual' type, followed by its aliases:
+
 ```
 u8: char, uchar, byte, ubyte
 i8: schar, sbyte
@@ -108,7 +109,7 @@ This means, for instance:
 * Seabass does not have a standard template library, standard library, or any other set of
 standard runtime functions, as such is not portable between platforms.
 
-* Seabass does not have a default threading implementation. While it (will...) support `atomic` and `volatile` qualifiers,
+* Seabass does not have a default threading implementation. While it supports `atomic` and `volatile` qualifiers,
 
 they will do nothing on a target which does not utilize multithreading.
 
@@ -129,18 +130,13 @@ You could write part of your program in typescript, and part of it in C, and the
 
 After that, you can write your own code generator, which takes the AST and spits out whatever you want to export.
 
-This is all done without changing the code of the seabass 'compiler' (It's not really a whole compiler, is it?) itself.
+This is all done without changing the code of the seabass compiler.
 
 ## What makes Seabass different from C in terms of base language features?
 
 Other than the obvious syntax changes? Well...
 
-* No function pointers. I want the language to be compatible with platforms where jumping using the value in a register
-is not supported. 
-
-The lack of function pointers might sound distressing if you use them to provide callbacks or to have jump tables.
-
-Use the switch statement instead!
+* Function pointers are not in the type system. they are `byte*`.
 
 * No variadic arguments. Yuck!
 
@@ -203,7 +199,11 @@ Raw power for the programmer, and ease of programming are the top priorities of 
 
 ## What License is the project under?
 
-Every single jot,tittle,bit,byte, and file in the repository, from the least to the greatest, is under the CC0 license.
+Every single jot,tittle,bit, and byte in the source code here, from the least to the greatest, is under the CC0 license.
+
+Binary distributions, due to the limitations of the compiler on my system, may be under some other license.
+
+if you see a binary called "compiler" then I might not be able to give that to you under the CC0 license.
 
 You can use everything in this repository and relicense it however you see fit.
 
@@ -211,28 +211,26 @@ No copyleft, no copyright. Just write code!
 
 Let all your things be done with charity.
 
-If you want me to get paid back for what I have given you, then ask the Lord Jesus Christ to repay me.
+If you want me to get paid back for what I have given you, then pray, ask the Lord Jesus Christ to repay me.
 
 Nothing I do is worth anything unless it yields something valuable in eternity. That means being rich toward God.
 
+Blessed be the LORD for ever amen.
+
 ## May I contribute?
 
-Submit an issue on the repository.
+Submit an issue on the repository. All code submissions must be compatible with the CC0 license of this repository.
 
 ## Current implementation limitations:
 
 * Double must be 8 bytes. No 10-byte floats.
 
-* The parser and validator assume that the target is 64 bit. This is planned to be changed in the future, to allow
-defining a target register size. 
-Defining non-codegen variables beyond the size should be able to be prohibited by the parser,
-and conditional/bitwise expressions will no longer insert implicit casts to `i64` but instead `i32` or `i16` or whatever
-the register size is.
+* No float sizes other than F32 and F64.
 
 * The compiletime VM (which is used for executing `codegen` code) and in general the entire compiler
  requires a 64 bit machine. However, I will write the standard to allow different sizes.
 
-* No 128 bit integers or floats. You can write your own code to manipulate u64's to do what they would do, if you want.
+* No 128 bit integers or floats. However metaprogramming should allow you to 'hide' it using a class.
 
 
 
@@ -255,13 +253,13 @@ the register size is.
 
 [_] - Write a series of thorough test cases to check a variety of errors as well as demonstrate the language.
 
-[X] - Figure out how to do something akin to printf in the language. Probably involves metaprogramming.
+[X] - Figure out how to do something akin to printf in the language. (Figured out, but not implemented)
 
 [X] - Figure out how this language is going to do conditional compilation.
 
 [X] - function pointers (By recommendation)
 
-As you can see, I'm almost near the 
+### As you can see, the project is almost in alpha!
 
 
 ## Beta plan
