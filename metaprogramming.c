@@ -195,6 +195,10 @@ void impl_builtin_loopstack_push(char* stmtptr){
 void impl_builtin_loopstack_pop(){
 	loopstack_pop();
 }
+stmt* parser_push_statement();
+char* impl_builtin_parser_push_statement(){
+	return (char*)parser_push_statement();
+}
 
 
 int is_builtin_name(char* s){
@@ -230,6 +234,7 @@ int is_builtin_name(char* s){
 	
 	if(streq(s, "__builtin_peek_is_fname")) return 1;
 	if(streq(s, "__builtin_str_is_fname")) return 1;
+	if(streq(s,"__builtin_parser_push_statement")) return 1;
 	return 0;
 }
 
@@ -263,7 +268,8 @@ uint64_t get_builtin_nargs(char* s){
 
 	if(streq(s, "__builtin_peek_is_fname")) return 0;
 	if(streq(s, "__builtin_str_is_fname")) return 1;
-	
+	if(streq(s,"__builtin_parser_push_statement")) return 0;
+
 	return 0;
 }
 
@@ -298,7 +304,7 @@ uint64_t get_builtin_retval(char* s){
 
 	if(streq(s, "__builtin_peek_is_fname")) return BUILTIN_PROTO_I32;
 	if(streq(s, "__builtin_str_is_fname")) return BUILTIN_PROTO_I32;
-	
+	if(streq(s,"__builtin_parser_push_statement")) return BUILTIN_PROTO_U8_PTR;
 	return 0;
 }
 

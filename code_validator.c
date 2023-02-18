@@ -2412,6 +2412,7 @@ static void walk_assign_lsym_gsym(){
 			stmtlist[i].kind == STMT_ELIF){
 				if(i == 0){
 					puts("Else/Elif at the beginning of a scope? (No preceding if?)");
+					puts("<This is only possible if this code was automatically generated.");
 					validator_exit_err();
 				}
 				if(stmtlist[i-1].kind != STMT_ELIF &&

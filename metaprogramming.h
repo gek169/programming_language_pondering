@@ -62,6 +62,7 @@ void impl_builtin_scopestack_pop();
 
 void impl_builtin_loopstack_push(char* stmtptr);
 void impl_builtin_loopstack_pop();
+char* impl_builtin_parser_push_statement();
 
 
 

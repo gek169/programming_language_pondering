@@ -2345,6 +2345,16 @@ void do_expr(expr_node* ee){
 			);
 			goto end_of_builtin_call;
 		}
+		if(streq(ee->symname, "__builtin_parser_push_statement")){
+			char* f;
+			f = impl_builtin_parser_push_statement();
+			memcpy(
+				&vm_stack[saved_vstack_pointer-1].smalldata, 
+				&f, 
+				POINTER_SIZE
+			);
+			goto end_of_builtin_call;
+		}
 
 		//TODO: implement more builtins.
 		puts("VM Error");
