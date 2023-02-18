@@ -187,8 +187,16 @@ class codegen_ast_dontreuse
 end
 
 
+proc codegen parsehook_dostuff():
+	__builtin_puts("QParsehook was invoked!\n"+1);
+	return;
+end
+
 
 proc codegen codegen_main():
+	//invokes parsehook_dostuff
+	@dostuff
+	
 	myClass classy;
 	myClass* f;
 	classy.x = 3;
