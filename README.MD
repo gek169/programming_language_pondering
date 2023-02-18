@@ -169,7 +169,8 @@ It works by creating a function with a specially mangled name that has `myStruct
 
 * No `const`. Can't really enforce it, anyway.
 
-* No address-of operator. You cannot take the address of something.
+* No address-of operator for local variables. It is possible to get the addresses of functions and global variables,
+with `getfnptr` and `getglobalptr` respectively.
 
 
 Instead, you can take the address of struct members, with `myStruct.&myMember`
