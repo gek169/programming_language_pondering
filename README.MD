@@ -231,6 +231,8 @@ Submit an issue on the repository. All code submissions must be compatible with 
 * The compiletime VM (which is used for executing `codegen` code) and in general the entire compiler
  requires a 64 bit machine. However, I will write the standard to allow different sizes.
 
+ (You can, of course, target a machine with any word size)
+
 * No 128 bit integers or floats. However metaprogramming should allow you to 'hide' it using a class.
 
 
