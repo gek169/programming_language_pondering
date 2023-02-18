@@ -2408,6 +2408,19 @@ static void walk_assign_lsym_gsym(){
 			qq.basetype = SIGNED_WORD_BASE;
 			insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, qq);
 		}
+		if(stmtlist[i].kind == STMT_ELSE ||
+			stmtlist[i].kind == STMT_ELIF){
+				if(i == 0){
+					puts("Else/Elif at the beginning of a scope? (No preceding if?)");
+					validator_exit_err();
+				}
+				if(stmtlist[i-1].kind != STMT_ELIF &&
+					stmtlist[i-1].kind != STMT_IF){
+					puts("Else/Elif without a preceding if/else?");
+					puts("<This is only possible if this code was automatically generated.");
+					validator_exit_err();
+				}
+			}
 		if(stmtlist[i].kind == STMT_ELIF){
 			type qq = ((expr_node*)stmtlist[i].expressions[0])->t;
 			if(qq.pointerlevel > 0)
