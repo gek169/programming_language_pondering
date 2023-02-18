@@ -1305,7 +1305,7 @@ void strll_handle_defines(strll* original_passin){
 
 	){
 		
-		if(current_meta->data ==(void*)24)
+		if(current_meta->data ==TOK_DEFINE)
 		{
 			strll* walker;
 			strll* walker_father;
@@ -1317,7 +1317,7 @@ void strll_handle_defines(strll* original_passin){
 			walker_father = current_meta;
 			walker = current_meta->right;
 			for(;walker != NULL; (walker_father = walker),(walker = walker->right)  )
-				if(walker->data == (void*)1) 
+				if(walker->data == (void*)1)
 					break;
 			
 			if(walker == NULL)
@@ -1345,14 +1345,15 @@ void strll_handle_defines(strll* original_passin){
 			/*search for where this thing is undef'd*/
 			stop_replacing_point = NULL;
 			for(walker = father->right;walker != NULL; walker = walker->right){
-				if(walker->data == (void*)25)
+				if(walker->data == TOK_UNDEF ||
+				walker->data == TOK_DEFINE)
 				if(walker->right){
-					if(walker->right->data == (void*)8){ /*found identifier*/
+					if(walker->right->data == TOK_IDENT){ /*found identifier*/
 						if(streq(walker->right->text, replacement_list->right->text)){ /*matches replacement list's identifier*/
 							stop_replacing_point = walker;break; /**/
 						}
 					} else {
-						puts("<ERROR> #undef without identifier.");
+						puts("<TOKENIZER ERROR> #undef or #define without identifier. It might be a reserved keyword or operator...");
 						goto error;
 					} /*identifier*/
 				}
