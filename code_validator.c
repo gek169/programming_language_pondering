@@ -2530,6 +2530,10 @@ void validate_function(symdecl* funk){
 		puts("INTERNAL VALIDATOR ERROR: Bad scopestack or loopstack.");
 		validator_exit_err();
 	}
+	if(nsymbols == 0){
+		puts("INTERNAL VALIDATOR ERROR: There are no symbols, therefore, this function cannot be validated!");
+		exit(1);
+	}
 	for(i = 0; i < nsymbols; i++){
 		if(symbol_table+i == funk){
 			active_function = i; break;

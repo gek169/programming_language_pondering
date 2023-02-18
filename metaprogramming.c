@@ -124,8 +124,25 @@ uint64_t impl_builtin_emit(char* data, uint64_t sz){
 
 void validate_function(symdecl* funk);
 void impl_builtin_validate_function(char* p_in){
-	symdecl* funk = (symdecl*)p_in;
-	validate_function(funk);
+	//save the environment so that we can continue executing after validate_function has been invoked.
+	uint64_t active_function_saved = active_function;
+	uint64_t nscopes_saved = nscopes;
+	uint64_t nloops_saved = nloops;
+	scope** scopestack_saved = scopestack;
+	stmt** loopstack_saved = loopstack;
+		scopestack = NULL;
+		nscopes = 0;
+		nloops = 0;
+		loopstack = NULL;
+		symdecl* funk = (symdecl*)p_in;
+		validate_function(funk);
+	
+	if(scopestack) free(scopestack);
+	active_function = active_function_saved;
+	scopestack = scopestack_saved;
+	nscopes = nscopes_saved;
+	nloops = nloops_saved;
+	loopstack = loopstack_saved;
 }
 
 void impl_builtin_memcpy(char* a, char* b, uint64_t sz){
@@ -138,7 +155,7 @@ void impl_builtin_utoa(char* buf, uint64_t v){
 void impl_builtin_itoa(char* buf, int64_t v){
 	mitoa(buf,v);
 }
-/*TODO: make proper implementation of ftoa independent of the C standard library.*/
+/*TODO: make proper implementation of ftoa with scientific notation and what have you.*/
 void impl_builtin_ftoa(char* buf, double v){
 	//sprintf(buf, "%f", v);
 	mftoa(buf, v, 64);
@@ -156,7 +173,7 @@ int64_t impl_builtin_atoi(char* buf){
 
 
 /*
-	AST manip and analysis...
+	AST manipulation and analysis...
 */
 int32_t impl_builtin_peek_is_fname(){
 	return peek_is_fname();
