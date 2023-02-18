@@ -198,6 +198,7 @@ typedef struct stmt{
 
 		Goto also uses this, for its jump target.
 	*/
+	uint64_t symid; /*for tail.*/
 	char* referenced_label_name; /*goto gets a label. tail gets a function*/
 	char** switch_label_list;
 	uint64_t* switch_label_indices; /**/

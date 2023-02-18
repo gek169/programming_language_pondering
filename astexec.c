@@ -12,6 +12,22 @@
 
 
 static uint64_t is_debugging = 1;
+static uint64_t executing_function = 0;
+static scope** scope_executing_stack = NULL;
+static uint64_t n_scopes_executings = 0;
+
+static inline void scope_executing_stack_push(scope* s){
+	scope_executing_stack = realloc(scope_executing_stack, (++n_scopes_executings) * sizeof(scope*));
+	scope_executing_stack[n_scopes_executings-1] = s;
+}
+
+static inline void scope_executing_stack_pop(){
+	n_scopes_executings--;
+}
+
+static inline scope* scope_executing_stack_gettop(){
+	return scope_executing_stack[n_scopes_executings-1];
+}
 
 static void debug_print(char* msg, uint64_t printme1, uint64_t printme2){
 	if(is_debugging == 0) return;
@@ -480,7 +496,7 @@ void do_expr(expr_node* ee){
 	/*Function calls and method calls both require saving information.*/
 	uint64_t saved_cur_func_frame_size = 0;
 	uint64_t saved_cur_expr_stack_usage = 0;
-	uint64_t saved_active_function=0;
+	uint64_t saved_executing_function=0;
 
 	/*This one is only used for sanity checking.*/
 	uint64_t saved_vstack_pointer;
@@ -579,13 +595,13 @@ void do_expr(expr_node* ee){
 	if(ee->kind == EXPR_FCALL || ee->kind == EXPR_METHOD){
 		saved_cur_func_frame_size = cur_func_frame_size;
 		saved_cur_expr_stack_usage = cur_expr_stack_usage;
-		saved_active_function= active_function;
+		saved_executing_function= executing_function;
 		saved_vstack_pointer = vm_stackpointer;
 		ast_execute_function(symbol_table + ee->symid);
 		
 		cur_func_frame_size = saved_cur_func_frame_size;
 		cur_expr_stack_usage = saved_cur_expr_stack_usage;
-		active_function = saved_active_function;
+		executing_function = saved_executing_function;
 		vm_stackpointer = saved_vstack_pointer;
 		//Finally ends with popping everything off.
 		for(i = 0; i < n_subexpressions; i++) {ast_vm_stack_pop();}
@@ -601,13 +617,13 @@ void do_expr(expr_node* ee){
 		ast_vm_stack_pop();
 		saved_cur_func_frame_size = cur_func_frame_size;
 		saved_cur_expr_stack_usage = cur_expr_stack_usage;
-		saved_active_function= active_function;
+		saved_executing_function= executing_function;
 		saved_vstack_pointer = vm_stackpointer;
 		
 		ast_execute_function((symdecl*)retrieved_pointer);
 		cur_func_frame_size = saved_cur_func_frame_size;
 		cur_expr_stack_usage = saved_cur_expr_stack_usage;
-		active_function = saved_active_function;
+		executing_function = saved_executing_function;
 		vm_stackpointer = saved_vstack_pointer;
 		for(i = 0; i < (int64_t)ee->fnptr_nargs; i++) {ast_vm_stack_pop();}
 		return;
@@ -1721,7 +1737,7 @@ void do_expr(expr_node* ee){
 			puts("VM error");
 			puts("streq got NULL");
 			puts("In function:");
-			puts(symbol_table[active_function].name);
+			puts(symbol_table[executing_function].name);
 			exit(1);
 		}
 		ast_vm_stack_pop(); //we no longer need the index itself.
@@ -1738,7 +1754,7 @@ void do_expr(expr_node* ee){
 			puts("VM error");
 			puts("streq got NULL");
 			puts("In function:");
-			puts(symbol_table[active_function].name);
+			puts(symbol_table[executing_function].name);
 			exit(1);
 		}
 		ast_vm_stack_pop(); //we no longer need the index itself.
@@ -2364,14 +2380,14 @@ void ast_execute_function(symdecl* s){
 	if(vm_stackpointer == 0){
 		type t = type_init();
 		ast_vm_stack_push_temporary(NULL,t);
-		nscopes = 0;
+		n_scopes_executings = 0;
 	}
 
 	begin_executing_function:
 	{uint64_t i;
 		for(i = 0; i < nsymbols; i++){
 			if(s == symbol_table+i){
-				active_function = i;
+				executing_function = i;
 				goto found_our_boy;
 			}
 		}
@@ -2395,27 +2411,27 @@ void ast_execute_function(symdecl* s){
 	
 	cur_expr_stack_usage = 0;
 	cur_func_frame_size = 0;
-	scopestack_push(s->fbody);
+	scope_executing_stack_push(s->fbody);
 
 
 	begin_executing_scope:
 		{
 			uint64_t i;
-			for(i = 0; i < scopestack_gettop()->nsyms; i++){
-				ast_vm_stack_push_lvar(scopestack_gettop()->syms+i);
+			for(i = 0; i < scope_executing_stack_gettop()->nsyms; i++){
+				ast_vm_stack_push_lvar(scope_executing_stack_gettop()->syms+i);
 			}
-			scope_positions[nscopes-1].pos = 0;
-			scope_positions[nscopes-1].is_in_loop = 0;
-			scope_positions[nscopes-1].is_else_chaining = 0;
+			scope_positions[n_scopes_executings-1].pos = 0;
+			scope_positions[n_scopes_executings-1].is_in_loop = 0;
+			scope_positions[n_scopes_executings-1].is_else_chaining = 0;
 			which_stmt = 0;	
 		}
 	continue_executing_scope:
 		while(1){
-			stmt_list = scopestack_gettop()->stmts;
-			if( (scopestack_gettop()->nstmts == 0) || (which_stmt >= scopestack_gettop()->nstmts) ){
+			stmt_list = scope_executing_stack_gettop()->stmts;
+			if( (scope_executing_stack_gettop()->nstmts == 0) || (which_stmt >= scope_executing_stack_gettop()->nstmts) ){
 				uint64_t i;
-				scope_positions[nscopes-1].is_else_chaining = 0;
-				if(scopestack_gettop() == s->fbody) {
+				scope_positions[n_scopes_executings-1].is_else_chaining = 0;
+				if(scope_executing_stack_gettop() == s->fbody) {
 					/*
 						puts("VM WARNING:");
 						puts("Function Body Fell Through during execution.");
@@ -2427,12 +2443,12 @@ void ast_execute_function(symdecl* s){
 				}
 				//else, we have to clear our variables...
 				ast_vm_stack_pop_temporaries();
-				for(i = 0; i < scopestack_gettop()->nsyms;i++)
+				for(i = 0; i < scope_executing_stack_gettop()->nsyms;i++)
 					ast_vm_stack_pop();
 				//we have to remove ourselves.
-				scopestack_pop();
-				which_stmt = scope_positions[nscopes-1].pos;
-				if(scope_positions[nscopes-1].is_in_loop == 0) which_stmt++; //if we are in a loop, we don't want to!
+				scope_executing_stack_pop();
+				which_stmt = scope_positions[n_scopes_executings-1].pos;
+				if(scope_positions[n_scopes_executings-1].is_in_loop == 0) which_stmt++; //if we are in a loop, we don't want to!
 				continue;
 			}
 			/*
@@ -2446,14 +2462,14 @@ void ast_execute_function(symdecl* s){
 			){
 				goto do_next_stmt;
 			}
-			if(scope_positions[nscopes-1].is_else_chaining == 0)
+			if(scope_positions[n_scopes_executings-1].is_else_chaining == 0)
 				if(stmt_kind == STMT_ELSE || stmt_kind == STMT_ELIF){
 					goto do_next_stmt;
 				}
 			//if is_else_chaining is set, but the statement is not an else or elif...
-			if(scope_positions[nscopes-1].is_else_chaining > 0)
+			if(scope_positions[n_scopes_executings-1].is_else_chaining > 0)
 				if(stmt_kind != STMT_ELSE && stmt_kind != STMT_ELIF){
-					scope_positions[nscopes-1].is_else_chaining = 0;
+					scope_positions[n_scopes_executings-1].is_else_chaining = 0;
 				}
 			if(stmt_kind == STMT_BAD || stmt_kind >= NSTMT_TYPES){
 				puts("VM ERROR:");
@@ -2474,10 +2490,10 @@ void ast_execute_function(symdecl* s){
 				}
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
 					//debug_print("goto popping stacks...",0,0);
-					scopestack_pop();
+					scope_executing_stack_pop();
 				}
 				//find our new position...
-				stmt_list = scopestack_gettop()->stmts;
+				stmt_list = scope_executing_stack_gettop()->stmts;
 				which_stmt = cur_stmt->goto_where_in_scope;
 				goto continue_executing_scope;
 			}
@@ -2490,7 +2506,7 @@ void ast_execute_function(symdecl* s){
 				}
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
 					//debug_print("goto popping stacks...",0,0);
-					scopestack_pop();
+					scope_executing_stack_pop();
 				}
 				for(i = 0; i < (int64_t)nsymbols; i++)
 					if(streq(symbol_table[i].name, cur_stmt->referenced_label_name)){
@@ -2512,17 +2528,17 @@ void ast_execute_function(symdecl* s){
 				}
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
 					//debug_print("goto popping stacks...",0,0);
-					scopestack_pop();
+					scope_executing_stack_pop();
 				}
 				//find our new position...
-				stmt_list = scopestack_gettop()->stmts;
-				for(i = 0; i <(int64_t) scopestack_gettop()->nstmts; i++)
+				stmt_list = scope_executing_stack_gettop()->stmts;
+				for(i = 0; i <(int64_t) scope_executing_stack_gettop()->nstmts; i++)
 					if(cur_stmt->referenced_loop == stmt_list+i){
 						which_stmt = i;
 						if(stmt_kind == STMT_CONTINUE)
 							goto continue_executing_scope; //continues in the loop, is_in_loop is preserved.
 						if(stmt_kind == STMT_BREAK){
-							scope_positions[nscopes-1].is_in_loop = 0; //breaks out of the loop, is_in_loop is undone.
+							scope_positions[n_scopes_executings-1].is_in_loop = 0; //breaks out of the loop, is_in_loop is undone.
 							goto do_next_stmt; //we do the very next statement.
 						}
 					}
@@ -2543,7 +2559,7 @@ void ast_execute_function(symdecl* s){
 					puts("Switch statement is beyond the bounds of its label list.");
 					puts("Runtime code behavior is undefined (probably just crashes!), but you're protected inside the codegen VM.");
 					puts("The function that caused this was:");
-					puts(symbol_table[active_function].name);
+					puts(symbol_table[executing_function].name);
 					goto do_error;
 				}
 				ast_vm_stack_pop();
@@ -2574,7 +2590,7 @@ void ast_execute_function(symdecl* s){
 					ast_vm_stack_pop();
 				}
 				for(i = 0; i < cur_stmt->goto_scopediff; i++ ){
-					scopestack_pop();
+					scope_executing_stack_pop();
 				}
 				if(has_retval){
 					vm_stack[vm_stackpointer -1 - s->nargs].smalldata = retval;
@@ -2587,10 +2603,10 @@ void ast_execute_function(symdecl* s){
 				stmt_kind == STMT_ELIF
 			){
 				stmt* cur_stmt;
-				//scope_positions[nscopes-1].is_else_chaining = 0;
+				//scope_positions[n_scopes_executings-1].is_else_chaining = 0;
 				do_expr(stmt_list[which_stmt].expressions[0]);
 				//debug_print("While or If got This from its expression: ",vm_stack[vm_stackpointer-1].smalldata,0);
-				if(scope_positions[nscopes-1].is_else_chaining == 0)
+				if(scope_positions[n_scopes_executings-1].is_else_chaining == 0)
 					if(stmt_kind == STMT_ELIF)
 						goto do_next_stmt;
 				
@@ -2598,30 +2614,30 @@ void ast_execute_function(symdecl* s){
 					cur_stmt = stmt_list + which_stmt;
 					//It has been decided. we are going to be executing this block.
 					ast_vm_stack_pop();
-					scope_positions[nscopes-1].pos = which_stmt;
-					scope_positions[nscopes-1].is_else_chaining = 0;
-					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 1;
-					else			scope_positions[nscopes-1].is_in_loop = 0;
-					scopestack_push(cur_stmt->myscope);
+					scope_positions[n_scopes_executings-1].pos = which_stmt;
+					scope_positions[n_scopes_executings-1].is_else_chaining = 0;
+					if(stmt_kind == STMT_WHILE) scope_positions[n_scopes_executings-1].is_in_loop = 1;
+					else			scope_positions[n_scopes_executings-1].is_in_loop = 0;
+					scope_executing_stack_push(cur_stmt->myscope);
 					//while, if, and elif never chain elses if they execute their body.
 					goto begin_executing_scope;
 				} else {
 					if(stmt_kind == STMT_IF || stmt_kind == STMT_ELIF)
-						scope_positions[nscopes-1].is_else_chaining = 1;
-					if(stmt_kind == STMT_WHILE) scope_positions[nscopes-1].is_in_loop = 0;
+						scope_positions[n_scopes_executings-1].is_else_chaining = 1;
+					if(stmt_kind == STMT_WHILE) scope_positions[n_scopes_executings-1].is_in_loop = 0;
 				}
 				ast_vm_stack_pop();
 				goto do_next_stmt;
 			}
-			if(scope_positions[nscopes-1].is_else_chaining > 0)
+			if(scope_positions[n_scopes_executings-1].is_else_chaining > 0)
 			if(stmt_kind == STMT_ELSE){
 				stmt* cur_stmt;
 				cur_stmt = stmt_list + which_stmt;
 				//It has been decided. we are going to be executing this block.
-				scope_positions[nscopes-1].pos = which_stmt;
-				scopestack_push(cur_stmt->myscope);
+				scope_positions[n_scopes_executings-1].pos = which_stmt;
+				scope_executing_stack_push(cur_stmt->myscope);
 				//else stops an else chain unconditionally.
-				scope_positions[nscopes-1].is_else_chaining = 0;
+				scope_positions[n_scopes_executings-1].is_else_chaining = 0;
 				goto begin_executing_scope;
 			}
 			if(stmt_kind == STMT_FOR){
@@ -2629,7 +2645,7 @@ void ast_execute_function(symdecl* s){
 				int64_t retval;
 				//int64_t i;
 				cur_stmt = stmt_list + which_stmt;
-				if(scope_positions[nscopes-1].is_in_loop){
+				if(scope_positions[n_scopes_executings-1].is_in_loop){
 					//iterate.
 
 					do_expr(stmt_list[which_stmt].expressions[2]);
@@ -2641,12 +2657,12 @@ void ast_execute_function(symdecl* s){
 					ast_vm_stack_pop();
 					
 					if(retval == 0){
-						scope_positions[nscopes-1].is_in_loop = 0;
+						scope_positions[n_scopes_executings-1].is_in_loop = 0;
 						goto do_next_stmt;
 					}
 					// we are still doing it!
-					scope_positions[nscopes-1].pos = which_stmt;
-					scopestack_push(cur_stmt->myscope);
+					scope_positions[n_scopes_executings-1].pos = which_stmt;
+					scope_executing_stack_push(cur_stmt->myscope);
 					goto begin_executing_scope;
 				}
 				//Do the initialization expression.
@@ -2658,13 +2674,13 @@ void ast_execute_function(symdecl* s){
 				//get that value.
 				retval = vm_stack[vm_stackpointer-1].smalldata;
 				ast_vm_stack_pop();
-				scope_positions[nscopes-1].pos = which_stmt;
+				scope_positions[n_scopes_executings-1].pos = which_stmt;
 				if(retval == 0){
-					scope_positions[nscopes-1].is_in_loop = 0;
+					scope_positions[n_scopes_executings-1].is_in_loop = 0;
 					goto do_next_stmt;
 				}
-				scope_positions[nscopes-1].is_in_loop = 1;
-				scopestack_push(cur_stmt->myscope);
+				scope_positions[n_scopes_executings-1].is_in_loop = 1;
+				scope_executing_stack_push(cur_stmt->myscope);
 				goto begin_executing_scope;
 			}
 
@@ -2680,12 +2696,6 @@ void ast_execute_function(symdecl* s){
 		ast_vm_stack_pop_lvars();
 		return;
 
-	do_tail:
-		//TODO: figure out how to do tail.
-		ast_vm_stack_pop_temporaries();
-		ast_vm_stack_pop_lvars();
-		return;
-
 	do_error:
 	puts("While executing function:");
 	puts(s->name);
@@ -2694,9 +2704,9 @@ void ast_execute_function(symdecl* s){
 		uint64_t i;
 		//clear our variables.
 		ast_vm_stack_pop_temporaries();
-		for(i = 0; i < scopestack_gettop()->nsyms;i++) ast_vm_stack_pop();
+		for(i = 0; i < scope_executing_stack_gettop()->nsyms;i++) ast_vm_stack_pop();
 		//we have to remove ourselves.
-		scopestack_pop();
+		scope_executing_stack_pop();
 	}
 }
 

@@ -2237,8 +2237,8 @@ static void assign_scopediff_vardiff(stmt* me, scope* jtarget_scope, int is_retu
 //also does goto validation.
 static void walk_assign_lsym_gsym(){
 	scope* current_scope;
-	unsigned long i;
-	unsigned long j;
+	int64_t i;
+	int64_t j;
 
 	current_scope = symbol_table[active_function].fbody;
 	stmt* stmtlist;
@@ -2262,7 +2262,7 @@ static void walk_assign_lsym_gsym(){
 		stmtlist = current_scope->stmts;
 		//if this is a goto, 
 
-		if(i >= current_scope->nstmts){
+		if(i >= (int64_t)current_scope->nstmts){
 			if(nscopes <= 0) return;
 			current_scope = scopestack[nscopes-1];
 			scopestack_pop();
@@ -2312,7 +2312,7 @@ static void walk_assign_lsym_gsym(){
 		}
 		if(stmtlist[i].kind == STMT_GOTO){
 			int found = 0;
-			for(j = 0; j < n_discovered_labels; j++)
+			for(j = 0; j < (int64_t)n_discovered_labels; j++)
 				if(streq(stmtlist[i].referenced_label_name, discovered_labels[j]))
 					found = 1;
 			if(!found)
@@ -2331,7 +2331,7 @@ static void walk_assign_lsym_gsym(){
 
 		if(stmtlist[i].nexpressions > 0){
 			/*assign lsym and gsym right here.*/
-			for(j = 0; j < stmtlist[i].nexpressions; j++){
+			for(j = 0; j < (int64_t)stmtlist[i].nexpressions; j++){
 				//this function needs to "see" the current scope...
 				scopestack_push(current_scope);
 					assign_lsym_gsym(stmtlist[i].expressions[j]);
@@ -2464,17 +2464,21 @@ static void walk_assign_lsym_gsym(){
 		}
 		if(stmtlist[i].kind == STMT_TAIL){
 			if(symbol_table[active_function].is_pure){
-				for(i = 0; i < nsymbols; i++)
-					if(symbol_table[i].name)
-						if(streq(symbol_table[i].name, stmtlist[i].referenced_label_name))
-							if(symbol_table[i].is_pure == 0){
-								puts("Validator Error!");
-								puts("Tail statement in function:");
-								puts(symbol_table[active_function].name);
-								puts("Tails-off to a function not explicitly defined as pure.");
-								validator_exit_err();
-							}
+				if(symbol_table[stmtlist[i].symid].is_pure == 0){
+					puts("Validator Error!");
+					puts("Tail statement in function:");
+					puts(symbol_table[active_function].name);
+					puts("Tails-off to a function not explicitly defined as pure.");
+					validator_exit_err();
+				}
 			}
+			/*compare function arguments...*/
+			for(j = 0; j < (int64_t)symbol_table[active_function].nargs; j++)
+				throw_if_types_incompatible(
+					symbol_table[active_function].fargs[j][0],
+					symbol_table[stmtlist[i].symid].fargs[j][0],
+					"Tail to function with non-matching function prototype."
+				);
 			scopestack_push(current_scope);
 			assign_scopediff_vardiff(
 				stmtlist+i,

@@ -2368,13 +2368,16 @@ void parse_tail(){
 				/*
 					check the number of arguments, as well as the return type.
 				*/
-				require(symbol_table[i].nargs == 0, "tail requires a function taking zero arguments and an identical return type to the function it's being called from.");
+				require(
+					symbol_table[i].nargs == symbol_table[active_function].nargs, 
+					"tail requires a function taking the same number of arguments and an identical return type to the function it's being called from."
+				);
 				require(symbol_table[i].t.basetype == symbol_table[active_function].t.basetype, "Tail function type mismatch (basetype)");
 				if(symbol_table[i].t.basetype == BASE_STRUCT)
 					require(symbol_table[i].t.structid == symbol_table[active_function].t.structid, "Tail function type mismatch (structid)");
 				require(symbol_table[i].t.pointerlevel == symbol_table[active_function].t.pointerlevel, "Tail function type mismatch (pointerlevel)");
 				require(symbol_table[i].is_codegen == symbol_table[active_function].is_codegen, "Tail function type mismatch (is_codegen)");
-				
+				me->symid = i;
 			}
 
 	require(found, "tail with an invalid function name.");
