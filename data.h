@@ -624,12 +624,13 @@ static void scope_destroy(scope* s){
 
 
 static inline int peek_match_keyw(char* s){
+	if(peek() == NULL) return 0;
 	if(peek()->data != TOK_KEYWORD) return 0;
 	return (ID_KEYW(peek()) == ID_KEYW_STRING(s));
 }
 
 static inline int strll_match_keyw(strll* i, char* s){
-	if(peek()->data != TOK_KEYWORD) return 0;
+	if(i->data != TOK_KEYWORD) return 0;
 	return (ID_KEYW(i) == ID_KEYW_STRING(s));
 }
 
