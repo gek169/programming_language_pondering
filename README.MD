@@ -249,25 +249,39 @@ the register size is.
 
 		(I'm fine with the actual compiler itself being 64-bit only.)
 
-[_] - More `__builtin` functions for interacting with the environment and querying the implementation.
+[?] - More `__builtin` functions for interacting with the environment and querying the implementation.
 
-[_] - Implement @ syntax at the global and local scope levels (@myParseHook) to allow codegen code to take over parsing.
+[X] - Implement @ syntax at the global and local scope levels (@myParseHook) to allow codegen code to take over parsing.
 
-[_] - Write more tests.
+[_] - Write a series of thorough test cases to check a variety of errors as well as demonstrate the language.
 
-[_] - Figure out how to do something akin to printf in the language. Probably involves metaprogramming.
+[X] - Figure out how to do something akin to printf in the language. Probably involves metaprogramming.
 
-[_] - Figure out how this language is going to do conditional compilation.
+[X] - Figure out how this language is going to do conditional compilation.
 
 [X] - function pointers (By recommendation)
 
-[_]?- Bitwise type promotion instead of force SIGNED_WORD_BASE.
+As you can see, I'm almost near the 
 
-## Beta plan- implement C backend, port SEABASS to itself.
 
-TODO: write beta TODOs.
+## Beta plan
 
-## Release plan- write manuals, standard, and example suite.
+[ ] - Write Seabass-to-C backend. Needs to be somewhat human-readable, but strictly enforcing the execution order required by SEABASS programs.
 
-TODO: write release TODOs.
+[ ] - Port SEABASS to itself- have the SEABASS compiler be written in SEABASS. 
+
+	The Goal being, primarily, for all future development work to be done within SEABASS itself, and not C.
+
+[ ] - Begin working on the SMPL (Standard MetaProgramming Library) for Seabass. A series of functions and types for use in Seabass
+
+## Release plan
+
+[ ] - Write manuals for the Seabass programming language
+
+[ ] - Write a Standards draft proposal for Seabass
+
+[ ] - Think of some neat things to include in the SMPL. Particularly, i'd like a BASIC dialect.
+
+
+TODO: write more TODOs;
 
