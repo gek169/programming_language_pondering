@@ -1343,7 +1343,8 @@ static void propagate_types(expr_node* ee){
 static void throw_if_types_incompatible(
 	type a,
 	type b,
-	char* msg
+	char* msg,
+	int basetypes_must_be_identical
 ){
 	if(
 		(a.pointerlevel != b.pointerlevel)
@@ -1367,6 +1368,11 @@ static void throw_if_types_incompatible(
 		if(a.structid != b.structid){
 			puts(msg);
 			puts("incompatible structs");
+			validator_exit_err();
+		}
+	if(basetypes_must_be_identical)
+		if(a.basetype != b.basetype){
+			puts(msg);
 			validator_exit_err();
 		}
 }
@@ -1438,7 +1444,8 @@ static void validate_function_argument_passing(expr_node* ee){
 		throw_if_types_incompatible(
 			t_target, 
 			ee->subnodes[0]->t, 
-			"First argument passed to builtin function is wrong!"
+			"First argument passed to builtin function is wrong!",
+			0
 		);
 		if(nargs < 2) return;
 		t_target = type_init();
@@ -1481,7 +1488,8 @@ static void validate_function_argument_passing(expr_node* ee){
 		throw_if_types_incompatible(
 			t_target, 
 			ee->subnodes[1]->t, 
-			"Second argument passed to builtin function is wrong!"
+			"Second argument passed to builtin function is wrong!",
+			0
 		);
 		if(nargs < 3) return;
 		t_target = type_init();
@@ -1524,7 +1532,8 @@ static void validate_function_argument_passing(expr_node* ee){
 		throw_if_types_incompatible(
 			t_target, 
 			ee->subnodes[2]->t, 
-			"Third argument passed to builtin function is wrong!"
+			"Third argument passed to builtin function is wrong!",
+			0
 		);
 	}
 
@@ -1552,13 +1561,15 @@ static void validate_function_argument_passing(expr_node* ee){
 				throw_if_types_incompatible(
 					symbol_table[ee->symid].fargs[i][0], 
 					ee->subnodes[i]->t,
-					buf_err
+					buf_err,
+					0
 				);
 			} else{
 				throw_if_types_incompatible(
 					symbol_table[ee->symid].fargs[i][0], 
 					ee->subnodes[i+1]->t,
-					buf_err
+					buf_err,
+					0
 				);
 			}
 		}
@@ -2000,7 +2011,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 			throw_if_types_incompatible(
 				ee->subnodes[i]->t,
 				qqq,
-				"fnptr argument is wrong."
+				"function argument is wrong.",
+				0
 			);
 			insert_implied_type_conversion(
 				ee->subnodes+i, 
@@ -2036,7 +2048,8 @@ static void propagate_implied_type_conversions(expr_node* ee){
 				throw_if_types_incompatible(
 					ee->subnodes[1+i]->t,
 					qqq,
-					"fnptr argument is wrong."
+					"fnptr argument is wrong.",
+					0
 				);
 				insert_implied_type_conversion(
 					ee->subnodes+1+i, 
@@ -2247,6 +2260,7 @@ static void walk_assign_lsym_gsym(){
 	uint64_t WORD_BASE;
 	uint64_t SIGNED_WORD_BASE;
 	uint64_t FLOAT_BASE;
+	(void)FLOAT_BASE;
 	if(symbol_table[active_function].is_codegen){
 		WORD_BASE = BASE_U64;
 		SIGNED_WORD_BASE = BASE_I64;
@@ -2465,7 +2479,7 @@ static void walk_assign_lsym_gsym(){
 				type pp = symbol_table[active_function].t;
 				pp.is_function = 0;
 				pp.funcid = 0;
-				throw_if_types_incompatible(pp,qq,"Return statement must have compatible type.");
+				throw_if_types_incompatible(pp,qq,"Return statement must have compatible type.",0);
 				insert_implied_type_conversion((expr_node**)stmtlist[i].expressions, pp);
 			}
 			scopestack_push(current_scope);
@@ -2491,7 +2505,8 @@ static void walk_assign_lsym_gsym(){
 				throw_if_types_incompatible(
 					symbol_table[active_function].fargs[j][0],
 					symbol_table[stmtlist[i].symid].fargs[j][0],
-					"Tail to function with non-matching function prototype."
+					"Tail to function with non-matching function prototype.",
+					1
 				);
 			scopestack_push(current_scope);
 			assign_scopediff_vardiff(
