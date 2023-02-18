@@ -1,0 +1,8 @@
+
+
+codegen double* i_unused;
+
+fn codegen pure get7()->i8:
+	//__builtin_puts("get7 called!");
+	return 7;
+end

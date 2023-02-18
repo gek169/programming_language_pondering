@@ -1179,7 +1179,7 @@ static void tokenizer(
 							puts("<ERROR> malloc failed;");
 							goto error;
 						}
-						temp_include_manip = strcataf1(temp_include_manip,include_text->text + 1 );
+						temp_include_manip = strcataf1(temp_include_manip,include_text->text + 1);
 						if(!temp_include_manip){
 							puts("<ERROR> malloc failed;");
 							goto error;
