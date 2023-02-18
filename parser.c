@@ -366,8 +366,10 @@ void parse_gvardecl(){
 	t.is_lvalue = 1;
 	if(t.arraylen > 0) 				t.is_lvalue = 0;
 	if(t.pointerlevel == 0){
-		if(t.basetype == BASE_STRUCT) 
+		if(t.basetype == BASE_STRUCT){
 			t.is_lvalue = 0;
+			require(type_table[t.structid].is_incomplete == 0, "You may not declare a variable using an incomplete struct type.");
+		}
 	}
 
 	/*TODO: predeclaration.*/
@@ -786,6 +788,7 @@ void parse_structdecl(){
 	me = type_table + ntypedecls-1;
 	me[0] = typedecl_init();
 	me->name = strdup(peek()->text);
+	me->is_incomplete = 1;
 	require(me->name != NULL, "strdup failed");
 	consume(); /*eat the identifier*/
 	/*TODO*/
@@ -799,7 +802,7 @@ void parse_structdecl(){
 		parse_struct_member(ntypedecls-1);
 	}
 	require(me[0].nmembers > 0, "Struct may not have zero members.");
-
+	me->is_incomplete = 0;
 
 	return;
 }
@@ -815,12 +818,17 @@ void parse_struct_member(uint64_t sid){
 	require(peek()->data == TOK_IDENT, "Struct member must have an identifier name.");
 	t.membername = strdup(peek()->text);
 	require(t.membername != NULL, "strdup failed");
-	if(t.basetype == BASE_STRUCT)
-	if(t.pointerlevel == 0)
-	require(
-		t.structid != sid, 
-		"A struct may not have itself as a member..."
-	);
+	if(t.basetype == BASE_STRUCT){
+		if(t.pointerlevel == 0)
+		require(
+			t.structid != sid, 
+			"A struct may not have itself as a member..."
+		);
+		require(
+			type_table[t.structid].is_incomplete == 0, 
+			"You may not declare a struct with an incomplete struct type as its member..."
+		);
+	}
 	consume();
 	if(type_table[sid].nmembers){
 		for(i = 0; i < type_table[sid].nmembers; i++)
@@ -2192,6 +2200,7 @@ void parse_lvardecl(){
 	if(s.t.pointerlevel == 0){
 		if(s.t.basetype == BASE_STRUCT){
 			s.t.is_lvalue = 0;
+			require(type_table[s.t.structid].is_incomplete == 0, "You may not declare a variable using an incomplete struct type.");
 		}
 	}
 	//TODO: check for invalid declarations.
