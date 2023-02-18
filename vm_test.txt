@@ -192,6 +192,7 @@ proc codegen parsehook_dostuff():
 	return;
 end
 
+@dostuff
 
 proc codegen codegen_main():
 	//invokes parsehook_dostuff
