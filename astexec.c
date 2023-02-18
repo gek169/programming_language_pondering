@@ -209,7 +209,8 @@ static uint64_t do_primitive_type_conversion(
 		exit(1);
 	}
 	if(srcbase == whatbase) return thing;
-	if(srcbase == BASE_VOID ||
+
+	/*if(srcbase == BASE_VOID ||
 		whatbase == BASE_VOID ||
 		srcbase > BASE_F64 ||
 		whatbase > BASE_F64 ){
@@ -218,7 +219,7 @@ static uint64_t do_primitive_type_conversion(
 		if(srcbase == BASE_STRUCT) puts("srcbase was BASE_STRUCT");
 		if(whatbase == BASE_STRUCT) puts("whatbase was BASE_STRUCT");
 		exit(1);		
-	}
+	}*/
 	/*integers of the same size are just a reinterpret cast...*/
 	if(whatbase == BASE_U8 && srcbase == BASE_I8) return thing;
 	if(whatbase == BASE_U16 && srcbase == BASE_I16) return thing;
