@@ -256,6 +256,14 @@ Submit an issue on the repository. All code submissions must be compatible with 
 
 [_] - Write a series of thorough test cases to check a variety of errors as well as demonstrate the language.
 
+	Not only do I need cases to pass, but I need cases to fail!
+
+	There are things that could potentially compile that I want to stop.
+
+	There are things that could possibly fail to parse or validate correctly that I want to prove work.
+
+	There are error messages I want to check for readability.
+
 [X] - Figure out how to do something akin to printf in the language. (Figured out, but not implemented)
 
 [X] - Figure out how this language is going to do conditional compilation.
@@ -264,24 +272,43 @@ Submit an issue on the repository. All code submissions must be compatible with 
 
 ### As you can see, the project is almost in alpha!
 
+## Alpha
+
+[_] - Write the syntax highlighting file for SEABASS, at least for micro. I would also like syntax highlighting in gnome-text-editor and
+notepad++ if possible.
+
+[_] - Write a whole bunch of small demo programs showcasing the capabilities of the compiletime interpreter.
+
+[_] - Write a full AST-reflection toolkit for writing codegen code. Write astdump in the language. Delete astdump.c
+
+[_] - Write a compiletime string library for manipulating strings so that codegen code has a toolkit for string manipulation.
+
+[_] - Write the templated code parsehook @deftemplate and @template or the like, so that I can start doing C++-style templated code.
+
+	This will be especially useful for proving that SEABASS is as powerful as C++.
+
+[_] - Write some classes and helper functions for the express purpose of writing a code generator easy.
+
+[_] - Begin planning the C backend, which is the major task of Beta...
+
 
 ## Beta plan
 
-[ ] - Write Seabass-to-C backend. Needs to be somewhat human-readable, but strictly enforcing the execution order required by SEABASS programs.
+[_] - Write Seabass-to-C backend. Needs to be somewhat human-readable, but strictly enforcing the execution order required by SEABASS programs.
 
-[ ] - Port SEABASS to itself- have the SEABASS compiler be written in SEABASS. 
+[_] - Port SEABASS to itself- have the SEABASS compiler be written in SEABASS. 
 
 	The Goal being, primarily, for all future development work to be done within SEABASS itself, and not C.
 
-[ ] - Begin working on the SMPL (Standard MetaProgramming Library) for Seabass. A series of functions and types for use in Seabass
+[_] - Begin working on the SMPL (Standard MetaProgramming Library) for Seabass. A series of functions and types for use in Seabass
 
 ## Release plan
 
-[ ] - Write manuals for the Seabass programming language
+[_] - Write manuals for the Seabass programming language
 
-[ ] - Write a Standards draft proposal for Seabass
+[_] - Write a Standards draft proposal for Seabass
 
-[ ] - Think of some neat things to include in the SMPL. Particularly, i'd like a BASIC dialect.
+[_] - Think of some neat things to include in the SMPL. Particularly, i'd like a BASIC dialect.
 
 
 TODO: write more TODOs;
