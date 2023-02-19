@@ -798,8 +798,11 @@ void parse_structdecl(){
 			consume();
 			break;
 		}
-		/*Parse a struct member. This includes a semicolon.*/
+		/*Parse a struct member. This may include a semicolon.*/
+		while(peek()->data == TOK_SEMIC) {consume();continue;}
+
 		parse_struct_member(ntypedecls-1);
+		while(peek()->data == TOK_SEMIC) {consume();continue;}
 	}
 	require(me[0].nmembers > 0, "Struct may not have zero members.");
 	me->is_incomplete = 0;

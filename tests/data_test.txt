@@ -18,9 +18,9 @@ class myClass
 end
 
 class WrongClass
-	float x
-	float y
-	float z
+	float x;;;
+	float y;
+	float z;
 end
 
 fn func_with_too_many_args(
