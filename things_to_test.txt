@@ -19,3 +19,4 @@
     * getglobalptr of array, struct, and data variables.
     * ++ on a pointer.
     * ++ on a float and double.
+    * Every single __builtin function.
