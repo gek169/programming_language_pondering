@@ -4,4 +4,18 @@
     * Adding incompatible type to pointer (float or pointer)
     * := between incompatible pointer types
         * Incompatible structs...
-    * 
+    * Incompatible types passed into a function or method.
+    * Non-existent method invocation
+    * Predeclaration consistency of functions and variables.
+
+    
+2. Behavior
+    * sign extension
+    * zero extension
+    * getting member of struct that is an array or struct
+    * casting pointers
+    * pointer arithmetic
+    * assignment to pointer variables
+    * getglobalptr of array, struct, and data variables.
+    * ++ on a pointer.
+    * ++ on a float and double.
