@@ -1197,6 +1197,21 @@ static void propagate_types(expr_node* ee){
 				ee->subnodes[0]->kind,
 				ee->subnodes[1]->kind
 			);
+		if(ee->subnodes[0]->t.pointerlevel == 0){
+            throw_type_error_with_expression_enums(
+				"Move with non-pointers?:",
+				ee->subnodes[0]->kind,
+				ee->subnodes[1]->kind
+			);
+		}
+		if(ee->subnodes[0]->t.basetype == BASE_STRUCT)
+		if(ee->subnodes[0]->t.structid != ee->subnodes[1]->t.structid){
+            throw_type_error_with_expression_enums(
+				"Move between incompatible struct types?:",
+				ee->subnodes[0]->kind,
+				ee->subnodes[1]->kind
+			);
+		}
 		ee->t = ee->subnodes[0]->t;
 		ee->t.is_lvalue = 0;
 		return;

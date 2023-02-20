@@ -1,0 +1,7 @@
+1. ERRORS!
+
+    * Using undefined symbol
+    * Adding incompatible type to pointer (float or pointer)
+    * := between incompatible pointer types
+        * Incompatible structs...
+    * 
