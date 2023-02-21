@@ -574,16 +574,6 @@ static void propagate_types(expr_node* ee){
 		}
 		if(t.pointerlevel == 0)
 			if(t.basetype == BASE_STRUCT){
-				/*
-				if(t.is_lvalue == 0)
-				{
-					throw_type_error_with_expression_enums(
-						"Can't have Rvalue struct! a=me",
-						ee->kind,
-						EXPR_BAD
-					);
-				}
-				*/
 				t.pointerlevel = 1;
 				t.is_lvalue = 0;
 			}
@@ -612,7 +602,11 @@ static void propagate_types(expr_node* ee){
 		if(symbol_table[active_function].is_pure > 0){
 			puts("Validator error:");
 			puts("Attempted to use a builtin call in a pure function.");
-			validator_exit_err();
+	        validator_exit_err();
+		}
+		if(symbol_table[active_function].is_codegen == 0){
+		    puts("Cannot use builtin calls in non-codegen function!");
+		    validator_exit_err();
 		}
 		if(q == BUILTIN_PROTO_VOID){
 			t.basetype = BASE_VOID;
@@ -758,7 +752,6 @@ static void propagate_types(expr_node* ee){
 			){
 			//	found = 1;
 				ee->t = type_table[t.structid].members[j];
-				//TODO: optimize this.
 				ee->idata = vm_get_offsetof(type_table + t.structid, ee->symname);
 				ee->t.is_lvalue = 1;
 				//handle: struct member is array.
@@ -806,7 +799,7 @@ static void propagate_types(expr_node* ee){
 		t = ee->subnodes[0]->t;
 		if(t.basetype != BASE_STRUCT)
 			throw_type_error_with_expression_enums(
-				"Can't access member of non-struct! a=me",
+				"Can't access memberptr of non-struct! a=me",
 				ee->kind,
 				ee->subnodes[0]->kind
 			);
@@ -824,7 +817,6 @@ static void propagate_types(expr_node* ee){
 			//	found = 1;
 				ee->t = type_table[t.structid].members[j];
 				ee->t.is_lvalue = 0;
-				//TODO: optimize this.
 				ee->idata = vm_get_offsetof(type_table + t.structid, ee->symname);
 				//handle: struct member is array.
 				if(ee->t.arraylen > 0){
@@ -948,6 +940,7 @@ static void propagate_types(expr_node* ee){
 				t2.membername = NULL;
 				ee->t = t2;
 				ee->symid = j;
+				free(c); //avoid losing memory!
 				return;
 			}
 		puts("This method:");
@@ -1164,7 +1157,7 @@ static void propagate_types(expr_node* ee){
 			if(ee->subnodes[0]->t.structid !=
 				ee->subnodes[1]->t.structid)
 				throw_type_error_with_expression_enums(
-					"Assignment between incompatible types (structid) Operands:",
+					"Assignment between incompatible types- Pointers to different structs. Operands:",
 					ee->subnodes[0]->kind,
 					ee->subnodes[1]->kind
 				);
@@ -1207,7 +1200,7 @@ static void propagate_types(expr_node* ee){
 		if(ee->subnodes[0]->t.basetype == BASE_STRUCT)
 		if(ee->subnodes[0]->t.structid != ee->subnodes[1]->t.structid){
             throw_type_error_with_expression_enums(
-				"Move between incompatible struct types?:",
+				"Move between incompatible struct types:",
 				ee->subnodes[0]->kind,
 				ee->subnodes[1]->kind
 			);
