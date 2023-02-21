@@ -182,9 +182,14 @@ class codegen_ast_dontreuse
 	u64* nloops
 end
 
+codegen int dostuff_counter = 0;
 
 proc codegen parsehook_dostuff():
-	__builtin_puts("QParsehook was invoked!\n"+1);
+	__builtin_puts("QParsehook was invoked"+1);
+	if(dostuff_counter)
+	    __builtin_puts("At least the second time!");
+	end
+	dostuff_counter++;
 	return;
 end
 
@@ -438,6 +443,16 @@ proc codegen codegen_main():
 	return;
 end
 
-predecl int beyond67;
-int beyond67;
-//int beyond68;
+function codegen parsehook_expr_dostuff(char** targ):
+
+    __builtin_puts("It works!");
+    targ[0] = cast(char*)(0&3); //explicitly assign null.
+    return;
+end
+
+function somefun():
+    int a
+    
+    //a = @dostuff; //imagine that this did more.
+    return;
+end
