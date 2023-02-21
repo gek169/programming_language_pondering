@@ -1044,6 +1044,7 @@ void parse_fn(int is_method){
 			t.arraylen = 0;
 			t.is_function = 1;
 			t.structid = 0;
+			require(is_predecl == 0, "Cannot define in predeclaration.");
 			consume();
 			goto after_thing1;
 		}
@@ -1174,6 +1175,23 @@ stmt* parser_push_statement(){
 	me->linenum = peek()->linenum;
 	me->colnum = peek()->colnum;
 	me->kind = STMT_BAD; /*In case it's forgotten to set it.*/
+	return me;
+}
+stmt* parser_push_statement_nop(){
+	stmt* me;
+	scopestack[nscopes-1]->stmts = re_allocX(
+		scopestack[nscopes-1]->stmts, 
+		(++scopestack[nscopes-1]->nstmts) * sizeof(stmt)
+	);
+	
+	me = ((stmt*)scopestack[nscopes-1]->stmts)
+				+ scopestack[nscopes-1]->nstmts-1;
+	*me =  stmt_init();
+	me->whereami = scopestack[nscopes-1]; /*The scope to look in!*/
+    me->filename = ("<none>");
+	me->linenum = 0;
+	me->colnum = 0;
+	me->kind = STMT_NOP; /*In case it's forgotten to set it.*/
 	return me;
 }
 
@@ -2451,12 +2469,13 @@ void parse_fbody(){
 
 void parse_stmts(){
 	while(!peek_match_keyw("end")) parse_stmt();
+
 	require(peek_match_keyw("end"), "Statement list ends with 'end'");
 	consume();
 	/*special case- empty body.*/
 	if(scopestack_gettop()->nstmts == 0){
 		stmt* s;
-		s= parser_push_statement();
+		s= parser_push_statement_nop();
 		s->kind = STMT_NOP;
 	}
 }

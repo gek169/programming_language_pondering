@@ -104,7 +104,10 @@ static uint64_t this_specific_scope_get_label_index(char* c, scope* s){
 
 static void checkswitch(stmt* sw){
 	unsigned long i;
-	require(sw->kind == STMT_SWITCH, "<VALIDATOR ERROR> checkswitch erroneously passed non-switch statement");
+	if(sw->kind != STMT_SWITCH){
+	    puts("<VALIDATOR ERROR> checkswitch erroneously passed non-switch statement");
+	    validator_exit_err();
+	}
 	/*switch never has a scopediff or vardiff because the labels must be in the same scope. Thus, no variables ever have to be popped.*/
 	sw->goto_scopediff = 0;
 	sw->goto_vardiff = 0;
@@ -170,7 +173,10 @@ static void check_label_declarations(scope* lvl){
 			}
 			/*add it to the list of discovered labels*/
 			discovered_labels = realloc(discovered_labels, (++n_discovered_labels) * sizeof(char*));
-			require(discovered_labels != NULL, "failed realloc");
+			if(discovered_labels == NULL){
+			    puts("failed realloc");
+			    validator_exit_err();
+			}
 			discovered_labels[n_discovered_labels-1] = stmtlist[i].referenced_label_name;
 		}
 		if(stmtlist[i].kind == STMT_SWITCH){
