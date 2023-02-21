@@ -391,6 +391,14 @@ proc codegen codegen_main():
 		__builtin_itoa(buf, myGlobalLoopCounter);
 		__builtin_puts("getglobalptr test, should be -47:");
 		__builtin_puts(buf);
+	    
+	    __builtin_itoa(buf, (1<<10));
+ 		__builtin_puts("lsh test, should be 1024:");
+        __builtin_puts(buf);	    
+        
+        __builtin_itoa(buf, (cast(i16)1024.0>>10) );
+ 		__builtin_puts("rsh test, should be 1:");
+        __builtin_puts(buf);
 	end
 	
 	while((i > 0) /*|| 1*/
