@@ -73,7 +73,7 @@ static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 
 	placement = ast_vm_stack_push();
 	cur_func_frame_size++;
-	vm_stack[placement].vname = s->name;
+//	vm_stack[placement].vname = s->name;
 	vm_stack[placement].identification = VM_VARIABLE;
 	vm_stack[placement].t = s->t; //NOTE: Includes lvalue information.
 	if(s->t.arraylen){
@@ -89,9 +89,9 @@ static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 	return placement;
 }
 
-static uint64_t ast_vm_stack_push_temporary(char* name, type t){
+static uint64_t ast_vm_stack_push_temporary(type t){
 	uint64_t placement = ast_vm_stack_push();
-	vm_stack[placement].vname = name;
+//	vm_stack[placement].vname = name;
 	vm_stack[placement].identification = VM_EXPRESSION_TEMPORARY;
 	vm_stack[placement].ldata = NULL; //forbidden to have a struct or 
 	if(t.arraylen){
@@ -122,7 +122,7 @@ static void ast_vm_stack_pop(){
 	if(vm_stack[vm_stackpointer-1].identification == VM_VARIABLE) cur_func_frame_size--;
 	if(vm_stack[vm_stackpointer-1].ldata) free(vm_stack[vm_stackpointer-1].ldata);
 	vm_stack[vm_stackpointer-1].ldata = NULL;
-	vm_stack[vm_stackpointer-1].vname = NULL; /*Don't want to accidentally pick this up in the future!*/
+//	vm_stack[vm_stackpointer-1].vname = NULL; /*Don't want to accidentally pick this up in the future!*/
 	vm_stackpointer--;
 }
 
@@ -531,7 +531,7 @@ void do_expr(expr_node* ee){
 		ee->kind == EXPR_BUILTIN_CALL ||
 		ee->kind == EXPR_CALLFNPTR
 	){
-		uint64_t loc = ast_vm_stack_push_temporary(NULL, ee->t);
+		uint64_t loc = ast_vm_stack_push_temporary(ee->t);
 		vm_stack[loc].t = ee->t;
 		saved_vstack_pointer = vm_stackpointer; //NOTE: saved after pushing the temporary. Before subexpressions.
 		for(i = MAX_FARGS-1; i >= 0; i--)
@@ -567,7 +567,7 @@ void do_expr(expr_node* ee){
 	if(ee->kind == EXPR_GETFNPTR){
 		uint64_t general;
 		//push a temporary.
-		general = ast_vm_stack_push_temporary(NULL, ee->t);
+		general = ast_vm_stack_push_temporary(ee->t);
 		vm_stack[general].smalldata = (uint64_t) (symbol_table + ee->symid);
 		return;
 	}
@@ -577,7 +577,7 @@ void do_expr(expr_node* ee){
 	){
 		uint64_t general;
 		//push a temporary.
-		general = ast_vm_stack_push_temporary(NULL, ee->t);
+		general = ast_vm_stack_push_temporary(ee->t);
 		vm_stack[general].smalldata = ee->idata;
 		return;
 	}
@@ -587,7 +587,7 @@ void do_expr(expr_node* ee){
 	){
 		uint64_t general;
 		//push a temporary.
-		general = ast_vm_stack_push_temporary(NULL, ee->t);
+		general = ast_vm_stack_push_temporary(ee->t);
 		memcpy(&vm_stack[general].smalldata,&ee->fdata,8);
 		return;
 	}
@@ -641,7 +641,7 @@ void do_expr(expr_node* ee){
 		debug_print(ee->symname,0,0);
 		debug_print("Its address is:",(uint64_t)p,0);
 */
-		general = ast_vm_stack_push_temporary(NULL, ee->t);
+		general = ast_vm_stack_push_temporary(ee->t);
 		memcpy(
 			&vm_stack[general].smalldata,
 			&p,
@@ -654,7 +654,7 @@ void do_expr(expr_node* ee){
 		uint64_t general;
 		p = symbol_table[ee->symid].cdata;
 		//debug_print("Found String Literal. Address:",(uint64_t)p,0);
-		general = ast_vm_stack_push_temporary(NULL, ee->t);
+		general = ast_vm_stack_push_temporary(ee->t);
 		memcpy(&vm_stack[general].smalldata,&p,POINTER_SIZE);
 		return;
 	}
@@ -2389,7 +2389,7 @@ void ast_execute_function(symdecl* s){
 	/*are we just starting? The first function returns void.*/
 	if(vm_stackpointer == 0){
 		type t = type_init();
-		ast_vm_stack_push_temporary(NULL,t);
+		ast_vm_stack_push_temporary(t);
 		n_scopes_executings = 0;
 	}
 
@@ -2721,3 +2721,18 @@ void ast_execute_function(symdecl* s){
 }
 
 
+void ast_execute_expr_parsehook(symdecl* s, expr_node** targ){
+    vm_stackpointer = 0;
+    ast_vm_stack_elem* p;
+    {
+        type t = type_init();
+        p = vm_stack + ast_vm_stack_push_temporary(t);
+        t.basetype = BASE_U8;
+        t.pointerlevel = 2;
+        p = vm_stack + ast_vm_stack_push_temporary(t);
+    }
+    p->smalldata = (uint64_t) targ;
+    ast_execute_function(s);
+    vm_stackpointer = 0;
+    return;
+}

@@ -130,7 +130,7 @@ void compile_unit(strll* _unit){
 				free(t);
 				consume();
 				require(symbol_table[id].t.is_function != 0, "parsehook must be a function.");
-				require(symbol_table[id].is_codegen != 0, "parsehook must be is_codegen.");
+				require(symbol_table[id].is_codegen == 1, "parsehook must be is_codegen.");
 				require(symbol_table[id].is_incomplete == 0, "parsehook definition must be completed.");
 				require(symbol_table[id].fbody != NULL, "parsehook function body must not be null.");
 				require(symbol_table[id].t.basetype == BASE_VOID, "parsehook must return nothing!");
