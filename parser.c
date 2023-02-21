@@ -126,7 +126,7 @@ void compile_unit(strll* _unit){
 						found = 1;
 					}
 				}
-				require(found != 0, "Could not find parsehook_ function corresponding with ");
+				require(found != 0, "Could not find parsehook_ function");
 				free(t);
 				consume();
 				require(symbol_table[id].t.is_function != 0, "parsehook must be a function.");
@@ -1591,6 +1591,39 @@ void expr_parse_terminal(expr_node** targ){
 		expr_parse_stringlit(targ);
 		return;
 	}
+	if(peek()->data == TOK_OPERATOR)
+	    if(streq(peek()->text, "@")){
+	        char* t;
+	        uint64_t i;
+            uint64_t id;
+            int found = 0;
+	        consume();
+	        require(peek()->data == TOK_IDENT, "identifier required: parsehook_expr_XXXXX where XXXXX is written here.");
+        	require(peek()->text != NULL, "Internal error, identifier does not have text?");
+            t = strdup(peek()->text);
+            require(t != NULL, "strdup failed.");
+            t = strcataf2("parsehook_expr_",t);
+            require(t != NULL, "strcataf2 failed.");
+            for(i = 0; i < nsymbols; i++){
+            	if(streq(symbol_table[i].name, t)){
+            		id = i;
+            		found = 1;
+            	}
+            }
+	        require(found != 0, "Could not find parsehook_expr_ function");
+            require(symbol_table[id].t.is_function != 0, "parsehook_expr_ must be a function.");
+            require(symbol_table[id].is_codegen == 1, "parsehook_expr_ must be is_codegen.");
+            require(symbol_table[id].is_incomplete == 0, "parsehook_expr_ definition must be completed.");
+            require(symbol_table[id].fbody != NULL, "parsehook_expr_ function body must not be null.");
+            require(symbol_table[id].t.basetype == BASE_VOID, "parsehook_expr_ must return nothing!");
+            require(symbol_table[id].t.pointerlevel == 0 , "parsehook_expr_ must return nothing, not even a pointer to nothing!");
+            require(symbol_table[id].nargs == 1, "parsehook must take a char**. That's how I call it.");
+            require(symbol_table[id].fargs[0]->basetype == BASE_U8,"parsehook_expr_XXXXX requires a char** argument with void return");
+            require(symbol_table[id].fargs[0]->pointerlevel == 2,"parsehook_expr_XXXXX requires a char** argument with void return");
+            ast_execute_expr_parsehook(symbol_table + id,targ);
+            require(targ[0] != NULL, "No expression came out of the parsehook being called?");
+            return;
+	    }
 	puts("expr_parse_terminal failed.");
 	puts("That probably sounds pretty cryptic.");
 	puts("Let me guess...");

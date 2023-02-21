@@ -8,7 +8,7 @@ enum{
 
 typedef struct{
 	uint64_t identification;
-	type t;
+	//type t;
 	uint64_t smalldata;
 	uint8_t* ldata; /*for arrays and structs.*/
 }ast_vm_stack_elem;

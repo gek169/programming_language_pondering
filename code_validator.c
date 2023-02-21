@@ -1117,7 +1117,7 @@ static void propagate_types(expr_node* ee){
 			t = ee->subnodes[0]->t;
 			t2 = ee->subnodes[1]->t;
 		if(
-			(t.pointerlevel != t2.pointerlevel)
+			( (t.pointerlevel!=0) != (t2.pointerlevel!=0) )
 		){
 			throw_type_error_with_expression_enums("Comparison between incompatible types. Operands:",
 				ee->subnodes[0]->kind,
@@ -1991,12 +1991,18 @@ static void propagate_implied_type_conversions(expr_node* ee){
 	if(ee->subnodes[0]->t.pointerlevel > 0)
 	if(ee->subnodes[1]->t.pointerlevel > 0)
 	{
-		t_target = ee->subnodes[0]->t;
+	    /*
+	       allow comparisons between arbitrary pointers.
+	    */
+		t_target = ee->subnodes[1]->t;
 		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes + 1,
 			t_target
 		);
+		
+		t_target = ee->subnodes[0]->t;
+		t_target.is_lvalue = 0;
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target

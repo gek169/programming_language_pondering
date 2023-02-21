@@ -75,7 +75,7 @@ static uint64_t ast_vm_stack_push_lvar(symdecl* s){
 	cur_func_frame_size++;
 //	vm_stack[placement].vname = s->name;
 	vm_stack[placement].identification = VM_VARIABLE;
-	vm_stack[placement].t = s->t; //NOTE: Includes lvalue information.
+	//vm_stack[placement].t = s->t; //NOTE: Includes lvalue information.
 	if(s->t.arraylen){
 		vm_stack[placement].ldata = calloc(type_getsz(s->t),1);
 	}
@@ -108,7 +108,7 @@ static uint64_t ast_vm_stack_push_temporary(type t){
 			exit(1);
 		}
 	}
-	vm_stack[placement].t = t;
+	//vm_stack[placement].t = t;
 	cur_expr_stack_usage++;
 	return placement;
 }
@@ -473,13 +473,8 @@ static void* retrieve_variable_memory_pointer(
 	i = vm_stackpointer-1- cur_expr_stack_usage-symid; /**/
 	{
 		{
-			if(vm_stack[i].t.arraylen > 0)
+			if(vm_stack[i].ldata)
 				return vm_stack[i].ldata;
-				
-			if(vm_stack[i].t.pointerlevel == 0)
-				if(vm_stack[i].t.basetype == BASE_STRUCT){
-					return vm_stack[i].ldata;
-				}
 			return &(vm_stack[i].smalldata);
 		}
 	}
@@ -531,8 +526,7 @@ void do_expr(expr_node* ee){
 		ee->kind == EXPR_BUILTIN_CALL ||
 		ee->kind == EXPR_CALLFNPTR
 	){
-		uint64_t loc = ast_vm_stack_push_temporary(ee->t);
-		vm_stack[loc].t = ee->t;
+		ast_vm_stack_push_temporary(ee->t);
 		saved_vstack_pointer = vm_stackpointer; //NOTE: saved after pushing the temporary. Before subexpressions.
 		for(i = MAX_FARGS-1; i >= 0; i--)
 		{
@@ -701,7 +695,7 @@ void do_expr(expr_node* ee){
 	//		debug_print("<Overhead> I can see it... It's here:", pt,0);
 	//	}
 		vm_stack[vm_stackpointer-1].smalldata = pt;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 
@@ -748,7 +742,7 @@ void do_expr(expr_node* ee){
 	//		debug_print("<Overhead> I can see it... It's here:", pt,0);
 	//	}
 		vm_stack[vm_stackpointer-1].smalldata = pt;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(ee->kind == EXPR_MOVE){
@@ -764,7 +758,7 @@ void do_expr(expr_node* ee){
 		ast_vm_stack_pop(); //no longer need the second operand.
 		//
 		vm_stack[vm_stackpointer-1].smalldata = (uint64_t)p2;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(ee->kind == EXPR_ASSIGN){
@@ -852,7 +846,7 @@ void do_expr(expr_node* ee){
 		ast_vm_stack_pop(); //no longer need the second operand.
 		//assignment now yields a void...
 		vm_stack[vm_stackpointer-1].smalldata = 0;
-		vm_stack[vm_stackpointer-1].t = type_init();
+		//vm_stack[vm_stackpointer-1].t = type_init();
 		return;
 	}
 
@@ -985,7 +979,7 @@ void do_expr(expr_node* ee){
 			vm_stack[vm_stackpointer-1].smalldata = val;
 		if(!is_pre)
 			vm_stack[vm_stackpointer-1].smalldata = valpre;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 
@@ -1031,7 +1025,7 @@ void do_expr(expr_node* ee){
 		if(ee->t.pointerlevel){
 			data = do_primitive_type_conversion(
 				data,
-				vm_stack[vm_stackpointer-1].t.basetype, //srcbase
+				ee->subnodes[0]->t.basetype, //srcbase
 				BASE_U64 //whatbase
 			);
 			vm_stack[vm_stackpointer-1].smalldata = data;
@@ -1050,14 +1044,14 @@ void do_expr(expr_node* ee){
 		/*CONVERSION WITHOUT POINTERS*/
 		data = do_primitive_type_conversion(
 			data,
-			vm_stack[vm_stackpointer-1].t.basetype,
+			ee->subnodes[0]->t.basetype,
 			ee->t.basetype
 		);
 		end_expr_cast:;
 		//debug_print("Cast ends with:",data,0);
 		vm_stack[vm_stackpointer-1].smalldata = data;
 		//debug_print("The value is...", vm_stack[vm_stackpointer-1].smalldata,0);
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(ee->kind == EXPR_INDEX){
@@ -1079,7 +1073,7 @@ void do_expr(expr_node* ee){
 			POINTER_SIZE
 		);
 		ast_vm_stack_pop(); //toss the second operand.
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(
@@ -1280,7 +1274,7 @@ void do_expr(expr_node* ee){
 
 		end_expr_add:;
 		ast_vm_stack_pop();  //we no longer need the second operand.
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(
@@ -1305,7 +1299,7 @@ void do_expr(expr_node* ee){
 		if(op == EXPR_LOGAND) a = a&&b;
 		if(op == EXPR_LOGOR) a = a||b;
 		vm_stack[vm_stackpointer-2].smalldata = a;
-		vm_stack[vm_stackpointer-2].t = ee->t;
+		//vm_stack[vm_stackpointer-2].t = ee->t;
 		ast_vm_stack_pop(); //we no longer need the second operand.
 		return;
 	}
@@ -1320,7 +1314,7 @@ void do_expr(expr_node* ee){
 		if(op == EXPR_COMPL) b = ~b;
 		if(op == EXPR_NOT) b = !b;
 		vm_stack[vm_stackpointer-1].smalldata = b;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(ee->kind == EXPR_NEG){
@@ -1439,7 +1433,7 @@ void do_expr(expr_node* ee){
 		puts("Unhandled neg type.");
 		exit(1);
 		end_expr_neg:;
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	if(
@@ -1712,7 +1706,7 @@ void do_expr(expr_node* ee){
 		exit(1);
 		end_expr_div:;
 		ast_vm_stack_pop(); //get rid of the second operand.
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 	/*
@@ -1722,10 +1716,12 @@ void do_expr(expr_node* ee){
 	/*Make things easier for ourselves... We are going to eat them, anyway.*/
 	if(ee->kind == EXPR_EQ || ee->kind == EXPR_NEQ){
 		if(ee->subnodes[0]->t.pointerlevel > 0){
+		    /*
 			vm_stack[vm_stackpointer-1].t.basetype = BASE_U64;
 			vm_stack[vm_stackpointer-1].t.pointerlevel = 0;
 			vm_stack[vm_stackpointer-2].t.basetype = BASE_U64;
 			vm_stack[vm_stackpointer-2].t.pointerlevel = 0;
+			*/
 		}
 	}
 	if(ee->kind == EXPR_STREQ){
@@ -1741,7 +1737,7 @@ void do_expr(expr_node* ee){
 			exit(1);
 		}
 		ast_vm_stack_pop(); //we no longer need the index itself.
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		vm_stack[vm_stackpointer-1].smalldata = !!streq(p1,p2);
 		return;
 	}
@@ -1758,7 +1754,7 @@ void do_expr(expr_node* ee){
 			exit(1);
 		}
 		ast_vm_stack_pop(); //we no longer need the index itself.
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		vm_stack[vm_stackpointer-1].smalldata = !streq(p1,p2);
 		return;
 	}
@@ -1794,7 +1790,8 @@ void do_expr(expr_node* ee){
 		int op = ee->kind;
 		/*case 1: both are u64*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U64
+			ee->subnodes[0]->t.basetype == BASE_U64 ||
+			ee->subnodes[0]->t.pointerlevel > 0
 		){
 			u64data1 = vm_stack[vm_stackpointer-2].smalldata;
 			u64data2 = vm_stack[vm_stackpointer-1].smalldata;
@@ -1810,7 +1807,7 @@ void do_expr(expr_node* ee){
 
 		/*case 2: both are i64*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I64
+			ee->subnodes[0]->t.basetype == BASE_I64
 		){
 			i64data1 = vm_stack[vm_stackpointer-2].smalldata;
 			i64data2 = vm_stack[vm_stackpointer-1].smalldata;
@@ -1826,7 +1823,7 @@ void do_expr(expr_node* ee){
 
 		/*case 1: both are u32*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U32
+			ee->subnodes[0]->t.basetype == BASE_U32
 		){
 			memcpy(&u32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			memcpy(&u32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
@@ -1841,7 +1838,7 @@ void do_expr(expr_node* ee){
 		}		
 		/*case 2: both are i32*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I32
+			ee->subnodes[0]->t.basetype == BASE_I32
 		){
 			memcpy(&i32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			memcpy(&i32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
@@ -1856,7 +1853,7 @@ void do_expr(expr_node* ee){
 		}
 		/*case 1: both are u16*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U16
+			ee->subnodes[0]->t.basetype == BASE_U16
 		){
 			memcpy(&u16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
 			memcpy(&u16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
@@ -1871,7 +1868,7 @@ void do_expr(expr_node* ee){
 		}		
 		/*case 2: both are i16*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I16
+			ee->subnodes[0]->t.basetype == BASE_I16
 		){
 			memcpy(&i16data1, &vm_stack[vm_stackpointer-2].smalldata, 2);
 			memcpy(&i16data2, &vm_stack[vm_stackpointer-1].smalldata, 2);
@@ -1886,7 +1883,7 @@ void do_expr(expr_node* ee){
 		}		
 		/*case 1: both are u8*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_U8
+			ee->subnodes[0]->t.basetype == BASE_U8
 		){
 			memcpy(&u8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
 			memcpy(&u8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
@@ -1901,7 +1898,7 @@ void do_expr(expr_node* ee){
 		}
 		/*case 2: both are i8*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_I8
+			ee->subnodes[0]->t.basetype == BASE_I8
 		){
 			memcpy(&i8data1, &vm_stack[vm_stackpointer-2].smalldata, 1);
 			memcpy(&i8data2, &vm_stack[vm_stackpointer-1].smalldata, 1);
@@ -1916,7 +1913,7 @@ void do_expr(expr_node* ee){
 		}
 		/*case 1: both are f32*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F32
+			ee->subnodes[0]->t.basetype == BASE_F32
 		){
 			memcpy(&f32data1, &vm_stack[vm_stackpointer-2].smalldata, 4);
 			memcpy(&f32data2, &vm_stack[vm_stackpointer-1].smalldata, 4);
@@ -1930,7 +1927,7 @@ void do_expr(expr_node* ee){
 			goto end_expr_lt;
 		}		/*case 1: both are f64*/
 		if(
-			vm_stack[vm_stackpointer-1].t.basetype == BASE_F64
+			ee->subnodes[0]->t.basetype == BASE_F64
 		){
 			memcpy(&f64data1, &vm_stack[vm_stackpointer-2].smalldata, 8);
 			memcpy(&f64data2, &vm_stack[vm_stackpointer-1].smalldata, 8);
@@ -1948,7 +1945,7 @@ void do_expr(expr_node* ee){
 		exit(1);
 		end_expr_lt:;
 		ast_vm_stack_pop(); //we no longer need the index itself.
-		vm_stack[vm_stackpointer-1].t = ee->t;
+		//vm_stack[vm_stackpointer-1].t = ee->t;
 		return;
 	}
 
