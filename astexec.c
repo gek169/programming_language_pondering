@@ -1299,7 +1299,6 @@ void do_expr(expr_node* ee){
 		if(op == EXPR_LOGAND) a = a&&b;
 		if(op == EXPR_LOGOR) a = a||b;
 		vm_stack[vm_stackpointer-2].smalldata = a;
-		//vm_stack[vm_stackpointer-2].t = ee->t;
 		ast_vm_stack_pop(); //we no longer need the second operand.
 		return;
 	}
