@@ -1292,8 +1292,8 @@ void do_expr(expr_node* ee){
 		ee->kind == EXPR_LOGAND ||
 		ee->kind == EXPR_LOGOR
 	){
-		int64_t a;
-		int64_t b;
+		uint64_t a; 
+		uint64_t b;
 		int op = ee->kind;
 		a = vm_stack[vm_stackpointer-2].smalldata;
 		b = vm_stack[vm_stackpointer-1].smalldata;

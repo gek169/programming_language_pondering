@@ -1235,13 +1235,22 @@ static void propagate_types(expr_node* ee){
 		ee->kind == EXPR_LOGAND ||
 		ee->kind == EXPR_BITOR ||
 		ee->kind == EXPR_BITAND ||
-		ee->kind == EXPR_BITXOR ||
+		ee->kind == EXPR_BITXOR
+	){
+		t = ee->subnodes[0]->t;
+		//t.basetype = BASE_I64;
+		t.basetype = WORD_BASE;
+		ee->t = t;
+		ee->t.is_lvalue = 0;
+		return;
+	}
+	if(
 		ee->kind == EXPR_LSH ||
 		ee->kind == EXPR_RSH
 	){
 		t = ee->subnodes[0]->t;
 		//t.basetype = BASE_I64;
-		t.basetype = SIGNED_WORD_BASE;
+		t.basetype = WORD_BASE;
 		ee->t = t;
 		ee->t.is_lvalue = 0;
 		return;
@@ -1813,12 +1822,26 @@ static void propagate_implied_type_conversions(expr_node* ee){
 		ee->kind == EXPR_BITAND ||
 		ee->kind == EXPR_BITXOR ||
 		ee->kind == EXPR_LOGOR ||
-		ee->kind == EXPR_LOGAND ||
+		ee->kind == EXPR_LOGAND
+	){
+		//t_target.basetype = BASE_I64;
+		t_target.basetype = WORD_BASE;
+		insert_implied_type_conversion(
+			ee->subnodes + 0,
+			t_target
+		);
+		insert_implied_type_conversion(
+			ee->subnodes + 1,
+			t_target
+		);
+		return;
+	}
+	if(
 		ee->kind == EXPR_LSH ||
 		ee->kind == EXPR_RSH
 	){
 		//t_target.basetype = BASE_I64;
-		t_target.basetype = SIGNED_WORD_BASE;
+		t_target.basetype = WORD_BASE;
 		insert_implied_type_conversion(
 			ee->subnodes + 0,
 			t_target
