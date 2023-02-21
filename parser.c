@@ -2476,7 +2476,6 @@ void parse_stmts(){
 	if(scopestack_gettop()->nstmts == 0){
 		stmt* s;
 		s= parser_push_statement_nop();
-		s->kind = STMT_NOP;
 	}
 }
 
@@ -2492,8 +2491,7 @@ int  parse_stmts_allow_else_chain(){
 	/*special case- empty body.*/
 	if(scopestack_gettop()->nstmts == 0){
 		stmt* s;
-		s= parser_push_statement();
-		s->kind = STMT_NOP;
+		s= parser_push_statement_nop();
 	}
 
 	if(peek_match_keyw("end")) return 0;
