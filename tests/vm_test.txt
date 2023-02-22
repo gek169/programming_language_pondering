@@ -412,8 +412,43 @@ proc codegen codegen_main():
 		i--;
 	end
 
-	while(1) break end	
-	if(1) end
+	while(1) 
+	    if(1) break end
+	
+	end
+	if(1)
+        char[500] buf;
+        __builtin_utoa(buf,__builtin_struct_metadata(0));
+        __builtin_puts("Size of type struct:");
+        __builtin_puts(buf);
+        
+        __builtin_utoa(buf,__builtin_struct_metadata(1));
+        __builtin_puts("Size of typedecl struct:");
+        __builtin_puts(buf);
+        
+        __builtin_utoa(buf,__builtin_struct_metadata(2));
+        __builtin_puts("Size of symdecl struct:");
+        __builtin_puts(buf);
+        
+        __builtin_utoa(buf,__builtin_struct_metadata(3));
+        __builtin_puts("Size of scope struct:");
+        __builtin_puts(buf);
+        
+        __builtin_utoa(buf,__builtin_struct_metadata(4));
+        __builtin_puts("Size of stmt struct:");
+        __builtin_puts(buf);
+        
+        
+        __builtin_utoa(buf,__builtin_struct_metadata(5));
+        __builtin_puts("Size of expr_node struct:");
+        __builtin_puts(buf);        
+        
+        
+        __builtin_utoa(buf,__builtin_struct_metadata(6));
+        __builtin_puts("Size of seabass_builtin_ast struct:");
+        __builtin_puts(buf);
+    end
+
 
 	if(1)
 		__builtin_puts("Now, for a test of a large loop.");
