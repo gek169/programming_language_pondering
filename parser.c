@@ -201,9 +201,7 @@ void compile_unit(strll* _unit){
 			}
 		}
 		if(peek()->data == TOK_STRING){
-			peek_always_not_null = 1;
-			printf("\nWARNING: unusable string literal: %lu\n",parse_stringliteral());
-			peek_always_not_null = 0;
+			parse_error("String literal at global scope");
 			continue;
 		}
 		if(peek()->data == TOK_KEYWORD){
@@ -868,6 +866,8 @@ uint64_t parse_stringliteral(){
 	symbol_table[nsymbols-1].cdata = (uint8_t*)strdup(peek()->text);
 	symbol_table[nsymbols-1].cdata_sz = strlen(peek()->text);
 	symbol_table[nsymbols-1].name = n;
+	symbol_table[nsymbols-1].is_stringlit = 1;
+	symbol_table[nsymbols-1].is_codegen = symbol_table[active_function].is_codegen;
 	consume(); /*Eat the string literal!*/
 	return nsymbols-1;
 }
