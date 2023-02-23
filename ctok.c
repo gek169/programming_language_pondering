@@ -1222,7 +1222,7 @@ static void tokenizer(
 						exit(1);
 					}
 					filenames[nfilenames++]= strdup(file_to_include);
-					if(!filenames[nfilenames-1]){
+					if(filenames[nfilenames-1] == NULL){
 						puts("Failed strdup");
 						exit(1);
 					}
