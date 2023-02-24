@@ -658,7 +658,7 @@ void parse_datastmt(){
 		);
 		symbol_table[symid].cdata = (uint8_t*)strdup(peek()->text);
 		consume(); /*Eat the string.*/
-		symbol_table[symid].cdata_sz = strlen((char*)symbol_table[symid].cdata) + 1;
+		symbol_table[symid].cdata_sz = strlen((char*)symbol_table[symid].cdata) + 1; /*includes null terminator*/
 		symbol_table[symid].is_incomplete = 0; /*It's definitely complete now!*/
 	}
 	
